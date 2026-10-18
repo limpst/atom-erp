@@ -42,4 +42,12 @@ class ArchitectureRulesTest {
             .that().resideInAPackage("com.atomeng.common..")
             .should().dependOnClassesThat().resideInAPackage("com.atomeng.erp..")
             .because("R1: 공통 → 특화 import 금지 (ATOM-LIB-001 §9)");
+
+    @ArchTest
+    static final ArchRule cstLedgerSingleWriter = noClasses()
+            .that().resideInAPackage("com.atomeng.erp.cst..")
+            .and().doNotHaveFullyQualifiedName("com.atomeng.erp.cst.application.CostLedgerService")
+            .should().callMethod(com.atomeng.erp.cst.adapter.out.persistence.CstJdbc.class, "insertLedger",
+                    com.atomeng.erp.cst.adapter.out.persistence.CstJdbc.LedgerRow.class)
+            .because("08-IMPL Step 6 DoD: 원가 원장 쓰기 진입점은 CostLedgerService 하나");
 }

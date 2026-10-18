@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":modules:core"))
     implementation(project(":modules:fac"))
     implementation(project(":modules:hrq"))
+    implementation(project(":modules:cst"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))

@@ -22,7 +22,14 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "cst");
+        // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
+        ApplicationModule cst = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
+        assertThat(cst.getNamedInterfaces().getByName("api")).isPresent();
+        ApplicationModule hrq = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("hrq")).findFirst().orElseThrow();
+        assertThat(hrq.getNamedInterfaces().getByName("api")).isPresent();
         // fac 는 다른 업무 모듈의 내부 타입을 참조하지 않는다(core::api 만 허용) — verify() 가 위반 시 실패
         ApplicationModule fac = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("fac")).findFirst().orElseThrow();

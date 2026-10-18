@@ -72,6 +72,69 @@ public class TestBeans {
         }
     }
 
+    /**
+     * QAR Atom AI Core 대역 — 실제 vLLM 은 호출하지 않는다. 기본: 지적 0건. 테스트가 응답 함수(합성 지적 · 예외)를 지정.
+     */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    FakeAtomAiCore fakeAtomAiCore() {
+        return new FakeAtomAiCore();
+    }
+
+    public static class FakeAtomAiCore implements com.atomeng.erp.qar.application.port.AtomAiCorePort {
+        private volatile java.util.function.Function<Request, Response> behavior = r -> new Response("stub-model",
+                java.util.List.of());
+        private final AtomicInteger calls = new AtomicInteger();
+
+        public void respond(java.util.function.Function<Request, Response> f) {
+            this.behavior = f;
+        }
+
+        public void reset() {
+            behavior = r -> new Response("stub-model", java.util.List.of());
+            calls.set(0);
+        }
+
+        public int calls() {
+            return calls.get();
+        }
+
+        @Override
+        public Response review(Request request) {
+            calls.incrementAndGet();
+            return behavior.apply(request);
+        }
+    }
+
+    /** QAR 원천 데이터 포트 대역(HRQ · FLD · FAC 미연동) — 기본 미연동 · 자격 UNKNOWN, 테스트가 무효 승인자 지정(TC-QAR-011) */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    FakeQarEvidence fakeQarEvidence() {
+        return new FakeQarEvidence();
+    }
+
+    public static class FakeQarEvidence implements com.atomeng.erp.qar.application.port.QarEvidencePort {
+        private final java.util.Set<UUID> invalidApprovers = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        public void markInvalid(UUID approver) {
+            invalidApprovers.add(approver);
+        }
+
+        public void clear() {
+            invalidApprovers.clear();
+        }
+
+        @Override
+        public com.atomeng.erp.qar.domain.autocheck.ReviewContext.ExternalEvidence evidence(Query q) {
+            return com.atomeng.erp.qar.domain.autocheck.ReviewContext.ExternalEvidence.NONE;
+        }
+
+        @Override
+        public Qualification approverQualification(UUID approverId, UUID projectId, java.time.LocalDate on) {
+            return invalidApprovers.contains(approverId) ? Qualification.INVALID : Qualification.UNKNOWN;
+        }
+    }
+
     @Bean
     TestEventConsumer testEventConsumer(JdbcTemplate jdbc) {
         return new TestEventConsumer(jdbc);

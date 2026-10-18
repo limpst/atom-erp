@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt
+    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -95,6 +95,16 @@ atom:
     pdf:
       gotenberg-url: ${GOTENBERG_URL:}   # 비우면 스텁 변환기(합성 PDF, 경고 로그) — 운영은 Gotenberg(LibreOffice+H2Orestart)
       timeout: 10m
+  qar:
+    ai:
+      base-url: ${ATOM_AI_CORE_URL:}     # Atom AI Core = 로컬 vLLM(OpenAI 호환, 예 http://localhost:8080) — 비우면 AI 검토 단계 스킵
+      model: ${ATOM_AI_CORE_MODEL:atom-qar-review}
+      deadline: 10m                      # NFR-QAR-02 작업 마감(요청 + 10분) → 초과 시 AI_TIMEOUT
+      http-timeout: 9m
+      auto-start: true                   # 제출 직후 AI_START(AUTO)
+    worker:
+      enabled: true                      # AI 작업 처리 · 타임아웃 스캔
+      poll-interval: 5s
   outbox:
     relay:
       enabled: true
@@ -112,7 +122,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

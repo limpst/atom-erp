@@ -9,7 +9,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * RPT 구독 (설계 06 B6): {@code qar.review.approved} / {@code qar.review.rejected}(스텁 계약 — QAR 미구현).
+ * RPT 구독 (설계 06 B6): {@code qar.review.approved} / {@code qar.review.rejected}(생산자 QAR WorkflowEngine — outbox → Relay).
  * core.processed_event 로 이벤트 단위 멱등.
  */
 @Component

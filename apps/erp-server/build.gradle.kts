@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":modules:eqp"))
     implementation(project(":modules:sal"))
     implementation(project(":modules:rpt"))
+    implementation(project(":modules:qar"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))

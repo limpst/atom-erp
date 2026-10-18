@@ -336,17 +336,19 @@ class EqpIntegrationTest extends IntegrationTestBase {
     // ------------------------------------------------------------------ 예약
 
     @Test
-    @DisplayName("TC-EQP-002: 같은 장비 · 겹치는 기간 예약 2건 동시 요청 × 5회 → 매번 정확히 1건 성공 · 1건 EQP-409-002 (DB EXCLUDE) / "
+    @DisplayName("TC-EQP-002: 같은 장비 · 겹치는 기간 예약 2건 동시 요청 × 20회 → 매번 정확히 1건 성공 · 1건 EQP-409-002 (DB EXCLUDE) / "
             + "HTTP 409 + 대체 장비, 승인 · 취소 시 슬롯 해제, BR-EQP-002 기간 중 만료 409 EQP-409-009")
     void tcEqp002_doubleBookingUnderConcurrency() throws Exception {
+        final int ROUNDS = 20;
         UUID id = validEquipment("MSR-CRK", 200);
         UUID alt = validEquipment("MSR-CRK", 250);
         UUID prjA = project();
         UUID prjB = project();
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            for (int round = 0; round < 5; round++) {
-                LocalDate from = today().plusDays(10 + round * 10L);
+            // 20회: 수정 전(장비 잠금 없음)에는 GiST EXCLUDE 동시 삽입이 가끔 40P01 교착 → 테스트가 간헐 실패했다
+            for (int round = 0; round < ROUNDS; round++) {
+                LocalDate from = today().plusDays(10 + round * 4L);
                 CountDownLatch go = new CountDownLatch(1);
                 List<Callable<String>> calls = new ArrayList<>();
                 for (UUID prj : List.of(prjA, prjB)) {
@@ -376,7 +378,7 @@ class EqpIntegrationTest extends IntegrationTestBase {
             pool.shutdownNow();
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM eqp.reservation WHERE equipment_id = ?", Integer.class, id))
-                .isEqualTo(5);
+                .isEqualTo(ROUNDS);
 
         // HTTP: 첫 예약 201 → 겹침 409 + 대체(alt) → 승인 → 취소 → 같은 기간 재예약 201
         LocalDate f = today().plusDays(100);

@@ -23,9 +23,15 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 동시에 같은 기간을 요청하면 뒤 트랜잭션이 앞 커밋을 기다렸다가 23P01 로 실패 → 409 EQP-409-002 + 대체 장비(TC-EQP-002).
  * 실패한 트랜잭션은 PostgreSQL 에서 더 쿼리할 수 없으므로, 삽입은 짧은 트랜잭션으로 하고 대체 추천은 롤백 뒤 따로 계산한다.
  * 기간 [from, to] 은 daterange [from, to+1) 로 저장한다.
+ * <p>교착(40P01) 방지: 삽입 전 장비 행을 {@code FOR NO KEY UPDATE} 로 잠가 같은 장비 예약을 직렬화한다(반출과 같은 잠금 순서).
+ * 그래도 다른 경로와 교착하면 1회 재시도하고, 재시도까지 교착이면 23P01 과 같은 409 EQP-409-002 로 응답한다.
  */
 @Service
 public class ReservationService {
+
+    static final String EXCLUSION_VIOLATION = "23P01";
+    static final String DEADLOCK = "40P01";
+    static final int MAX_ATTEMPTS = 2;
 
     private static final Set<String> ACTIVE = Set.of("REQUESTED", "CONFIRMED", "IN_USE", "OVERDUE");
 
@@ -64,18 +70,32 @@ public class ReservationService {
                     .with("alternatives", alternatives.find(e.typeId(), from, to, equipmentId, projectId, base));
         }
         UUID id = UuidV7.next();
-        try {
-            tx.executeWithoutResult(s -> eqp.jdbc().update("""
-                    INSERT INTO eqp.reservation(id, equipment_id, project_id, period, status, requested_by)
-                    VALUES (?, ?, ?, daterange(?::date, ?::date + 1, '[)'), 'REQUESTED', ?)""",
-                    id, equipmentId, projectId, EqpJdbc.d(from), EqpJdbc.d(to), by));
-        } catch (DataAccessException ex) {
-            if ("23P01".equals(sqlState(ex))) {
-                throw new DomainException(EqpErrors.DOUBLE_BOOKING, "같은 장비가 겹치는 기간에 이미 예약되어 있습니다")
-                        .with("equipmentId", equipmentId)
-                        .with("alternatives", alternatives.find(e.typeId(), from, to, equipmentId, projectId, base));
+        for (int attempt = 1; ; attempt++) {
+            try {
+                tx.executeWithoutResult(s -> {
+                    // 같은 장비 예약 삽입을 장비 행 잠금으로 직렬화 — 반출(CheckoutService)과 같은 잠금 순서(장비 → 예약).
+                    // 잠금 없이 두 트랜잭션이 동시에 GiST EXCLUDE 에 삽입하면, 서로 상대의 미커밋 인덱스 항목을 보고
+                    // 상대 트랜잭션 종료를 기다려 40P01(deadlock_detected)이 날 수 있다(PostgreSQL 배타 제약의 알려진 동작).
+                    eqp.jdbc().queryForList("SELECT id FROM eqp.equipment WHERE id = ? FOR NO KEY UPDATE", UUID.class,
+                            equipmentId);
+                    eqp.jdbc().update("""
+                            INSERT INTO eqp.reservation(id, equipment_id, project_id, period, status, requested_by)
+                            VALUES (?, ?, ?, daterange(?::date, ?::date + 1, '[)'), 'REQUESTED', ?)""",
+                            id, equipmentId, projectId, EqpJdbc.d(from), EqpJdbc.d(to), by);
+                });
+                break;
+            } catch (DataAccessException ex) {
+                String state = sqlState(ex);
+                if (DEADLOCK.equals(state) && attempt < MAX_ATTEMPTS) {
+                    continue;   // 안전망: 다른 경로와 교착 시 한 번만 재시도 → 재시도에서는 EXCLUDE 가 23P01 로 판정
+                }
+                if (EXCLUSION_VIOLATION.equals(state) || DEADLOCK.equals(state)) {
+                    throw new DomainException(EqpErrors.DOUBLE_BOOKING, "같은 장비가 겹치는 기간에 이미 예약되어 있습니다")
+                            .with("equipmentId", equipmentId)
+                            .with("alternatives", alternatives.find(e.typeId(), from, to, equipmentId, projectId, base));
+                }
+                throw ex;
             }
-            throw ex;
         }
         return view(id);
     }

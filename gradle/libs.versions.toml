@@ -1,0 +1,13 @@
+[versions]
+spring-boot = "3.5.16"
+spring-modulith = "1.4.13"
+embedded-postgres = "2.2.2"
+embedded-postgres-binaries = "16.15.0"
+archunit = "1.4.1"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
+embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
+archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }

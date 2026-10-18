@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: atom-erp
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${PG_DB:atom_erp}
+    username: ${PG_APP_USER:atom_app}
+    password: ${PG_APP_PASSWORD:atom_app_local}
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+  flyway:
+    enabled: true
+    schemas: core
+    create-schemas: true
+    # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
+    locations: classpath:db/migration/core
+    validate-on-migrate: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.default_batch_fetch_size: 100
+  messages:
+    basename: messages/core-errors
+    fallback-to-system-locale: false
+  mvc:
+    problemdetails:
+      enabled: false   # GlobalProblemHandler 가 대신 처리
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: false   # 자체 outbox 채택, Modulith Event Publication Registry 미사용 (ADR-005)
+
+atom:
+  security:
+    enabled: true
+    issuers:
+      - ${KEYCLOAK_URL:http://localhost:8180}/realms/atom-internal
+      - ${KEYCLOAK_URL:http://localhost:8180}/realms/atom-portal
+  idempotency:
+    required-clients: [field-app]
+    retention: 24h
+    lock-timeout: 30s
+  outbox:
+    relay:
+      enabled: true
+      poll-interval: 500ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgis
+  flyway:
+    locations: classpath:db/migration/core,classpath:db/migration-ext
+
+---
+# 로컬 개발: Keycloak 없이 헤더 인증 스텁 (X-Actor-Id, X-Roles …). 운영 금지.
+spring:
+  config:
+    activate:
+      on-profile: local-noauth
+atom:
+  security:
+    enabled: false

@@ -1,0 +1,741 @@
+# FCD 탐지 룰셋 2026.3.0 — 라운드 3(2026-10-18). 2026-04-01 시행(같은 시행일이면 상위 버전 우선). 4-eyes FIN-001 / AUD-003(합성).
+ruleset: fcd
+version: 2026.3.0
+effective_from: '2026-04-01'
+effective_to: null
+status: ACTIVE
+authored_by: FIN-001
+approved_by: AUD-003
+meta:
+  compat: 재무제표 AI v1.0 §6.8 (rule_id/title/severity/legal_basis/condition_expr/effect/message/review_required)
+  sources:
+  - 12. FCD FSD·TSD B7
+  - 재무제표 AI v1.0 §6.7·§7 · 부록 A
+  - v3.0 G3/G5/G8
+  - v3.1 F1–F9
+  round2: 근태(출퇴근) 기반 X-AFTER-HOURS·X-ON-DUTY, R-PROJECT-CLOSED(유예 후 하드), S-HUG-TEST(베타이항), S-CUSUM-M(ARL₀ 역산) 추가 / 단건 R-THRESHOLD-HUG·S-HUG-REPEAT 비활성
+  round3: 역할별 동료 기준선(접대 1인당), L3 가중치 상한 0.55, 재량지출 단일 흐름 CUSUM + 분기 사람확인 기준선 갱신(S-CUSUM-Q)
+unverified:
+- key: params.per_head_limit
+  note: 접대 1인당 기준 50,000원 — 청탁금지법·사규 확인 필요
+- key: params.per_head_limit_public
+  note: 공직자 포함 시 기준 — 청탁금지법 시행령 확인 필요
+- key: params.category_policy
+  note: 금지/제한 업종 목록 — 사규 확정 필요
+- key: params.project_grace_days
+  note: 종료 프로젝트 귀속 유예 14일 — 원가 마감 규정 확인 필요
+params:
+  night_from: 23
+  night_to: 6
+  per_head_limit: 50000
+  per_head_limit_exec: 100000
+  per_head_limit_public: 30000
+  site_near_km: 5
+  site_base_km: 20
+  site_span_km: 80
+  max_kmh: 300
+  dist_categories:
+  - KOREAN_FOOD
+  - CAFE
+  - LODGING
+  - FUEL
+  - CONVENIENCE
+  - BAR_PUB
+  meal_categories:
+  - KOREAN_FOOD
+  - OVERSEAS_FOOD
+  lifestyle_categories:
+  - MART
+  - PHARMACY
+  - ACADEMY
+  - BEAUTY
+  category_policy:
+    BLOCK:
+    - ENT_CLUB
+    - JEWELRY
+    - GAMBLING
+    - CASH_ADVANCE
+    RESTRICT:
+      BAR_PUB: 300000
+      KARAOKE: 200000
+      GOLF: 500000
+      SAUNA_SPA: 100000
+      DEPT_LUXURY: 300000
+      BEAUTY: 100000
+  project_grace_days: 14
+rules:
+- rule_id: R-CAT-BLOCK
+  title: 금지 업종 사용
+  layer: L1
+  severity: hard
+  legal_basis:
+  - 사내 법인카드 사용규정(예시) §6 금지업종 — 확인 필요
+  - 재무제표 AI v1.0 C-02
+  - 법인세법 §27(업무무관비용)
+  condition_expr: tx.policy == 'BLOCK'
+  weight: 0.95
+  floor_score: 85
+  message: 금지 업종({tx.category_name}) 사용 {tx.amount:,.0f}원
+  evidence:
+  - tx.category
+  - tx.merchant_name
+- rule_id: R-CAT-RESTRICT
+  title: 제한 업종 한도 초과 · 사전결재 없음
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 법인카드 사용규정(예시) §7 제한업종 — 확인 필요
+  - 재무제표 AI v1.0 R-200
+  condition_expr: tx.policy == 'RESTRICT' and not tx.preapproved_cat
+  strength_expr: max(0.8, min(1.0, tx.amount / tx.cat_max - 0.5))
+  weight: 0.6
+  message: 제한 업종({tx.category_name}) {tx.amount:,.0f}원 — 사전결재(업종·금액) 없음, 업종 기준 {tx.cat_max:,.0f}원
+  evidence:
+  - tx.category
+  - tx.cat_max
+  - tx.preapproved_cat
+- rule_id: R-NIGHT
+  title: 심야 사용
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 법인카드 사용규정(예시) §8 사용시간 — 확인 필요
+  - 재무제표 AI v1.0 R-201 · C-06
+  condition_expr: tx.precision != 'DATE' and tx.is_night and not tx.recurring
+  strength_expr: 1.0 if tx.is_deep_night else 0.6
+  weight: 0.35
+  message: 심야({tx.local_time}) 사용
+  evidence:
+  - tx.local_time
+- rule_id: R-HOLIDAY
+  title: 주말 · 공휴일 사용
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 법인카드 사용규정(예시) §8 — 확인 필요
+  - 재무제표 AI v1.0 R-202
+  - core 공휴일 캘린더(대체공휴일 포함)
+  condition_expr: tx.is_holiday and not tx.recurring
+  strength_expr: '0.5'
+  weight: 0.3
+  message: 주말·공휴일({tx.date}) 사용
+  evidence:
+  - tx.date
+- rule_id: R-LIMIT
+  title: 1회 · 일 · 월 한도 초과(사전결재 없음)
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 위임전결 · 카드 한도 규정(예시) — 확인 필요
+  - 재무제표 AI v1.0 C-01 승인권한 매트릭스
+  condition_expr: not tx.preapproved and (tx.amount > tx.limit_txn or tx.day_total > tx.limit_day or tx.month_cum > tx.limit_month)
+  strength_expr: min(1.0, max(tx.amount / tx.limit_txn - 1, tx.day_total / tx.limit_day - 1, tx.month_cum / tx.limit_month - 1) / 0.5)
+  weight: 0.7
+  message: 한도 초과 — 1회 {tx.amount:,.0f}/{tx.limit_txn:,.0f}원, 일 {tx.day_total:,.0f}/{tx.limit_day:,.0f}원, 월누계 {tx.month_cum:,.0f}/{tx.limit_month:,.0f}원
+  evidence:
+  - tx.limit_txn
+  - tx.day_total
+  - tx.month_cum
+- rule_id: R-SPLIT
+  title: 쪼개기 결제
+  layer: L1
+  severity: hard
+  legal_basis:
+  - 사내 위임전결 규정(예시) — 확인 필요
+  - 재무제표 AI v1.0 R-204
+  - v3.0 G3 최소 초과 윈도우 + 의도성
+  condition_expr: tx.split_hit
+  weight: 0.85
+  floor_score: 70
+  message: 같은 가맹점 60분 내 {tx.split_cnt}건 합계 {tx.split_total:,.0f}원 > 1회 한도 {tx.limit_txn:,.0f}원 (의도성 {tx.split_intent:.2f})
+  evidence:
+  - tx.split_cnt
+  - tx.split_total
+  - tx.split_intent
+  - tx.split_group
+- rule_id: R-SPLIT-MULTI
+  title: 다중 카드 공모형 쪼개기
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 위임전결 규정(예시) — 확인 필요
+  - v3.1 F8 공모
+  condition_expr: tx.split_multi_hit
+  strength_expr: '0.8'
+  weight: 0.7
+  message: 서로 다른 {tx.split_multi_users}명 카드로 같은 가맹점 10분 내 합계 {tx.split_multi_total:,.0f}원
+  evidence:
+  - tx.split_multi_users
+  - tx.split_multi_total
+  - tx.split_group
+- rule_id: R-THRESHOLD-HUG
+  title: 기준선 직하 금액
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 위임전결 규정(예시) — 확인 필요
+  - v3.0 G3.4 bunching
+  condition_expr: tx.hug
+  strength_expr: '0.5'
+  weight: 0.3
+  message: 금액 {tx.amount:,.0f}원이 기준선 {tx.hug_level:,.0f}원 직하(95–100%)
+  evidence:
+  - tx.hug_level
+  enabled: false
+- rule_id: R-BLACKLIST
+  title: 블랙리스트 가맹점
+  layer: L1
+  severity: hard
+  legal_basis:
+  - 과거 부당 판정 가맹점 목록(사내 지정)
+  condition_expr: tx.blacklisted
+  weight: 0.9
+  floor_score: 80
+  message: 블랙리스트 가맹점 {tx.merchant_name}
+  evidence:
+  - tx.merchant_name
+- rule_id: R-OVERSEAS
+  title: 해외출장 결재 없는 해외 사용
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 출장 규정(예시) — 확인 필요
+  - 재무제표 AI v1.0 R-211
+  condition_expr: tx.is_overseas and not ctx.trip_overseas
+  strength_expr: '0.8'
+  weight: 0.6
+  message: 해외({tx.country}) 사용 — 해외출장 결재 없음
+  evidence:
+  - tx.country
+- rule_id: R-ONLINE-PERSONAL
+  title: 온라인 개인성 구매
+  layer: L1
+  severity: soft
+  legal_basis:
+  - 사내 법인카드 사용규정(예시) — 확인 필요
+  - 재무제표 AI v1.0 R-207
+  condition_expr: tx.online_personal
+  strength_expr: '0.6'
+  weight: 0.4
+  message: 온라인 개인성 품목 가맹점({tx.merchant_name})
+  evidence:
+  - tx.merchant_name
+- rule_id: R-SHARED-UNASSIGNED
+  title: 공용카드 대여 기록 없음
+  layer: L1
+  severity: hard
+  legal_basis:
+  - BR-FCD-006 공용카드 귀속
+  condition_expr: ctx.shared_unassigned
+  weight: 0.75
+  floor_score: 60
+  message: 공용카드 사용 시점({tx.local_time})에 대여 기록 없음
+  evidence:
+  - tx.card_id
+- rule_id: R-CARD-INACTIVE
+  title: 정지 · 퇴사자 · 만료 카드 사용
+  layer: L1
+  severity: hard
+  legal_basis:
+  - 재무제표 AI v1.0 R-209 · C-13
+  - v3.1 R-330
+  condition_expr: tx.card_inactive
+  weight: 0.95
+  floor_score: 90
+  message: 카드 상태 {tx.card_status}(기준일 {tx.card_closed_on}) 이후 사용
+  evidence:
+  - tx.card_status
+  - tx.card_closed_on
+- rule_id: R-LIFESTYLE
+  title: 생활소비형 업종
+  layer: L1
+  severity: soft
+  source: v1.0-company
+  legal_basis:
+  - 재무제표 AI v1.0 R-207 생활소비형
+  - 법인세법 §27
+  condition_expr: tx.category in params.lifestyle_categories
+  strength_expr: '0.6'
+  weight: 0.35
+  message: 생활소비형 업종({tx.category_name})
+  evidence:
+  - tx.category
+- rule_id: R-RELATED-PARTY
+  title: 특수관계 가맹점
+  layer: L1
+  severity: flag
+  source: v1.0-tax
+  legal_basis:
+  - 재무제표 AI v1.0 R-208 · C-14
+  - 법인세법 §52(부당행위계산부인) 검토
+  condition_expr: tx.related_party
+  strength_expr: '1.0'
+  weight: 0.4
+  review_required: true
+  message: 특수관계인 명부 등재 가맹점 — 사전신고 확인 필요
+  evidence:
+  - tx.merchant_name
+- rule_id: R-137
+  title: PG 경유 거래 — 실공급자 미치환
+  layer: L1
+  severity: flag
+  source: v1.0-tax
+  legal_basis:
+  - 부가가치세법 제46조
+  - 부가가치세법 제33조 제2항
+  - 재무제표 AI v1.0 부록 A 결함 1
+  condition_expr: tx.pg_unresolved
+  weight: 0.0
+  effect:
+    kind: flag
+    action: require_receipt_lookup
+    block_auto_confirm: true
+  review_required: true
+  message: PG 경유 거래 — 카드사 가맹점명이 실공급자가 아님. 영수증에서 실공급자 사업자번호 확보 필요
+  evidence:
+  - tx.merchant_name
+- rule_id: X-LEAVE
+  title: 휴가 · 결근 중 사용
+  layer: L2
+  severity: soft
+  legal_basis:
+  - HRQ 근태 기록
+  - v3.1 F6 근태 교차
+  condition_expr: ctx.on_leave and not ctx.on_schedule and not ctx.trip_domestic and not tx.recurring and not tx.is_online
+  strength_expr: '0.9'
+  weight: 0.8
+  message: 휴가({ctx.leave_kind}) 중 사용 — 현장 일정·출장 없음
+  evidence:
+  - ctx.leave_kind
+- rule_id: X-SITE-DIST
+  title: 현장 · 본사와 먼 가맹점
+  layer: L2
+  severity: soft
+  legal_basis:
+  - FLD 현장 일정 · 좌표
+  condition_expr: tx.category in params.dist_categories and ctx.d_min_km is not None and ctx.d_min_km > params.site_base_km and not ctx.trip_domestic
+  strength_expr: clip((ctx.d_min_km - params.site_base_km) / params.site_span_km, 0, 1)
+  weight: 0.55
+  message: 당일 현장·본사 최단거리 {ctx.d_min_km:.1f}km
+  evidence:
+  - ctx.d_min_km
+- rule_id: X-SITE-MATCH
+  title: 현장 일정 일치(완화)
+  layer: L2
+  severity: soft
+  legal_basis:
+  - FLD 현장 일정 · 체크인
+  condition_expr: ctx.site_match
+  effect:
+    kind: mitigation
+    factor: 0.6
+    mitigates:
+    - R-NIGHT
+    - R-HOLIDAY
+    - X-OFFDUTY
+    - X-SITE-DIST
+    - R-CAT-RESTRICT
+    - L3-ANOMALY
+    - S-AMT-Z
+    - G-EXCLUSIVE
+  weight: 0.0
+  message: 당일 현장 {ctx.site_km:.1f}km 이내 · 일정 일치 — 위험 완화
+  evidence:
+  - ctx.site_km
+- rule_id: X-IMPOSSIBLE-TRAVEL
+  title: 이동 불가능 속도(대리 사용 의심)
+  layer: L2
+  severity: soft
+  legal_basis:
+  - v3.1 F5 시공간 속도 검정
+  - 가맹점 주소 기준(직원 위치 미수집)
+  condition_expr: ctx.travel_hit
+  strength_expr: '1.0'
+  weight: 0.8
+  message: 직전 {ctx.travel_ref} 대비 {ctx.travel_km:.0f}km/{ctx.travel_min:.0f}분 = {ctx.travel_kmh:.0f}km/h
+  evidence:
+  - ctx.travel_ref
+  - ctx.travel_km
+  - ctx.travel_min
+- rule_id: X-ENT-PER-HEAD
+  title: 접대 1인당 금액 초과
+  layer: L2
+  severity: soft
+  unverified: true
+  legal_basis:
+  - BR-FCD-012
+  - 청탁금지법·법인세법 접대비 기준 — 확인 필요
+  - 재무제표 AI v1.0 C-03
+  - '라운드 3: 역할 × 부서 동료 기준선(공직자 포함 시 규정 기준만)'
+  condition_expr: ctx.per_head is not None and ctx.per_head > (ctx.per_head_limit if ctx.public_official else max(ctx.per_head_limit, coalesce(ctx.per_head_role_ref, 0)))
+  strength_expr: min(1.0, ctx.per_head / (ctx.per_head_limit if ctx.public_official else max(ctx.per_head_limit, coalesce(ctx.per_head_role_ref, 0))) - 1)
+  weight: 0.65
+  message: 1인당 {ctx.per_head:,.0f}원(참석 {ctx.attendees}명) > 기준 max(규정 {ctx.per_head_limit:,.0f}원, 역할 동료 90분위 {ctx.per_head_role_ref:,.0f}원)
+  evidence:
+  - ctx.attendees
+  - ctx.per_head
+  - ctx.public_official
+- rule_id: X-MEAL-DUP
+  title: 식대 이중 수령
+  layer: L2
+  severity: soft
+  legal_basis:
+  - BR-FCD-013
+  - v3.1 T1 이중청구
+  condition_expr: ctx.meal_allowance and tx.category in params.meal_categories and ctx.purpose != 'ENTERTAINMENT'
+  strength_expr: '0.7'
+  weight: 0.5
+  message: 현장 식대 일비 수령일에 식사 업종 카드 사용
+  evidence:
+  - ctx.purpose
+- rule_id: X-RECEIPT-DUP
+  title: 영수증 중복 제출(재촬영 포함)
+  layer: L2
+  severity: hard
+  legal_basis:
+  - v3.1 F1 / R-302
+  - pHash 해밍 ≤ 6 ∧ OCR 필드 일치 ≥ 3/4 (FCD B7.4 · v3.1 F1)
+  condition_expr: ctx.receipt_dup
+  weight: 0.9
+  floor_score: 80
+  message: 같은 영수증(해밍 {ctx.receipt_dup_dist})이 다른 거래({ctx.receipt_dup_ref})에도 제출됨
+  evidence:
+  - ctx.receipt_dup_ref
+  - ctx.receipt_dup_dist
+- rule_id: X-PERSONAL-DUP
+  title: 개인경비 중복 청구
+  layer: L2
+  severity: hard
+  legal_basis:
+  - v3.1 F1 / R-301
+  - 경비정산 시스템 대조
+  condition_expr: ctx.personal_dup
+  weight: 0.9
+  floor_score: 80
+  message: 같은 날·가맹점·금액이 개인경비({ctx.personal_dup_id})로도 청구됨
+  evidence:
+  - ctx.personal_dup_id
+- rule_id: X-PROJECT-CLOSED
+  title: 종료 · 보류 프로젝트 귀속(유예기간 내)
+  layer: L2
+  severity: soft
+  legal_basis:
+  - core 프로젝트 상태
+  - 원가 귀속 규정(예시)
+  condition_expr: ctx.project_closed and (ctx.project_closed_days is None or ctx.project_closed_days <= params.project_grace_days)
+  strength_expr: '0.6'
+  weight: 0.4
+  message: 종료 프로젝트({ctx.project_id}) 귀속 입력
+  evidence:
+  - ctx.project_id
+- rule_id: R-PROJECT-CLOSED
+  title: 종료 프로젝트 귀속(종료일 + 유예 경과)
+  layer: L2
+  severity: hard
+  legal_basis:
+  - core 프로젝트 상태(CLOSED)·종료일
+  - 원가 귀속 규정(예시) — 확인 필요
+  - 재무제표 AI v1.0 C-10 원가 귀속
+  condition_expr: ctx.project_closed_days is not None and ctx.project_closed_days > params.project_grace_days
+  weight: 0.8
+  floor_score: 70
+  message: 종료 프로젝트({ctx.project_id})에 종료 {ctx.project_closed_days}일 후 귀속
+  evidence:
+  - ctx.project_id
+  - ctx.project_closed_days
+- rule_id: X-OFFDUTY
+  title: 근무 기록 없는 휴일 · 심야 사용(일정 · 출장 · 초과근무 신청 · 사전결재 없음)
+  layer: L2
+  severity: soft
+  source: v1.0-company
+  legal_basis:
+  - 재무제표 AI v1.0 C-06 · R-202(사전승인 없는 휴일 사용)
+  condition_expr: ctx.offduty
+  strength_expr: '0.8'
+  weight: 0.5
+  message: 근무·출장·사전결재 기록 없는 휴일/심야 사용
+  evidence:
+  - tx.local_time
+- rule_id: X-AFTER-HOURS
+  title: 퇴근 후 · 출근 전 · 근무 없는 날 사용(근태 기록 기준)
+  layer: L2
+  severity: soft
+  source: round2
+  legal_basis:
+  - HRQ 출퇴근 기록(근무 시각만 사용 — 위치 미사용)
+  - 재무제표 AI v1.0 C-06
+  - v3.1 F6 근태 교차
+  condition_expr: ctx.after_hours
+  strength_expr: '0.8'
+  weight: 0.6
+  message: 근태 기록({ctx.clock}) 밖 {tx.local_time} 사용 — 일정·출장·초과근무 신청·사전결재 없음
+  evidence:
+  - ctx.clock
+  - tx.local_time
+- rule_id: X-ON-DUTY
+  title: 근무 중 사용(완화)
+  layer: L2
+  severity: soft
+  source: round2
+  legal_basis:
+  - HRQ 출퇴근 기록
+  condition_expr: ctx.on_duty
+  weight: 0.0
+  effect:
+    kind: mitigation
+    factor: 0.5
+    mitigates:
+    - R-NIGHT
+    - R-HOLIDAY
+    - X-OFFDUTY
+    - X-SITE-DIST
+    - L3-ANOMALY
+    - S-AMT-Z
+  message: 근태 기록상 근무 중({ctx.clock}) — 시간·거리형 위험 완화
+  evidence:
+  - ctx.clock
+- rule_id: R-301
+  title: 승인번호가 개인경비 청구에도 존재
+  layer: L2
+  severity: hard
+  source: v3.1
+  legal_basis:
+  - v3.1 F1.2 R-301
+  condition_expr: ctx.personal_dup_appr
+  weight: 0.95
+  floor_score: 85
+  message: 카드 승인번호가 개인경비 청구({ctx.personal_dup_id})에 기재됨
+  evidence:
+  - ctx.personal_dup_id
+- rule_id: R-RECEIPT-MISMATCH
+  title: 영수증 ↔ 카드 승인 금액 불일치 · 결정적 검증 위반
+  layer: L2
+  severity: soft
+  source: v3.1
+  legal_basis:
+  - v3.1 F2.1(체크섬·부가세 산술·3소스 금액)
+  - 재무제표 AI v1.0 부록 A 결함 2(±2원 허용)
+  condition_expr: ctx.receipt_mismatch or ctx.receipt_bizno_invalid or ctx.receipt_vat_bad
+  strength_expr: 1.0 if ctx.receipt_mismatch else 0.7
+  weight: 0.85
+  message: 영수증 검증 위반 — 금액불일치 {ctx.receipt_mismatch}, 사업자번호 체크섬 {ctx.receipt_bizno_invalid}, 부가세 산술 {ctx.receipt_vat_code}
+  evidence:
+  - ctx.receipt_ocr_amount
+  - ctx.receipt_vat_code
+- rule_id: R-310
+  title: 환금성 업종(상품권) 수령인 명세 미첨부
+  layer: L1
+  severity: hard
+  source: v3.1
+  legal_basis:
+  - v3.1 F3 R-310
+  - 재무제표 AI v1.0 R-115 · C-08
+  - 법인세법 §25
+  condition_expr: tx.category == 'GIFT_CARD' and ctx.giftcard_recipients is not True
+  weight: 0.85
+  floor_score: 75
+  message: 상품권 {tx.amount:,.0f}원 — 수령인·용도 명세 미첨부
+  evidence:
+  - tx.amount
+- rule_id: R-320
+  title: 카드 취소분이 장부에 미반영(환불 가로채기 의심)
+  layer: L2
+  severity: hard
+  source: v3.1
+  legal_basis:
+  - v3.1 F4 R-320
+  condition_expr: ctx.refund_skim_amt is not None and ctx.refund_skim_amt > 2
+  effect:
+    kind: risk
+    applies_to_cancelled: true
+  weight: 0.9
+  floor_score: 80
+  message: 카드 취소 {tx.cancelled_amount:,.0f}원인데 정산서 계상액이 순액보다 {ctx.refund_skim_amt:,.0f}원 많음
+  evidence:
+  - tx.cancelled_amount
+  - ctx.claimed
+- rule_id: R-340
+  title: 참석자 명단 허위(동석자 타지 결제)
+  layer: L2
+  severity: hard
+  source: v3.1
+  legal_basis:
+  - v3.1 F6 R-340
+  condition_expr: ctx.fake_attendee
+  weight: 0.9
+  floor_score: 80
+  message: 참석자로 기재된 직원({ctx.fake_attendee_emp})이 같은 시각 {ctx.fake_attendee_km:.0f}km 떨어진 곳에서 결제
+  evidence:
+  - ctx.fake_attendee_emp
+  - ctx.fake_attendee_km
+- rule_id: R-350
+  title: 본인 결재(직무분리 위반)
+  layer: L2
+  severity: hard
+  source: v3.1
+  legal_basis:
+  - v3.1 F8 R-350
+  - v2 CTL-03 직무분리
+  condition_expr: ctx.self_approval
+  weight: 0.9
+  floor_score: 80
+  message: 정산 결재자 = 사용자 본인
+  evidence:
+  - ctx.approver
+- rule_id: F9-MEMO
+  title: 적요 위장(업종 불일치 · 미등록 거래처)
+  layer: L2
+  severity: soft
+  source: v3.1
+  legal_basis:
+  - v3.1 F9 적요 위장
+  - LLM 은 모순 발견에만 사용(판정 아님)
+  condition_expr: ctx.memo_mismatch or ctx.memo_unknown_client
+  strength_expr: 1.0 if (ctx.memo_mismatch and ctx.memo_unknown_client) else 0.6
+  weight: 0.7
+  message: 적요 '{ctx.memo}' — 업종 불일치 {ctx.memo_mismatch}, 미등록 거래처 {ctx.memo_unknown_client} ({ctx.memo_source})
+  evidence:
+  - ctx.memo
+  - ctx.memo_source
+- rule_id: L3-ANOMALY
+  title: Isolation Forest 이상(상위 10%)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - FCD B7.5.5 — 약한 신호, 단독 판정 금지
+  - '라운드 3: 가중치 상한 0.55(12-IMPL Step 9) — 역할별 IF 는 비교 실험 후 미채택(정밀도 저하)'
+  condition_expr: l3.s3 is not None and l3.s3 > 0.90
+  strength_expr: clip((l3.s3 - 0.90) / 0.09, 0, 1)
+  weight: 0.55
+  message: 이상점수 백분위 {l3.s3:.3f} — {l3.top_text}
+  evidence:
+  - l3.s3
+  - l3.top_text
+- rule_id: S-AMT-Z
+  title: 업종별 개인 기준선 대비 고액(robust z, 수축)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - FCD B7.5.2–3
+  - v3.0 G8.2 계층 수축
+  condition_expr: l3.rz is not None and l3.rz > 3.5
+  strength_expr: clip((l3.rz - 3.5) / 3.0, 0.2, 1)
+  weight: 0.35
+  message: 본인 평소 {tx.category_name} 금액 대비 {l3.ratio:.1f}배 (robust z {l3.rz:.1f})
+  evidence:
+  - l3.rz
+  - l3.ratio
+- rule_id: G-RING
+  title: 가맹점 공모 링 의심(소수 · 원거리 · 라운드 금액)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - FCD B7.5.6 사용자–가맹점 그래프
+  - v3.1 F3 환금 · F8 가맹점 결속
+  condition_expr: l3.ring
+  strength_expr: '1.0'
+  weight: 0.6
+  message: '가맹점 {tx.merchant_name}: 이용자 {l3.ring_users}명(부서 집중 {l3.ring_dept:.0%}), 라운드 금액 {l3.ring_round:.0%}, 현장·본사 {l3.ring_km:.0f}km'
+  evidence:
+  - l3.ring_users
+  - l3.ring_round
+- rule_id: G-EXCLUSIVE
+  title: 1인 독점 가맹점(원거리)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - FCD B7.5.6 독점도 · 리프트
+  - v3.0 G12.2 단독성
+  condition_expr: l3.excl is not None and l3.excl >= 0.9 and l3.visits_q >= 2 and ctx.d_min_km is not None and ctx.d_min_km > params.site_base_km and not ctx.on_schedule and not ctx.trip_domestic
+  strength_expr: '0.8'
+  weight: 0.45
+  message: 이 가맹점 지출의 {l3.excl:.0%}가 본인 · 분기 {l3.visits_q}회 · 당일 현장/본사에서 {ctx.d_min_km:.0f}km
+  evidence:
+  - l3.excl
+  - l3.visits_q
+  - l3.lift
+- rule_id: S-CUSUM
+  title: 지출 점진 증가(CUSUM 경보 주간)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - FCD B7.5.7
+  - v3.1 F7 기준선 고정 CUSUM
+  condition_expr: l3.cusum_alarm and l3.discretionary
+  strength_expr: clip(l3.cusum / 10.0, 0.4, 1)
+  weight: 0.45
+  message: 주간 지출 CUSUM {l3.cusum:.1f} > h — 기준선 대비 지속 증가
+  evidence:
+  - l3.cusum
+- rule_id: S-HUG-REPEAT
+  title: 기준선 직하 반복(90일 3회 이상)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - v3.0 G3.4 bunching
+  - v3.1 F8.2
+  condition_expr: tx.hug and l3.hug_90d >= 3
+  strength_expr: '1.0'
+  weight: 0.45
+  message: 90일 내 기준선 직하 결제 {l3.hug_90d}회
+  evidence:
+  - l3.hug_90d
+  enabled: false
+- rule_id: S-ROUND-USER
+  title: 사용자 만원 단위 금액 과다(BH-FDR 유의)
+  layer: L3
+  severity: soft
+  legal_basis:
+  - v3.1 F3.2 라운드넘버 이항검정 + BH(q=0.10)
+  - FCD B7.5.4 — 약한 신호
+  condition_expr: l3.round_user and tx.amount % 10000 == 0
+  strength_expr: '0.6'
+  weight: 0.2
+  message: 본인 만원 단위 결제 비율이 부서 대비 유의하게 높음(FDR 10%)
+  evidence:
+  - l3.round_user
+- rule_id: S-HUG-TEST
+  title: 한도 직하 집중(개인 vs 동료 베타이항, BH-FDR)
+  layer: L3
+  severity: soft
+  source: round2
+  legal_basis:
+  - v3.0 G3.4 bunching(분포 검정)
+  - v3.1 F8.2 결재 한도 직하
+  - 사내 위임전결 규정(예시) — 확인 필요
+  condition_expr: l3.hug_test
+  strength_expr: '1.0'
+  weight: 0.7
+  message: 본인 [0.95L, L) 구간 결제 비율이 동료 대비 유의하게 높음(p={l3.hug_test_p:.2g}, FDR 10%)
+  evidence:
+  - l3.hug_test_p
+- rule_id: S-CUSUM-M
+  title: 업종군 월지출 점진 증가(CUSUM, h=ARL₀ 역산)
+  layer: L3
+  severity: soft
+  source: round2
+  legal_basis:
+  - v3.1 F7 기준선 고정 CUSUM · ARL₀ 기반 문턱
+  - FCD B7.5.7
+  condition_expr: l3.cusum_m_alarm and (ctx.after_hours or l3.discretionary)
+  strength_expr: clip(l3.cusum_m / (2 * l3.h_month), 0.4, 1)
+  weight: 0.5
+  message: 업종군 월지출 CUSUM {l3.cusum_m:.1f} > h {l3.h_month} (EWMA z {l3.ewma_m_z:.1f})
+  evidence:
+  - l3.cusum_m
+  - l3.h_month
+  - l3.ewma_m_z
+- rule_id: S-CUSUM-Q
+  title: 재량지출 점진 증가(단일 흐름 · 분기 사람확인 기준선)
+  layer: L3
+  severity: soft
+  source: round3
+  legal_basis:
+  - v3.1 F7 — 기준선은 분기마다 사람 확인 후에만 갱신
+  - FCD B7.5.7
+  condition_expr: l3.cusum_q_alarm and (ctx.after_hours or l3.discretionary)
+  strength_expr: clip(l3.cusum_q / 10.0, 0.4, 1)
+  weight: 0.5
+  message: 재량지출 주간 CUSUM {l3.cusum_q:.1f} > h(ARL₀ 930주)
+  evidence:
+  - l3.cusum_q

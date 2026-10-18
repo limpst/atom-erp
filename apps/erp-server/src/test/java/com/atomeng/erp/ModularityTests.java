@@ -22,7 +22,7 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "cst");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "cst", "fcd");
         // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
         ApplicationModule cst = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
@@ -34,6 +34,10 @@ class ModularityTests {
         ApplicationModule fac = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("fac")).findFirst().orElseThrow();
         assertThat(fac.getNamedInterfaces().getByName("api")).isPresent();
+        // fcd 는 core::api · hrq::api 공개 타입만 참조(CST 와는 이벤트 계약으로만 연결) — 위반 시 verify() 실패
+        ApplicationModule fcd = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("fcd")).findFirst().orElseThrow();
+        assertThat(fcd.getNamedInterfaces().getByName("api")).isPresent();
         ApplicationModule core = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("core")).findFirst().orElseThrow();
         assertThat(core.getNamedInterfaces().getByName("api")).isPresent();

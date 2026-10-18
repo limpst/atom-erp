@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.bat text eol=crlf
 *.jar binary
+# FCD 합성 카드사 명세서 샘플은 바이트 그대로(CP949 · BOM · CRLF 보존)
+modules/fcd/src/test/resources/fcd/samples/** -text

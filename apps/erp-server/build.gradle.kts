@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":modules:fac"))
     implementation(project(":modules:hrq"))
     implementation(project(":modules:cst"))
+    implementation(project(":modules:fcd"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))
@@ -32,5 +33,6 @@ dependencies {
     testImplementation(libs.wiremock)
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation(libs.archunit)
+    testImplementation("org.apache.poi:poi-ooxml:5.4.1")   // FCD 통합 테스트: 합성 XLSX 명세서 생성
     testImplementation("org.springframework.security:spring-security-test")
 }

@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":modules:hrq"))
     implementation(project(":modules:cst"))
     implementation(project(":modules:fcd"))
+    implementation(project(":modules:eqp"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))

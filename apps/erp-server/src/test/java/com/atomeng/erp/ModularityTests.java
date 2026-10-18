@@ -22,7 +22,7 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "cst", "fcd");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd");
         // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
         ApplicationModule cst = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
@@ -38,9 +38,31 @@ class ModularityTests {
         ApplicationModule fcd = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("fcd")).findFirst().orElseThrow();
         assertThat(fcd.getNamedInterfaces().getByName("api")).isPresent();
+        // eqp 는 core::api 만 허용(allowedDependencies) — CST 와는 eqp.equipment.returned 이벤트 계약만
+        ApplicationModule eqp = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("eqp")).findFirst().orElseThrow();
+        assertThat(eqp.getNamedInterfaces().getByName("api")).isPresent();
         ApplicationModule core = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("core")).findFirst().orElseThrow();
         assertThat(core.getNamedInterfaces().getByName("api")).isPresent();
+    }
+
+    @Test
+    @DisplayName("TC-EQP-012: 다른 업무 모듈 → eqp 내부(api 외) 패키지 직접 참조 0건, eqp → 다른 업무 모듈(core::api 외) 참조 0건")
+    void eqpBoundary() {
+        var classes = new com.tngtech.archunit.core.importer.ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackage("com.atomeng.erp.eqp..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.eqp.application..",
+                        "com.atomeng.erp.eqp.domain..", "com.atomeng.erp.eqp.adapter..")
+                .check(classes);
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideInAPackage("com.atomeng.erp.eqp..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.fac..", "com.atomeng.erp.hrq..",
+                        "com.atomeng.erp.cst..", "com.atomeng.erp.fcd..", "com.atomeng.erp.core.application..",
+                        "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..")
+                .check(classes);
     }
 
     @Test

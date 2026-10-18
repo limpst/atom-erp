@@ -18,6 +18,36 @@ public class TestBeans {
 
     // BoomController 는 @RestController 라 컴포넌트 스캔으로 등록된다(별도 @Bean 불필요).
 
+    /** EQP 조종자 자격 포트 대역(HRQ 연동 전) — 기본 VALID, 테스트가 무효 · 조회 장애 조종자를 지정 */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    FakePilotQualification fakePilotQualification() {
+        return new FakePilotQualification();
+    }
+
+    public static class FakePilotQualification
+            implements com.atomeng.erp.eqp.application.port.PilotQualificationPort {
+        private final java.util.Set<UUID> invalid = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        private final java.util.Set<UUID> failing = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        public void markInvalid(UUID pilotId) {
+            invalid.add(pilotId);
+        }
+
+        public void markFailing(UUID pilotId) {
+            failing.add(pilotId);
+        }
+
+        @Override
+        public Result check(UUID pilotId, java.math.BigDecimal mtowKg, java.time.LocalDate on) {
+            if (failing.contains(pilotId)) {
+                throw new IllegalStateException("synthetic HRQ outage");
+            }
+            return invalid.contains(pilotId) ? new Result(Status.INVALID, "합성: 초경량비행장치 조종자 자격 만료")
+                    : new Result(Status.VALID, "합성");
+        }
+    }
+
     @Bean
     TestEventConsumer testEventConsumer(JdbcTemplate jdbc) {
         return new TestEventConsumer(jdbc);

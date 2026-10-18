@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,cst,fcd
+    schemas: core,fac,hrq,eqp,cst,fcd
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/cst,classpath:db/migration/fcd
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/cst-errors,messages/fcd-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -58,6 +58,13 @@ atom:
       enabled: true
       cron: "0 0 6 * * *"        # 매일 06:00 KST 만료 스캔
       thresholds: "90,60,30,7"
+  eqp:
+    calibration-scan:
+      enabled: true
+      cron: "0 10 0 * * *"       # 매일 00:10 KST — due-soon(D-60/30/7/0) · expired 통합 스캔
+      thresholds: "60,30,7,0"
+    drone:
+      hrq-check: false           # HRQ 조종자 자격 어댑터 연동 전(true 면 Fail-closed 로 비행 등록 보류)
   fcd:
     review:
       k-per-1000: 20        # 월 검토 예산(거래 1,000건당) — 프로토타입 라운드 3 채택값
@@ -82,7 +89,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

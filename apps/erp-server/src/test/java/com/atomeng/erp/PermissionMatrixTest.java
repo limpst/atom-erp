@@ -117,11 +117,15 @@ class PermissionMatrixTest extends IntegrationTestBase {
 
         static final Set<String> SELF = Set.of("본인", "시간", "경비", "라벨 과제");
 
-        /** 8.2 표 해석으로 나올 수 있는 리소스 전체(모듈 기본 + 한정어 + SYSADMIN 특수) */
+        /** 이 모듈 열(column)의 8.2 표 셀들에서 실제로 나오는 리소스 집합 — 모듈 세부 권한(A2)은 비교 대상 밖 */
         static Set<String> matrixResources(String module) {
-            Set<String> r = new java.util.HashSet<>(QUALIFIER.values());
-            r.add(DEFAULT.get(module));
-            r.addAll(Set.of("setting", "template", "checklist", "model"));
+            Set<String> r = new java.util.HashSet<>();
+            try {
+                cells().filter(a -> a.get()[1].equals(module)).forEach(a -> grants((String) a.get()[0], module,
+                        (String) a.get()[2]).keySet().forEach(p -> r.add(p.split(":")[1])));
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
             return r;
         }
         static final Pattern TOKEN = Pattern.compile("([CRUDA]+)(?:\\(([^)]*)\\))?(◐)?");

@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
         "atom.security.enabled=false",
         "atom.outbox.relay.enabled=false",
         "atom.fac.due-scan.enabled=false",
+        "atom.hrq.expiry.enabled=false",
         "spring.jpa.open-in-view=false"
 })
 public abstract class IntegrationTestBase {

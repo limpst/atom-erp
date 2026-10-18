@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac
+    schemas: core,fac,hrq
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors
     fallback-to-system-locale: false
   mvc:
     problemdetails:
@@ -49,6 +49,11 @@ atom:
       enabled: true
       cron: "0 0 2 * * *"        # 매일 02:00 KST
       thresholds: "180,90,30"
+  hrq:
+    expiry:
+      enabled: true
+      cron: "0 0 6 * * *"        # 매일 06:00 KST 만료 스캔
+      thresholds: "90,60,30,7"
   outbox:
     relay:
       enabled: true
@@ -66,7 +71,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

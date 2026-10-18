@@ -39,6 +39,10 @@ public class GradeRecordingService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public int record(ReportPublishedContract e) {
+        if (e.grade() == null || e.inspectionType() == null || e.buildingIds() == null) {
+            log.info("등급 없는 보고서 발행 — 등급 이력 생략 report={} type={}", e.reportId(), e.reportType());
+            return 0;
+        }
         Grade grade = Grade.valueOf(e.grade());
         InspectionType type = InspectionType.valueOf(e.inspectionType());
         UUID by = e.approvedBy() != null ? e.approvedBy() : CurrentActor.SYSTEM;
@@ -50,7 +54,9 @@ public class GradeRecordingService {
                 continue;
             }
             String prev = jdbc.latestGrade(bid).map(Enum::name).orElse(null);
-            jdbc.insertGrade(bid, grade, type, e.performedOn(), e.reportId(), "REPORT", by);
+            // RPT 정정본(같은 보고서의 Rev.2 이상): 이전 발행본 등급 행을 correction_of 로 잇는다(원 행은 불변)
+            UUID correctionOf = e.revNo() > 1 ? jdbc.latestGradeRowOfReport(e.reportId(), bid).orElse(null) : null;
+            jdbc.insertGrade(bid, grade, type, e.performedOn(), e.reportId(), "REPORT", by, correctionOf);
             cycle.recompute(bid);
             if (grade.isCritical()) {
                 building.get().flagUseRestriction();

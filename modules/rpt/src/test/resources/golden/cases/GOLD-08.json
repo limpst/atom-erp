@@ -1,0 +1,7621 @@
+{
+ "id": "GOLD-08",
+ "description": "E 수준(심각)",
+ "asOf": "2026-09-03",
+ "facilityClass": "BLD_RC",
+ "snapshot": {
+  "schemaVersion": "1",
+  "buildings": [
+   {
+    "code": "B01",
+    "name": "합성 1동",
+    "buildingId": "a23fd765-e7aa-409d-98d4-fab60746294b",
+    "grossAreaM2": "2472.79"
+   }
+  ],
+  "memberGroups": [
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberCount": 26
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberCount": 12
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberCount": 23
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberCount": 34
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberCount": 15
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberCount": 24
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberCount": 6
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberCount": 13
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberCount": 35
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberCount": 9
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberCount": 17
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberCount": 35
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberCount": 13
+   }
+  ],
+  "defects": [
+   {
+    "id": "D-0001",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-08",
+    "defectType": "SPALL",
+    "areaM2": "0.523",
+    "polyline": [
+     [
+      "28113.5",
+      "14380.3"
+     ],
+     [
+      "28513.5",
+      "14680.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0002",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.13",
+    "polyline": [
+     [
+      "31374.8",
+      "12063.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0003",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-12",
+    "defectType": "SPALL",
+    "areaM2": "1.345",
+    "polyline": [
+     [
+      "15409.1",
+      "7417.9"
+     ],
+     [
+      "15809.1",
+      "7717.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0004",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-08",
+    "defectType": "SPALL",
+    "areaM2": "1.243",
+    "polyline": [
+     [
+      "31701.9",
+      "15461.2"
+     ],
+     [
+      "32101.9",
+      "15761.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0005",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-26",
+    "defectType": "SPALL",
+    "areaM2": "0.807",
+    "polyline": [
+     [
+      "11462.9",
+      "21314.1"
+     ],
+     [
+      "11862.9",
+      "21614.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0006",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.21",
+    "polyline": [
+     [
+      "32250.1",
+      "19979.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0007",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-23",
+    "defectType": "SPALL",
+    "areaM2": "0.988",
+    "polyline": [
+     [
+      "15832.9",
+      "22322.1"
+     ],
+     [
+      "16232.9",
+      "22622.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0008",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-10",
+    "defectType": "SPALL",
+    "areaM2": "0.512",
+    "polyline": [
+     [
+      "11466.7",
+      "15092.5"
+     ],
+     [
+      "11866.7",
+      "15392.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0009",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-01",
+    "defectType": "SPALL",
+    "areaM2": "1.071",
+    "polyline": [
+     [
+      "17388.4",
+      "13166.6"
+     ],
+     [
+      "17788.4",
+      "13466.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0010",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.43",
+    "polyline": [
+     [
+      "35092.3",
+      "13185.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0011",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-22",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.55",
+    "polyline": [
+     [
+      "12603.2",
+      "8856.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0012",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.19",
+    "polyline": [
+     [
+      "32461.4",
+      "11675.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0013",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.93",
+    "polyline": [
+     [
+      "10885.3",
+      "2150.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0014",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.44",
+    "polyline": [
+     [
+      "10508.8",
+      "17213.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0015",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-19",
+    "defectType": "SPALL",
+    "areaM2": "1.002",
+    "polyline": [
+     [
+      "15127.5",
+      "11360.5"
+     ],
+     [
+      "15527.5",
+      "11660.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0016",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.63",
+    "polyline": [
+     [
+      "24280.5",
+      "8093.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0017",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.13",
+    "polyline": [
+     [
+      "6147.6",
+      "6367.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0018",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-22",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.46",
+    "polyline": [
+     [
+      "16469.0",
+      "15588.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0019",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.70",
+    "polyline": [
+     [
+      "10355.7",
+      "5952.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0020",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-02",
+    "defectType": "SPALL",
+    "areaM2": "0.281",
+    "polyline": [
+     [
+      "27934.0",
+      "18705.6"
+     ],
+     [
+      "28334.0",
+      "19005.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0021",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-02",
+    "defectType": "SPALL",
+    "areaM2": "0.426",
+    "polyline": [
+     [
+      "29453.6",
+      "19102.8"
+     ],
+     [
+      "29853.6",
+      "19402.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0022",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-17",
+    "defectType": "SPALL",
+    "areaM2": "0.998",
+    "polyline": [
+     [
+      "32432.7",
+      "13255.6"
+     ],
+     [
+      "32832.7",
+      "13555.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0023",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-20",
+    "defectType": "SPALL",
+    "areaM2": "1.137",
+    "polyline": [
+     [
+      "31176.7",
+      "13085.3"
+     ],
+     [
+      "31576.7",
+      "13385.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0024",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-20",
+    "defectType": "SPALL",
+    "areaM2": "0.666",
+    "polyline": [
+     [
+      "13993.9",
+      "20004.1"
+     ],
+     [
+      "14393.9",
+      "20304.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0025",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-08",
+    "defectType": "SPALL",
+    "areaM2": "0.121",
+    "polyline": [
+     [
+      "4422.1",
+      "9020.4"
+     ],
+     [
+      "4822.1",
+      "9320.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0026",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "27836.5",
+      "15691.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0027",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.10",
+    "polyline": [
+     [
+      "13064.9",
+      "11459.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0028",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.34",
+    "polyline": [
+     [
+      "20365.7",
+      "3946.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0029",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-04",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "12290.4",
+      "16370.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0030",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-15",
+    "defectType": "SPALL",
+    "areaM2": "0.628",
+    "polyline": [
+     [
+      "3481.6",
+      "13468.5"
+     ],
+     [
+      "3881.6",
+      "13768.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0031",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-04",
+    "defectType": "SPALL",
+    "areaM2": "0.163",
+    "polyline": [
+     [
+      "9725.7",
+      "12370.1"
+     ],
+     [
+      "10125.7",
+      "12670.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0032",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.28",
+    "polyline": [
+     [
+      "1982.2",
+      "7083.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0033",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.03",
+    "polyline": [
+     [
+      "38197.1",
+      "11802.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0034",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-19",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.82",
+    "polyline": [
+     [
+      "33872.7",
+      "3547.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0035",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-02",
+    "defectType": "SPALL",
+    "areaM2": "0.129",
+    "polyline": [
+     [
+      "14529.5",
+      "8398.5"
+     ],
+     [
+      "14929.5",
+      "8698.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0036",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.50",
+    "polyline": [
+     [
+      "23603.6",
+      "1998.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0037",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-19",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.10",
+    "polyline": [
+     [
+      "16799.7",
+      "23012.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0038",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-26",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.48",
+    "polyline": [
+     [
+      "1152.8",
+      "15587.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0039",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-15",
+    "defectType": "SPALL",
+    "areaM2": "0.298",
+    "polyline": [
+     [
+      "20360.8",
+      "14894.9"
+     ],
+     [
+      "20760.8",
+      "15194.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0040",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-13",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.56",
+    "polyline": [
+     [
+      "5867.8",
+      "17211.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0041",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-26",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.47",
+    "polyline": [
+     [
+      "7286.3",
+      "2208.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0042",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-26",
+    "defectType": "SPALL",
+    "areaM2": "1.118",
+    "polyline": [
+     [
+      "14142.5",
+      "7416.9"
+     ],
+     [
+      "14542.5",
+      "7716.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0043",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "25635.9",
+      "6666.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0044",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-21",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.64",
+    "polyline": [
+     [
+      "37691.7",
+      "1631.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0045",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberId": "B1-FOU-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.82",
+    "polyline": [
+     [
+      "20835.2",
+      "24402.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0046",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-12",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.70",
+    "polyline": [
+     [
+      "25192.6",
+      "5470.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0047",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.20",
+    "polyline": [
+     [
+      "20758.3",
+      "10960.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0048",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-04",
+    "defectType": "SPALL",
+    "areaM2": "0.715",
+    "polyline": [
+     [
+      "26705.3",
+      "7785.8"
+     ],
+     [
+      "27105.3",
+      "8085.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0049",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-05",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.61",
+    "polyline": [
+     [
+      "38362.6",
+      "15058.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0050",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.485",
+    "polyline": [
+     [
+      "29011.1",
+      "5043.0"
+     ],
+     [
+      "29411.1",
+      "5343.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0051",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.66",
+    "polyline": [
+     [
+      "3464.2",
+      "20716.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0052",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.75",
+    "polyline": [
+     [
+      "31207.9",
+      "1706.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0053",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.42",
+    "polyline": [
+     [
+      "28509.4",
+      "22752.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0054",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.09",
+    "polyline": [
+     [
+      "36994.8",
+      "5428.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0055",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-10",
+    "defectType": "SPALL",
+    "areaM2": "0.970",
+    "polyline": [
+     [
+      "9563.3",
+      "4327.5"
+     ],
+     [
+      "9963.3",
+      "4627.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0056",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-02",
+    "defectType": "SPALL",
+    "areaM2": "1.135",
+    "polyline": [
+     [
+      "2968.9",
+      "10609.0"
+     ],
+     [
+      "3368.9",
+      "10909.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0057",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.90",
+    "polyline": [
+     [
+      "29560.6",
+      "7841.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0058",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-04",
+    "defectType": "SPALL",
+    "areaM2": "0.867",
+    "polyline": [
+     [
+      "11168.0",
+      "7048.1"
+     ],
+     [
+      "11568.0",
+      "7348.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0059",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.10",
+    "polyline": [
+     [
+      "6021.4",
+      "16924.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0060",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberId": "B1-COL-03",
+    "defectType": "SPALL",
+    "areaM2": "0.735",
+    "polyline": [
+     [
+      "37928.5",
+      "2873.3"
+     ],
+     [
+      "38328.5",
+      "3173.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0061",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.73",
+    "polyline": [
+     [
+      "27277.1",
+      "1881.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0062",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-14",
+    "defectType": "SPALL",
+    "areaM2": "1.005",
+    "polyline": [
+     [
+      "23786.4",
+      "9760.2"
+     ],
+     [
+      "24186.4",
+      "10060.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0063",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-19",
+    "defectType": "SPALL",
+    "areaM2": "1.127",
+    "polyline": [
+     [
+      "21100.3",
+      "5254.9"
+     ],
+     [
+      "21500.3",
+      "5554.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0064",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-12",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.11",
+    "polyline": [
+     [
+      "20938.4",
+      "1391.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0065",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.05",
+    "polyline": [
+     [
+      "18972.3",
+      "8460.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0066",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-19",
+    "defectType": "SPALL",
+    "areaM2": "0.373",
+    "polyline": [
+     [
+      "34619.8",
+      "14734.1"
+     ],
+     [
+      "35019.8",
+      "15034.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0067",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.11",
+    "polyline": [
+     [
+      "9087.3",
+      "21813.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0068",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-02",
+    "defectType": "SPALL",
+    "areaM2": "0.956",
+    "polyline": [
+     [
+      "29809.5",
+      "7877.0"
+     ],
+     [
+      "30209.5",
+      "8177.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0069",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.75",
+    "polyline": [
+     [
+      "1734.7",
+      "1889.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0070",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.39",
+    "polyline": [
+     [
+      "37832.4",
+      "18265.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0071",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.68",
+    "polyline": [
+     [
+      "32590.3",
+      "10604.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0072",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-17",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.39",
+    "polyline": [
+     [
+      "10051.8",
+      "7870.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0073",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-01",
+    "defectType": "SPALL",
+    "areaM2": "0.497",
+    "polyline": [
+     [
+      "4651.5",
+      "9070.7"
+     ],
+     [
+      "5051.5",
+      "9370.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0074",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-01",
+    "defectType": "SPALL",
+    "areaM2": "0.540",
+    "polyline": [
+     [
+      "29020.4",
+      "12086.7"
+     ],
+     [
+      "29420.4",
+      "12386.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0075",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.77",
+    "polyline": [
+     [
+      "16468.3",
+      "10697.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0076",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-06",
+    "defectType": "SPALL",
+    "areaM2": "1.374",
+    "polyline": [
+     [
+      "7220.6",
+      "19625.5"
+     ],
+     [
+      "7620.6",
+      "19925.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0077",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-10",
+    "defectType": "SPALL",
+    "areaM2": "0.904",
+    "polyline": [
+     [
+      "18929.4",
+      "23987.9"
+     ],
+     [
+      "19329.4",
+      "24287.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0078",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.97",
+    "polyline": [
+     [
+      "13359.0",
+      "9776.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0079",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-23",
+    "defectType": "SPALL",
+    "areaM2": "0.480",
+    "polyline": [
+     [
+      "3505.8",
+      "15723.6"
+     ],
+     [
+      "3905.8",
+      "16023.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0080",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-05",
+    "defectType": "SPALL",
+    "areaM2": "0.935",
+    "polyline": [
+     [
+      "14730.5",
+      "8192.9"
+     ],
+     [
+      "15130.5",
+      "8492.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0081",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-15",
+    "defectType": "SPALL",
+    "areaM2": "1.228",
+    "polyline": [
+     [
+      "3772.9",
+      "9866.2"
+     ],
+     [
+      "4172.9",
+      "10166.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0082",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.13",
+    "polyline": [
+     [
+      "29319.9",
+      "23416.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0083",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-02",
+    "defectType": "SPALL",
+    "areaM2": "0.811",
+    "polyline": [
+     [
+      "27651.4",
+      "15193.7"
+     ],
+     [
+      "28051.4",
+      "15493.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0084",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-18",
+    "defectType": "SPALL",
+    "areaM2": "0.840",
+    "polyline": [
+     [
+      "5907.7",
+      "19291.9"
+     ],
+     [
+      "6307.7",
+      "19591.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0085",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-18",
+    "defectType": "SPALL",
+    "areaM2": "0.533",
+    "polyline": [
+     [
+      "11980.4",
+      "19027.9"
+     ],
+     [
+      "12380.4",
+      "19327.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0086",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-23",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.42",
+    "polyline": [
+     [
+      "30766.5",
+      "7030.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0087",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.48",
+    "polyline": [
+     [
+      "7004.9",
+      "20945.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0088",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-08",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.09",
+    "polyline": [
+     [
+      "21533.2",
+      "13267.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0089",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.55",
+    "polyline": [
+     [
+      "1232.1",
+      "1296.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0090",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-10",
+    "defectType": "SPALL",
+    "areaM2": "1.114",
+    "polyline": [
+     [
+      "25654.0",
+      "15880.5"
+     ],
+     [
+      "26054.0",
+      "16180.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0091",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.73",
+    "polyline": [
+     [
+      "25105.8",
+      "14364.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0092",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberId": "B1-BEA-08",
+    "defectType": "SPALL",
+    "areaM2": "0.842",
+    "polyline": [
+     [
+      "27733.4",
+      "2401.2"
+     ],
+     [
+      "28133.4",
+      "2701.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0093",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.04",
+    "polyline": [
+     [
+      "2646.5",
+      "14601.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0094",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-32",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.17",
+    "polyline": [
+     [
+      "36992.1",
+      "9455.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0095",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-08",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.14",
+    "polyline": [
+     [
+      "5064.9",
+      "7856.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0096",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.985",
+    "polyline": [
+     [
+      "5258.3",
+      "1643.7"
+     ],
+     [
+      "5658.3",
+      "1943.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0097",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-08",
+    "defectType": "SPALL",
+    "areaM2": "0.731",
+    "polyline": [
+     [
+      "24087.9",
+      "19246.9"
+     ],
+     [
+      "24487.9",
+      "19546.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0098",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-23",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.98",
+    "polyline": [
+     [
+      "4866.4",
+      "2631.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0099",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.16",
+    "polyline": [
+     [
+      "15048.1",
+      "13701.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0100",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-19",
+    "defectType": "SPALL",
+    "areaM2": "1.213",
+    "polyline": [
+     [
+      "24240.6",
+      "4631.8"
+     ],
+     [
+      "24640.6",
+      "4931.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0101",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-19",
+    "defectType": "SPALL",
+    "areaM2": "0.910",
+    "polyline": [
+     [
+      "23958.7",
+      "8115.6"
+     ],
+     [
+      "24358.7",
+      "8415.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0102",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-20",
+    "defectType": "SPALL",
+    "areaM2": "0.172",
+    "polyline": [
+     [
+      "18759.9",
+      "1570.7"
+     ],
+     [
+      "19159.9",
+      "1870.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0103",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-05",
+    "defectType": "SPALL",
+    "areaM2": "0.187",
+    "polyline": [
+     [
+      "29094.3",
+      "11238.8"
+     ],
+     [
+      "29494.3",
+      "11538.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0104",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-15",
+    "defectType": "SPALL",
+    "areaM2": "0.796",
+    "polyline": [
+     [
+      "5872.3",
+      "3426.4"
+     ],
+     [
+      "6272.3",
+      "3726.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0105",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.19",
+    "polyline": [
+     [
+      "34128.4",
+      "24175.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0106",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-28",
+    "defectType": "SPALL",
+    "areaM2": "0.992",
+    "polyline": [
+     [
+      "10211.1",
+      "13173.4"
+     ],
+     [
+      "10611.1",
+      "13473.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0107",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-25",
+    "defectType": "SPALL",
+    "areaM2": "0.107",
+    "polyline": [
+     [
+      "28370.8",
+      "3035.0"
+     ],
+     [
+      "28770.8",
+      "3335.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0108",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-13",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.54",
+    "polyline": [
+     [
+      "4779.1",
+      "18154.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0109",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.347",
+    "polyline": [
+     [
+      "21054.1",
+      "9563.3"
+     ],
+     [
+      "21454.1",
+      "9863.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0110",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-15",
+    "defectType": "SPALL",
+    "areaM2": "1.134",
+    "polyline": [
+     [
+      "28852.0",
+      "15020.2"
+     ],
+     [
+      "29252.0",
+      "15320.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0111",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.61",
+    "polyline": [
+     [
+      "8779.8",
+      "9540.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0112",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-20",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.18",
+    "polyline": [
+     [
+      "22472.7",
+      "24231.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0113",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-22",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.78",
+    "polyline": [
+     [
+      "36461.9",
+      "2972.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0114",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.248",
+    "polyline": [
+     [
+      "5712.9",
+      "9025.2"
+     ],
+     [
+      "6112.9",
+      "9325.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0115",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-14",
+    "defectType": "SPALL",
+    "areaM2": "0.162",
+    "polyline": [
+     [
+      "14433.2",
+      "22820.2"
+     ],
+     [
+      "14833.2",
+      "23120.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0116",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.20",
+    "polyline": [
+     [
+      "9338.2",
+      "18195.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0117",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-31",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.57",
+    "polyline": [
+     [
+      "6504.7",
+      "22160.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0118",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.66",
+    "polyline": [
+     [
+      "26286.9",
+      "13657.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0119",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.12",
+    "polyline": [
+     [
+      "8395.5",
+      "9418.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0120",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-24",
+    "defectType": "SPALL",
+    "areaM2": "1.273",
+    "polyline": [
+     [
+      "32692.4",
+      "8775.3"
+     ],
+     [
+      "33092.4",
+      "9075.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0121",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-30",
+    "defectType": "SPALL",
+    "areaM2": "0.032",
+    "polyline": [
+     [
+      "26702.8",
+      "12023.2"
+     ],
+     [
+      "27102.8",
+      "12323.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0122",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.25",
+    "polyline": [
+     [
+      "15693.9",
+      "21717.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0123",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "39325.6",
+      "15160.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0124",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-20",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.61",
+    "polyline": [
+     [
+      "16854.1",
+      "8810.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0125",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-24",
+    "defectType": "SPALL",
+    "areaM2": "0.334",
+    "polyline": [
+     [
+      "11937.5",
+      "22760.6"
+     ],
+     [
+      "12337.5",
+      "23060.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0126",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-02",
+    "defectType": "SPALL",
+    "areaM2": "0.391",
+    "polyline": [
+     [
+      "25123.9",
+      "5536.7"
+     ],
+     [
+      "25523.9",
+      "5836.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0127",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-20",
+    "defectType": "SPALL",
+    "areaM2": "1.115",
+    "polyline": [
+     [
+      "34766.0",
+      "11747.1"
+     ],
+     [
+      "35166.0",
+      "12047.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0128",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-16",
+    "defectType": "SPALL",
+    "areaM2": "0.654",
+    "polyline": [
+     [
+      "22732.4",
+      "18049.8"
+     ],
+     [
+      "23132.4",
+      "18349.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0129",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.15",
+    "polyline": [
+     [
+      "27315.0",
+      "24042.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0130",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-17",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "22350.2",
+      "8318.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0131",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "5087.7",
+      "2351.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0132",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.16",
+    "polyline": [
+     [
+      "3716.8",
+      "10544.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0133",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-05",
+    "defectType": "SPALL",
+    "areaM2": "0.509",
+    "polyline": [
+     [
+      "38260.9",
+      "4437.8"
+     ],
+     [
+      "38660.9",
+      "4737.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0134",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-19",
+    "defectType": "SPALL",
+    "areaM2": "1.381",
+    "polyline": [
+     [
+      "4903.7",
+      "5795.4"
+     ],
+     [
+      "5303.7",
+      "6095.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0135",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.82",
+    "polyline": [
+     [
+      "2094.3",
+      "13757.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0136",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.604",
+    "polyline": [
+     [
+      "20446.2",
+      "5015.6"
+     ],
+     [
+      "20846.2",
+      "5315.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0137",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.744",
+    "polyline": [
+     [
+      "29238.4",
+      "19817.9"
+     ],
+     [
+      "29638.4",
+      "20117.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0138",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberId": "B1-SLA-17",
+    "defectType": "SPALL",
+    "areaM2": "0.273",
+    "polyline": [
+     [
+      "4812.4",
+      "15163.3"
+     ],
+     [
+      "5212.4",
+      "15463.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0139",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.05",
+    "polyline": [
+     [
+      "16922.5",
+      "12116.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0140",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.07",
+    "polyline": [
+     [
+      "36643.9",
+      "9231.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0141",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "SPALL",
+    "areaM2": "0.813",
+    "polyline": [
+     [
+      "7305.2",
+      "5386.9"
+     ],
+     [
+      "7705.2",
+      "5686.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0142",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.12",
+    "polyline": [
+     [
+      "10416.9",
+      "19316.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0143",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "16357.9",
+      "20615.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0144",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.40",
+    "polyline": [
+     [
+      "23906.1",
+      "6984.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0145",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-09",
+    "defectType": "SPALL",
+    "areaM2": "1.005",
+    "polyline": [
+     [
+      "8179.4",
+      "11507.5"
+     ],
+     [
+      "8579.4",
+      "11807.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0146",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-05",
+    "defectType": "SPALL",
+    "areaM2": "1.014",
+    "polyline": [
+     [
+      "24458.6",
+      "17841.7"
+     ],
+     [
+      "24858.6",
+      "18141.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0147",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-14",
+    "defectType": "SPALL",
+    "areaM2": "1.114",
+    "polyline": [
+     [
+      "23279.8",
+      "12089.9"
+     ],
+     [
+      "23679.8",
+      "12389.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0148",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-05",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.08",
+    "polyline": [
+     [
+      "20632.9",
+      "17062.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0149",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.70",
+    "polyline": [
+     [
+      "3539.7",
+      "6707.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0150",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-10",
+    "defectType": "SPALL",
+    "areaM2": "0.351",
+    "polyline": [
+     [
+      "28053.4",
+      "7412.5"
+     ],
+     [
+      "28453.4",
+      "7712.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0151",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.659",
+    "polyline": [
+     [
+      "36611.9",
+      "22547.0"
+     ],
+     [
+      "37011.9",
+      "22847.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0152",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.16",
+    "polyline": [
+     [
+      "1753.9",
+      "6572.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0153",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-05",
+    "defectType": "SPALL",
+    "areaM2": "1.168",
+    "polyline": [
+     [
+      "11357.3",
+      "4920.3"
+     ],
+     [
+      "11757.3",
+      "5220.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0154",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.92",
+    "polyline": [
+     [
+      "36083.4",
+      "9518.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0155",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.84",
+    "polyline": [
+     [
+      "2623.7",
+      "15511.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0156",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.40",
+    "polyline": [
+     [
+      "17079.8",
+      "24394.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0157",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-06",
+    "defectType": "SPALL",
+    "areaM2": "0.343",
+    "polyline": [
+     [
+      "15406.2",
+      "22602.1"
+     ],
+     [
+      "15806.2",
+      "22902.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0158",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-03",
+    "defectType": "SPALL",
+    "areaM2": "0.569",
+    "polyline": [
+     [
+      "28878.7",
+      "2936.2"
+     ],
+     [
+      "29278.7",
+      "3236.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0159",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.65",
+    "polyline": [
+     [
+      "35307.0",
+      "21984.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0160",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.129",
+    "polyline": [
+     [
+      "13920.1",
+      "21763.4"
+     ],
+     [
+      "14320.1",
+      "22063.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0161",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-05",
+    "defectType": "SPALL",
+    "areaM2": "0.459",
+    "polyline": [
+     [
+      "6304.2",
+      "2945.4"
+     ],
+     [
+      "6704.2",
+      "3245.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0162",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.816",
+    "polyline": [
+     [
+      "25949.2",
+      "23747.2"
+     ],
+     [
+      "26349.2",
+      "24047.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0163",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.85",
+    "polyline": [
+     [
+      "14683.4",
+      "21344.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0164",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "SPALL",
+    "areaM2": "0.888",
+    "polyline": [
+     [
+      "19071.4",
+      "6836.0"
+     ],
+     [
+      "19471.4",
+      "7136.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0165",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-03",
+    "defectType": "SPALL",
+    "areaM2": "0.431",
+    "polyline": [
+     [
+      "28638.8",
+      "12281.8"
+     ],
+     [
+      "29038.8",
+      "12581.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0166",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-12",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.64",
+    "polyline": [
+     [
+      "1366.7",
+      "19507.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0167",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-02",
+    "defectType": "SPALL",
+    "areaM2": "1.164",
+    "polyline": [
+     [
+      "35350.2",
+      "18391.8"
+     ],
+     [
+      "35750.2",
+      "18691.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0168",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-09",
+    "defectType": "SPALL",
+    "areaM2": "1.062",
+    "polyline": [
+     [
+      "39732.9",
+      "24403.0"
+     ],
+     [
+      "40132.9",
+      "24703.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0169",
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberId": "B1-WAL-03",
+    "defectType": "SPALL",
+    "areaM2": "0.968",
+    "polyline": [
+     [
+      "13108.6",
+      "13038.9"
+     ],
+     [
+      "13508.6",
+      "13338.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0170",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-03",
+    "defectType": "SPALL",
+    "areaM2": "0.935",
+    "polyline": [
+     [
+      "10938.6",
+      "15031.6"
+     ],
+     [
+      "11338.6",
+      "15331.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0171",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-09",
+    "defectType": "SPALL",
+    "areaM2": "1.361",
+    "polyline": [
+     [
+      "33846.7",
+      "20743.8"
+     ],
+     [
+      "34246.7",
+      "21043.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0172",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-12",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.17",
+    "polyline": [
+     [
+      "32387.7",
+      "13862.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0173",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-12",
+    "defectType": "SPALL",
+    "areaM2": "1.180",
+    "polyline": [
+     [
+      "29783.2",
+      "17780.0"
+     ],
+     [
+      "30183.2",
+      "18080.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0174",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-23",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.32",
+    "polyline": [
+     [
+      "8663.2",
+      "19611.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0175",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.44",
+    "polyline": [
+     [
+      "6693.7",
+      "22255.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0176",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.880",
+    "polyline": [
+     [
+      "28433.7",
+      "7877.6"
+     ],
+     [
+      "28833.7",
+      "8177.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0177",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.588",
+    "polyline": [
+     [
+      "7767.4",
+      "22046.3"
+     ],
+     [
+      "8167.4",
+      "22346.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0178",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-12",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.00",
+    "polyline": [
+     [
+      "30298.0",
+      "5411.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0179",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.23",
+    "polyline": [
+     [
+      "30045.8",
+      "11783.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0180",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-09",
+    "defectType": "SPALL",
+    "areaM2": "1.295",
+    "polyline": [
+     [
+      "8373.2",
+      "21443.9"
+     ],
+     [
+      "8773.2",
+      "21743.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0181",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-02",
+    "defectType": "SPALL",
+    "areaM2": "1.081",
+    "polyline": [
+     [
+      "14772.8",
+      "15227.2"
+     ],
+     [
+      "15172.8",
+      "15527.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0182",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.58",
+    "polyline": [
+     [
+      "7509.2",
+      "2981.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0183",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-16",
+    "defectType": "SPALL",
+    "areaM2": "1.388",
+    "polyline": [
+     [
+      "26048.2",
+      "7393.5"
+     ],
+     [
+      "26448.2",
+      "7693.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0184",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-13",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "20595.4",
+      "24025.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0185",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "4173.1",
+      "9672.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0186",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "18530.4",
+      "19824.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0187",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-05",
+    "defectType": "SPALL",
+    "areaM2": "1.118",
+    "polyline": [
+     [
+      "38348.8",
+      "13904.8"
+     ],
+     [
+      "38748.8",
+      "14204.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0188",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.446",
+    "polyline": [
+     [
+      "27591.0",
+      "24016.3"
+     ],
+     [
+      "27991.0",
+      "24316.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0189",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.59",
+    "polyline": [
+     [
+      "13725.6",
+      "21878.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0190",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberId": "1F-COL-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.21",
+    "polyline": [
+     [
+      "2544.7",
+      "12371.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0191",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "39111.4",
+      "24706.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0192",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-06",
+    "defectType": "SPALL",
+    "areaM2": "1.162",
+    "polyline": [
+     [
+      "8143.0",
+      "24143.0"
+     ],
+     [
+      "8543.0",
+      "24443.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0193",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-05",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.35",
+    "polyline": [
+     [
+      "39638.3",
+      "5125.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0194",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "18995.4",
+      "19389.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0195",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.28",
+    "polyline": [
+     [
+      "12235.2",
+      "18320.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0196",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberId": "1F-BEA-01",
+    "defectType": "SPALL",
+    "areaM2": "1.279",
+    "polyline": [
+     [
+      "28335.9",
+      "12137.0"
+     ],
+     [
+      "28735.9",
+      "12437.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0197",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-09",
+    "defectType": "SPALL",
+    "areaM2": "0.903",
+    "polyline": [
+     [
+      "24433.7",
+      "13574.7"
+     ],
+     [
+      "24833.7",
+      "13874.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0198",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-04",
+    "defectType": "SPALL",
+    "areaM2": "0.056",
+    "polyline": [
+     [
+      "9260.1",
+      "21814.6"
+     ],
+     [
+      "9660.1",
+      "22114.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0199",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-04",
+    "defectType": "SPALL",
+    "areaM2": "1.017",
+    "polyline": [
+     [
+      "30261.2",
+      "20232.0"
+     ],
+     [
+      "30661.2",
+      "20532.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0200",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "29542.8",
+      "23837.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0201",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.143",
+    "polyline": [
+     [
+      "8436.4",
+      "9520.5"
+     ],
+     [
+      "8836.4",
+      "9820.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0202",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.265",
+    "polyline": [
+     [
+      "18104.6",
+      "3794.7"
+     ],
+     [
+      "18504.6",
+      "4094.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0203",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-01",
+    "defectType": "SPALL",
+    "areaM2": "1.104",
+    "polyline": [
+     [
+      "3879.3",
+      "18103.1"
+     ],
+     [
+      "4279.3",
+      "18403.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0204",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-13",
+    "defectType": "SPALL",
+    "areaM2": "0.120",
+    "polyline": [
+     [
+      "2890.4",
+      "6692.2"
+     ],
+     [
+      "3290.4",
+      "6992.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0205",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.42",
+    "polyline": [
+     [
+      "7122.6",
+      "4766.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0206",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.13",
+    "polyline": [
+     [
+      "30126.4",
+      "6198.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0207",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.98",
+    "polyline": [
+     [
+      "21097.6",
+      "11864.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0208",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.768",
+    "polyline": [
+     [
+      "36440.8",
+      "1046.4"
+     ],
+     [
+      "36840.8",
+      "1346.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0209",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.56",
+    "polyline": [
+     [
+      "18273.8",
+      "21935.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0210",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-08",
+    "defectType": "SPALL",
+    "areaM2": "0.965",
+    "polyline": [
+     [
+      "19907.5",
+      "1466.6"
+     ],
+     [
+      "20307.5",
+      "1766.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0211",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.10",
+    "polyline": [
+     [
+      "22348.8",
+      "4131.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0212",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.40",
+    "polyline": [
+     [
+      "25722.4",
+      "1096.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0213",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.63",
+    "polyline": [
+     [
+      "24943.0",
+      "16468.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0214",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.05",
+    "polyline": [
+     [
+      "1383.7",
+      "17915.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0215",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.39",
+    "polyline": [
+     [
+      "32335.0",
+      "2981.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0216",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-05",
+    "defectType": "SPALL",
+    "areaM2": "0.393",
+    "polyline": [
+     [
+      "14714.9",
+      "7602.5"
+     ],
+     [
+      "15114.9",
+      "7902.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0217",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-04",
+    "defectType": "SPALL",
+    "areaM2": "1.109",
+    "polyline": [
+     [
+      "20929.2",
+      "12231.8"
+     ],
+     [
+      "21329.2",
+      "12531.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0218",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-03",
+    "defectType": "SPALL",
+    "areaM2": "1.019",
+    "polyline": [
+     [
+      "34748.8",
+      "3993.0"
+     ],
+     [
+      "35148.8",
+      "4293.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0219",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.06",
+    "polyline": [
+     [
+      "18792.3",
+      "17658.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0220",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberId": "1F-SLA-13",
+    "defectType": "SPALL",
+    "areaM2": "0.529",
+    "polyline": [
+     [
+      "21378.3",
+      "23211.3"
+     ],
+     [
+      "21778.3",
+      "23511.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0221",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-25",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.25",
+    "polyline": [
+     [
+      "22609.8",
+      "18305.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0222",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-29",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.05",
+    "polyline": [
+     [
+      "32662.0",
+      "16600.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0223",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-19",
+    "defectType": "SPALL",
+    "areaM2": "0.112",
+    "polyline": [
+     [
+      "24205.1",
+      "10776.9"
+     ],
+     [
+      "24605.1",
+      "11076.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0224",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.62",
+    "polyline": [
+     [
+      "1011.1",
+      "16385.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0225",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.72",
+    "polyline": [
+     [
+      "24909.0",
+      "11033.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0226",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.65",
+    "polyline": [
+     [
+      "24635.9",
+      "23935.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0227",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.17",
+    "polyline": [
+     [
+      "26244.3",
+      "12974.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0228",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.12",
+    "polyline": [
+     [
+      "37586.8",
+      "7829.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0229",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-13",
+    "defectType": "SPALL",
+    "areaM2": "0.958",
+    "polyline": [
+     [
+      "2639.6",
+      "21362.8"
+     ],
+     [
+      "3039.6",
+      "21662.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0230",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-19",
+    "defectType": "SPALL",
+    "areaM2": "1.101",
+    "polyline": [
+     [
+      "29026.0",
+      "8956.5"
+     ],
+     [
+      "29426.0",
+      "9256.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0231",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-08",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.14",
+    "polyline": [
+     [
+      "14017.2",
+      "9135.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0232",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-29",
+    "defectType": "SPALL",
+    "areaM2": "1.322",
+    "polyline": [
+     [
+      "6260.6",
+      "6555.2"
+     ],
+     [
+      "6660.6",
+      "6855.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0233",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-30",
+    "defectType": "SPALL",
+    "areaM2": "1.299",
+    "polyline": [
+     [
+      "31979.8",
+      "18343.2"
+     ],
+     [
+      "32379.8",
+      "18643.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0234",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-26",
+    "defectType": "SPALL",
+    "areaM2": "0.044",
+    "polyline": [
+     [
+      "2441.7",
+      "13088.3"
+     ],
+     [
+      "2841.7",
+      "13388.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0235",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-28",
+    "defectType": "SPALL",
+    "areaM2": "0.913",
+    "polyline": [
+     [
+      "37623.1",
+      "16328.7"
+     ],
+     [
+      "38023.1",
+      "16628.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0236",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-19",
+    "defectType": "SPALL",
+    "areaM2": "0.946",
+    "polyline": [
+     [
+      "28417.0",
+      "13970.1"
+     ],
+     [
+      "28817.0",
+      "14270.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0237",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.52",
+    "polyline": [
+     [
+      "1667.3",
+      "6535.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0238",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.11",
+    "polyline": [
+     [
+      "14961.6",
+      "10791.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0239",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-27",
+    "defectType": "SPALL",
+    "areaM2": "0.645",
+    "polyline": [
+     [
+      "11769.4",
+      "22523.9"
+     ],
+     [
+      "12169.4",
+      "22823.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0240",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-09",
+    "defectType": "SPALL",
+    "areaM2": "1.127",
+    "polyline": [
+     [
+      "32209.6",
+      "16924.0"
+     ],
+     [
+      "32609.6",
+      "17224.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0241",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-31",
+    "defectType": "SPALL",
+    "areaM2": "0.936",
+    "polyline": [
+     [
+      "33991.8",
+      "23326.4"
+     ],
+     [
+      "34391.8",
+      "23626.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0242",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-23",
+    "defectType": "SPALL",
+    "areaM2": "1.086",
+    "polyline": [
+     [
+      "15889.8",
+      "22572.5"
+     ],
+     [
+      "16289.8",
+      "22872.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0243",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-05",
+    "defectType": "SPALL",
+    "areaM2": "0.726",
+    "polyline": [
+     [
+      "36791.6",
+      "7731.2"
+     ],
+     [
+      "37191.6",
+      "8031.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0244",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.84",
+    "polyline": [
+     [
+      "5656.2",
+      "7708.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0245",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.15",
+    "polyline": [
+     [
+      "32794.7",
+      "15517.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0246",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.56",
+    "polyline": [
+     [
+      "27192.1",
+      "14878.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0247",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-21",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.50",
+    "polyline": [
+     [
+      "22737.4",
+      "8552.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0248",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-14",
+    "defectType": "SPALL",
+    "areaM2": "0.733",
+    "polyline": [
+     [
+      "18380.6",
+      "23279.0"
+     ],
+     [
+      "18780.6",
+      "23579.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0249",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-33",
+    "defectType": "SPALL",
+    "areaM2": "0.523",
+    "polyline": [
+     [
+      "39862.2",
+      "20383.2"
+     ],
+     [
+      "40262.2",
+      "20683.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0250",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.13",
+    "polyline": [
+     [
+      "8576.1",
+      "20169.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0251",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-17",
+    "defectType": "SPALL",
+    "areaM2": "1.087",
+    "polyline": [
+     [
+      "13871.4",
+      "13709.2"
+     ],
+     [
+      "14271.4",
+      "14009.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0252",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.92",
+    "polyline": [
+     [
+      "24424.9",
+      "2401.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0253",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.25",
+    "polyline": [
+     [
+      "27932.6",
+      "3289.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0254",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.26",
+    "polyline": [
+     [
+      "35578.3",
+      "18213.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0255",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.62",
+    "polyline": [
+     [
+      "1952.4",
+      "10456.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0256",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-04",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.57",
+    "polyline": [
+     [
+      "5609.2",
+      "24646.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0257",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-14",
+    "defectType": "SPALL",
+    "areaM2": "0.492",
+    "polyline": [
+     [
+      "8485.0",
+      "7412.5"
+     ],
+     [
+      "8885.0",
+      "7712.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0258",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.29",
+    "polyline": [
+     [
+      "27214.9",
+      "14951.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0259",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-08",
+    "defectType": "SPALL",
+    "areaM2": "0.846",
+    "polyline": [
+     [
+      "29205.8",
+      "14290.6"
+     ],
+     [
+      "29605.8",
+      "14590.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0260",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-12",
+    "defectType": "SPALL",
+    "areaM2": "0.369",
+    "polyline": [
+     [
+      "10970.7",
+      "8480.4"
+     ],
+     [
+      "11370.7",
+      "8780.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0261",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-22",
+    "defectType": "SPALL",
+    "areaM2": "0.880",
+    "polyline": [
+     [
+      "7738.1",
+      "20264.0"
+     ],
+     [
+      "8138.1",
+      "20564.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0262",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-22",
+    "defectType": "SPALL",
+    "areaM2": "0.476",
+    "polyline": [
+     [
+      "30816.0",
+      "12817.3"
+     ],
+     [
+      "31216.0",
+      "13117.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0263",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-29",
+    "defectType": "SPALL",
+    "areaM2": "0.982",
+    "polyline": [
+     [
+      "30596.7",
+      "12672.2"
+     ],
+     [
+      "30996.7",
+      "12972.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0264",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-27",
+    "defectType": "SPALL",
+    "areaM2": "0.894",
+    "polyline": [
+     [
+      "13056.3",
+      "1021.6"
+     ],
+     [
+      "13456.3",
+      "1321.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0265",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-09",
+    "defectType": "SPALL",
+    "areaM2": "0.620",
+    "polyline": [
+     [
+      "38546.8",
+      "7342.7"
+     ],
+     [
+      "38946.8",
+      "7642.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0266",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-14",
+    "defectType": "SPALL",
+    "areaM2": "0.357",
+    "polyline": [
+     [
+      "1426.8",
+      "6696.5"
+     ],
+     [
+      "1826.8",
+      "6996.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0267",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-08",
+    "defectType": "SPALL",
+    "areaM2": "0.547",
+    "polyline": [
+     [
+      "30545.8",
+      "2996.6"
+     ],
+     [
+      "30945.8",
+      "3296.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0268",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-35",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.04",
+    "polyline": [
+     [
+      "14742.0",
+      "15732.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0269",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-16",
+    "defectType": "SPALL",
+    "areaM2": "0.153",
+    "polyline": [
+     [
+      "10009.6",
+      "14881.5"
+     ],
+     [
+      "10409.6",
+      "15181.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0270",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-27",
+    "defectType": "SPALL",
+    "areaM2": "0.807",
+    "polyline": [
+     [
+      "25471.0",
+      "22782.6"
+     ],
+     [
+      "25871.0",
+      "23082.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0271",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-19",
+    "defectType": "SPALL",
+    "areaM2": "0.274",
+    "polyline": [
+     [
+      "1869.2",
+      "9824.9"
+     ],
+     [
+      "2269.2",
+      "10124.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0272",
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberId": "1F-WAL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.918",
+    "polyline": [
+     [
+      "24670.5",
+      "10703.4"
+     ],
+     [
+      "25070.5",
+      "11003.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0273",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-03",
+    "defectType": "SPALL",
+    "areaM2": "1.215",
+    "polyline": [
+     [
+      "27279.9",
+      "24779.5"
+     ],
+     [
+      "27679.9",
+      "25079.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0274",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-04",
+    "defectType": "SPALL",
+    "areaM2": "0.304",
+    "polyline": [
+     [
+      "34159.4",
+      "3074.8"
+     ],
+     [
+      "34559.4",
+      "3374.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0275",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.25",
+    "polyline": [
+     [
+      "20284.1",
+      "9913.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0276",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-08",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.18",
+    "polyline": [
+     [
+      "37200.5",
+      "9326.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0277",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-04",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.89",
+    "polyline": [
+     [
+      "14506.6",
+      "9912.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0278",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-08",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.84",
+    "polyline": [
+     [
+      "14453.7",
+      "21805.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0279",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "21603.7",
+      "18252.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0280",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-07",
+    "defectType": "SPALL",
+    "areaM2": "0.709",
+    "polyline": [
+     [
+      "1929.2",
+      "6781.8"
+     ],
+     [
+      "2329.2",
+      "7081.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0281",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-04",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.46",
+    "polyline": [
+     [
+      "25611.8",
+      "20179.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0282",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.55",
+    "polyline": [
+     [
+      "36521.3",
+      "22508.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0283",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberId": "2F-COL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.33",
+    "polyline": [
+     [
+      "15599.0",
+      "18038.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0284",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-07",
+    "defectType": "SPALL",
+    "areaM2": "0.789",
+    "polyline": [
+     [
+      "38997.2",
+      "23907.0"
+     ],
+     [
+      "39397.2",
+      "24207.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0285",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-17",
+    "defectType": "SPALL",
+    "areaM2": "0.512",
+    "polyline": [
+     [
+      "1803.1",
+      "14265.4"
+     ],
+     [
+      "2203.1",
+      "14565.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0286",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-15",
+    "defectType": "SPALL",
+    "areaM2": "1.149",
+    "polyline": [
+     [
+      "31831.9",
+      "14687.1"
+     ],
+     [
+      "32231.9",
+      "14987.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0287",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-11",
+    "defectType": "SPALL",
+    "areaM2": "0.165",
+    "polyline": [
+     [
+      "39202.8",
+      "11029.7"
+     ],
+     [
+      "39602.8",
+      "11329.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0288",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.06",
+    "polyline": [
+     [
+      "36934.6",
+      "9685.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0289",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.90",
+    "polyline": [
+     [
+      "15941.0",
+      "6929.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0290",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-10",
+    "defectType": "SPALL",
+    "areaM2": "0.764",
+    "polyline": [
+     [
+      "11198.4",
+      "1768.0"
+     ],
+     [
+      "11598.4",
+      "2068.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0291",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-15",
+    "defectType": "SPALL",
+    "areaM2": "0.112",
+    "polyline": [
+     [
+      "23045.5",
+      "7683.8"
+     ],
+     [
+      "23445.5",
+      "7983.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0292",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-15",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.30",
+    "polyline": [
+     [
+      "31389.1",
+      "4074.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0293",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-04",
+    "defectType": "SPALL",
+    "areaM2": "0.630",
+    "polyline": [
+     [
+      "37053.8",
+      "1256.3"
+     ],
+     [
+      "37453.8",
+      "1556.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0294",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-06",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "7985.6",
+      "22481.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0295",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-04",
+    "defectType": "SPALL",
+    "areaM2": "0.096",
+    "polyline": [
+     [
+      "3684.3",
+      "17011.0"
+     ],
+     [
+      "4084.3",
+      "17311.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0296",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-17",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.30",
+    "polyline": [
+     [
+      "21439.1",
+      "4371.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0297",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-17",
+    "defectType": "SPALL",
+    "areaM2": "1.332",
+    "polyline": [
+     [
+      "21388.4",
+      "24687.2"
+     ],
+     [
+      "21788.4",
+      "24987.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0298",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-16",
+    "defectType": "SPALL",
+    "areaM2": "0.789",
+    "polyline": [
+     [
+      "5147.6",
+      "11649.7"
+     ],
+     [
+      "5547.6",
+      "11949.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0299",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-06",
+    "defectType": "SPALL",
+    "areaM2": "0.246",
+    "polyline": [
+     [
+      "22382.6",
+      "1574.0"
+     ],
+     [
+      "22782.6",
+      "1874.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0300",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-05",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.85",
+    "polyline": [
+     [
+      "34935.4",
+      "10483.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0301",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-01",
+    "defectType": "SPALL",
+    "areaM2": "0.374",
+    "polyline": [
+     [
+      "23468.4",
+      "10574.7"
+     ],
+     [
+      "23868.4",
+      "10874.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0302",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-17",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.76",
+    "polyline": [
+     [
+      "8542.2",
+      "2073.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0303",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-15",
+    "defectType": "SPALL",
+    "areaM2": "1.370",
+    "polyline": [
+     [
+      "27388.1",
+      "21183.3"
+     ],
+     [
+      "27788.1",
+      "21483.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0304",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.223",
+    "polyline": [
+     [
+      "25592.8",
+      "4202.8"
+     ],
+     [
+      "25992.8",
+      "4502.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0305",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-03",
+    "defectType": "SPALL",
+    "areaM2": "0.534",
+    "polyline": [
+     [
+      "17263.3",
+      "9381.0"
+     ],
+     [
+      "17663.3",
+      "9681.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0306",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-10",
+    "defectType": "SPALL",
+    "areaM2": "0.086",
+    "polyline": [
+     [
+      "30923.4",
+      "1294.6"
+     ],
+     [
+      "31323.4",
+      "1594.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0307",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-08",
+    "defectType": "SPALL",
+    "areaM2": "1.158",
+    "polyline": [
+     [
+      "1571.0",
+      "11784.2"
+     ],
+     [
+      "1971.0",
+      "12084.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0308",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.66",
+    "polyline": [
+     [
+      "22779.8",
+      "3485.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0309",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-09",
+    "defectType": "SPALL",
+    "areaM2": "0.879",
+    "polyline": [
+     [
+      "10736.8",
+      "14605.2"
+     ],
+     [
+      "11136.8",
+      "14905.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0310",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-11",
+    "defectType": "SPALL",
+    "areaM2": "0.849",
+    "polyline": [
+     [
+      "21270.3",
+      "19935.4"
+     ],
+     [
+      "21670.3",
+      "20235.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0311",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.12",
+    "polyline": [
+     [
+      "9241.2",
+      "24388.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0312",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.16",
+    "polyline": [
+     [
+      "25406.2",
+      "14841.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0313",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-06",
+    "defectType": "SPALL",
+    "areaM2": "0.445",
+    "polyline": [
+     [
+      "31484.9",
+      "2216.7"
+     ],
+     [
+      "31884.9",
+      "2516.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0314",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.037",
+    "polyline": [
+     [
+      "16532.7",
+      "12869.1"
+     ],
+     [
+      "16932.7",
+      "13169.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0315",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-07",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.92",
+    "polyline": [
+     [
+      "26721.7",
+      "11899.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0316",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-10",
+    "defectType": "SPALL",
+    "areaM2": "0.985",
+    "polyline": [
+     [
+      "14506.3",
+      "18295.1"
+     ],
+     [
+      "14906.3",
+      "18595.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0317",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-17",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.06",
+    "polyline": [
+     [
+      "16640.9",
+      "17823.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0318",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-13",
+    "defectType": "SPALL",
+    "areaM2": "0.460",
+    "polyline": [
+     [
+      "18964.3",
+      "2400.4"
+     ],
+     [
+      "19364.3",
+      "2700.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0319",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberId": "2F-BEA-04",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "17506.9",
+      "15451.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0320",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-19",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.87",
+    "polyline": [
+     [
+      "33604.9",
+      "23257.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0321",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.40",
+    "polyline": [
+     [
+      "18315.4",
+      "10238.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0322",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.60",
+    "polyline": [
+     [
+      "26190.1",
+      "8997.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0323",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-32",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.50",
+    "polyline": [
+     [
+      "36841.7",
+      "4039.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0324",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.061",
+    "polyline": [
+     [
+      "6085.6",
+      "10668.2"
+     ],
+     [
+      "6485.6",
+      "10968.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0325",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.73",
+    "polyline": [
+     [
+      "11006.6",
+      "9511.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0326",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.82",
+    "polyline": [
+     [
+      "10765.5",
+      "12518.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0327",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-12",
+    "defectType": "SPALL",
+    "areaM2": "0.105",
+    "polyline": [
+     [
+      "3448.8",
+      "17996.0"
+     ],
+     [
+      "3848.8",
+      "18296.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0328",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.40",
+    "polyline": [
+     [
+      "2711.2",
+      "19638.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0329",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-24",
+    "defectType": "SPALL",
+    "areaM2": "0.328",
+    "polyline": [
+     [
+      "16469.1",
+      "2311.5"
+     ],
+     [
+      "16869.1",
+      "2611.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0330",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-24",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.86",
+    "polyline": [
+     [
+      "20528.8",
+      "22653.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0331",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-32",
+    "defectType": "SPALL",
+    "areaM2": "0.292",
+    "polyline": [
+     [
+      "13390.6",
+      "21262.9"
+     ],
+     [
+      "13790.6",
+      "21562.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0332",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "21827.5",
+      "1285.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0333",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-16",
+    "defectType": "SPALL",
+    "areaM2": "1.065",
+    "polyline": [
+     [
+      "27676.0",
+      "8978.2"
+     ],
+     [
+      "28076.0",
+      "9278.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0334",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-34",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.96",
+    "polyline": [
+     [
+      "24327.5",
+      "17537.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0335",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-32",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.67",
+    "polyline": [
+     [
+      "18458.7",
+      "4693.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0336",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-11",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.73",
+    "polyline": [
+     [
+      "19426.8",
+      "14297.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0337",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-28",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.07",
+    "polyline": [
+     [
+      "37786.9",
+      "15512.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0338",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-16",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.07",
+    "polyline": [
+     [
+      "37310.9",
+      "1395.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0339",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-08",
+    "defectType": "SPALL",
+    "areaM2": "0.103",
+    "polyline": [
+     [
+      "1091.0",
+      "23717.6"
+     ],
+     [
+      "1491.0",
+      "24017.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0340",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-18",
+    "defectType": "SPALL",
+    "areaM2": "0.057",
+    "polyline": [
+     [
+      "7906.5",
+      "16001.3"
+     ],
+     [
+      "8306.5",
+      "16301.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0341",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-27",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.53",
+    "polyline": [
+     [
+      "37228.5",
+      "13424.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0342",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-30",
+    "defectType": "SPALL",
+    "areaM2": "0.898",
+    "polyline": [
+     [
+      "26026.9",
+      "5243.7"
+     ],
+     [
+      "26426.9",
+      "5543.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0343",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-16",
+    "defectType": "SPALL",
+    "areaM2": "1.224",
+    "polyline": [
+     [
+      "34349.9",
+      "23858.5"
+     ],
+     [
+      "34749.9",
+      "24158.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0344",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-24",
+    "defectType": "SPALL",
+    "areaM2": "0.673",
+    "polyline": [
+     [
+      "28109.9",
+      "13251.4"
+     ],
+     [
+      "28509.9",
+      "13551.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0345",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.90",
+    "polyline": [
+     [
+      "16589.2",
+      "15195.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0346",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-10",
+    "defectType": "SPALL",
+    "areaM2": "0.046",
+    "polyline": [
+     [
+      "36908.9",
+      "14197.3"
+     ],
+     [
+      "37308.9",
+      "14497.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0347",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-13",
+    "defectType": "SPALL",
+    "areaM2": "0.465",
+    "polyline": [
+     [
+      "29204.7",
+      "20607.3"
+     ],
+     [
+      "29604.7",
+      "20907.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0348",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-27",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.08",
+    "polyline": [
+     [
+      "14132.9",
+      "22379.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0349",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-20",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.16",
+    "polyline": [
+     [
+      "31231.1",
+      "19877.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0350",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-16",
+    "defectType": "SPALL",
+    "areaM2": "0.162",
+    "polyline": [
+     [
+      "32885.2",
+      "4584.4"
+     ],
+     [
+      "33285.2",
+      "4884.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0351",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-22",
+    "defectType": "SPALL",
+    "areaM2": "0.983",
+    "polyline": [
+     [
+      "31219.6",
+      "1440.4"
+     ],
+     [
+      "31619.6",
+      "1740.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0352",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-32",
+    "defectType": "SPALL",
+    "areaM2": "0.599",
+    "polyline": [
+     [
+      "11673.8",
+      "24956.9"
+     ],
+     [
+      "12073.8",
+      "25256.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0353",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-06",
+    "defectType": "SPALL",
+    "areaM2": "0.936",
+    "polyline": [
+     [
+      "14768.2",
+      "11967.9"
+     ],
+     [
+      "15168.2",
+      "12267.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0354",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-09",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.22",
+    "polyline": [
+     [
+      "17248.4",
+      "24062.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0355",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.55",
+    "polyline": [
+     [
+      "28188.4",
+      "5177.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0356",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-09",
+    "defectType": "SPALL",
+    "areaM2": "0.663",
+    "polyline": [
+     [
+      "8426.7",
+      "14524.8"
+     ],
+     [
+      "8826.7",
+      "14824.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0357",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.18",
+    "polyline": [
+     [
+      "30505.6",
+      "9754.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0358",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.91",
+    "polyline": [
+     [
+      "2152.1",
+      "8884.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0359",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-30",
+    "defectType": "SPALL",
+    "areaM2": "1.135",
+    "polyline": [
+     [
+      "8510.7",
+      "23472.3"
+     ],
+     [
+      "8910.7",
+      "23772.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0360",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-35",
+    "defectType": "SPALL",
+    "areaM2": "1.315",
+    "polyline": [
+     [
+      "33977.8",
+      "17614.0"
+     ],
+     [
+      "34377.8",
+      "17914.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0361",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-31",
+    "defectType": "SPALL",
+    "areaM2": "0.379",
+    "polyline": [
+     [
+      "22532.4",
+      "14881.6"
+     ],
+     [
+      "22932.4",
+      "15181.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0362",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.64",
+    "polyline": [
+     [
+      "34324.2",
+      "9569.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0363",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-13",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.50",
+    "polyline": [
+     [
+      "39007.9",
+      "23998.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0364",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-34",
+    "defectType": "SPALL",
+    "areaM2": "0.296",
+    "polyline": [
+     [
+      "11239.2",
+      "16021.5"
+     ],
+     [
+      "11639.2",
+      "16321.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0365",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-26",
+    "defectType": "SPALL",
+    "areaM2": "0.810",
+    "polyline": [
+     [
+      "39218.9",
+      "20438.9"
+     ],
+     [
+      "39618.9",
+      "20738.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0366",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-22",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.25",
+    "polyline": [
+     [
+      "30921.8",
+      "8298.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0367",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-20",
+    "defectType": "SPALL",
+    "areaM2": "0.574",
+    "polyline": [
+     [
+      "26350.7",
+      "6767.1"
+     ],
+     [
+      "26750.7",
+      "7067.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0368",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-28",
+    "defectType": "SPALL",
+    "areaM2": "1.142",
+    "polyline": [
+     [
+      "34108.2",
+      "5082.7"
+     ],
+     [
+      "34508.2",
+      "5382.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0369",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-18",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.53",
+    "polyline": [
+     [
+      "2259.7",
+      "17439.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0370",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.77",
+    "polyline": [
+     [
+      "25844.2",
+      "22182.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0371",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-14",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.13",
+    "polyline": [
+     [
+      "17824.1",
+      "20393.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0372",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-05",
+    "defectType": "SPALL",
+    "areaM2": "0.742",
+    "polyline": [
+     [
+      "9217.8",
+      "8440.3"
+     ],
+     [
+      "9617.8",
+      "8740.3"
+     ]
+    ]
+   },
+   {
+    "id": "D-0373",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.69",
+    "polyline": [
+     [
+      "16911.2",
+      "18994.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0374",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-03",
+    "defectType": "SPALL",
+    "areaM2": "0.331",
+    "polyline": [
+     [
+      "7900.6",
+      "2105.2"
+     ],
+     [
+      "8300.6",
+      "2405.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0375",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-16",
+    "defectType": "SPALL",
+    "areaM2": "0.609",
+    "polyline": [
+     [
+      "24019.0",
+      "12963.4"
+     ],
+     [
+      "24419.0",
+      "13263.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0376",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-05",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.18",
+    "polyline": [
+     [
+      "25315.9",
+      "7602.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0377",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-14",
+    "defectType": "SPALL",
+    "areaM2": "0.409",
+    "polyline": [
+     [
+      "13153.7",
+      "10794.2"
+     ],
+     [
+      "13553.7",
+      "11094.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0378",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-11",
+    "defectType": "SPALL",
+    "areaM2": "0.360",
+    "polyline": [
+     [
+      "31341.1",
+      "1924.1"
+     ],
+     [
+      "31741.1",
+      "2224.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0379",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-33",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.81",
+    "polyline": [
+     [
+      "11779.6",
+      "1039.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0380",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-01",
+    "defectType": "SPALL",
+    "areaM2": "1.294",
+    "polyline": [
+     [
+      "14781.0",
+      "19281.6"
+     ],
+     [
+      "15181.0",
+      "19581.6"
+     ]
+    ]
+   },
+   {
+    "id": "D-0381",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-21",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.24",
+    "polyline": [
+     [
+      "7745.9",
+      "20133.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0382",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-28",
+    "defectType": "SPALL",
+    "areaM2": "0.871",
+    "polyline": [
+     [
+      "39774.7",
+      "4361.0"
+     ],
+     [
+      "40174.7",
+      "4661.0"
+     ]
+    ]
+   },
+   {
+    "id": "D-0383",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberId": "2F-SLA-14",
+    "defectType": "SPALL",
+    "areaM2": "1.157",
+    "polyline": [
+     [
+      "11695.5",
+      "9566.5"
+     ],
+     [
+      "12095.5",
+      "9866.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0384",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "1.01",
+    "polyline": [
+     [
+      "15161.5",
+      "6963.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0385",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-02",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.29",
+    "polyline": [
+     [
+      "26244.6",
+      "7525.4"
+     ]
+    ]
+   },
+   {
+    "id": "D-0386",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-01",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.24",
+    "polyline": [
+     [
+      "21705.0",
+      "17010.9"
+     ]
+    ]
+   },
+   {
+    "id": "D-0387",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-12",
+    "defectType": "SPALL",
+    "areaM2": "0.854",
+    "polyline": [
+     [
+      "21186.3",
+      "19803.5"
+     ],
+     [
+      "21586.3",
+      "20103.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0388",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-10",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.94",
+    "polyline": [
+     [
+      "39543.2",
+      "15245.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0389",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-09",
+    "defectType": "SPALL",
+    "areaM2": "0.122",
+    "polyline": [
+     [
+      "14906.4",
+      "7300.1"
+     ],
+     [
+      "15306.4",
+      "7600.1"
+     ]
+    ]
+   },
+   {
+    "id": "D-0390",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-11",
+    "defectType": "SPALL",
+    "areaM2": "0.799",
+    "polyline": [
+     [
+      "39339.0",
+      "24190.2"
+     ],
+     [
+      "39739.0",
+      "24490.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0391",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-01",
+    "defectType": "SPALL",
+    "areaM2": "0.809",
+    "polyline": [
+     [
+      "37254.8",
+      "20610.8"
+     ],
+     [
+      "37654.8",
+      "20910.8"
+     ]
+    ]
+   },
+   {
+    "id": "D-0392",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-06",
+    "defectType": "SPALL",
+    "areaM2": "1.142",
+    "polyline": [
+     [
+      "16762.6",
+      "7868.2"
+     ],
+     [
+      "17162.6",
+      "8168.2"
+     ]
+    ]
+   },
+   {
+    "id": "D-0393",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-03",
+    "defectType": "REBAR_EXPOSURE",
+    "lengthM": "0.55",
+    "polyline": [
+     [
+      "37320.7",
+      "19056.7"
+     ]
+    ]
+   },
+   {
+    "id": "D-0394",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-10",
+    "defectType": "SPALL",
+    "areaM2": "0.161",
+    "polyline": [
+     [
+      "17549.0",
+      "21205.5"
+     ],
+     [
+      "17949.0",
+      "21505.5"
+     ]
+    ]
+   },
+   {
+    "id": "D-0395",
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberId": "2F-WAL-12",
+    "defectType": "SPALL",
+    "areaM2": "1.348",
+    "polyline": [
+     [
+      "29543.8",
+      "13260.3"
+     ],
+     [
+      "29943.8",
+      "13560.3"
+     ]
+    ]
+   }
+  ]
+ },
+ "expected": {
+  "memberRatings": [
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "BEAM",
+    "memberCount": 6,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "0.5000",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.4068",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0192",
+       "D-0196"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.3333",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0191",
+       "D-0193",
+       "D-0194",
+       "D-0195"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "COLUMN",
+    "memberCount": 24,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.25",
+    "affectedRatio": "0.5417",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.4280",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0170",
+       "D-0171",
+       "D-0173",
+       "D-0176",
+       "D-0177",
+       "D-0180",
+       "D-0181",
+       "D-0183",
+       "D-0187",
+       "D-0188"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.3750",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0172",
+       "D-0174",
+       "D-0175",
+       "D-0178",
+       "D-0179",
+       "D-0182",
+       "D-0184",
+       "D-0185",
+       "D-0186",
+       "D-0189",
+       "D-0190"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "SLAB",
+    "memberCount": 13,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "0.8462",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.6455",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0197",
+       "D-0198",
+       "D-0199",
+       "D-0201",
+       "D-0202",
+       "D-0203",
+       "D-0204",
+       "D-0208",
+       "D-0210",
+       "D-0216",
+       "D-0217",
+       "D-0218",
+       "D-0220"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5385",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0200",
+       "D-0205",
+       "D-0206",
+       "D-0207",
+       "D-0209",
+       "D-0211",
+       "D-0212",
+       "D-0213",
+       "D-0214",
+       "D-0215",
+       "D-0219"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "memberType": "WALL",
+    "memberCount": 35,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.15",
+    "affectedRatio": "0.8286",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.2",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.6335",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0223",
+       "D-0229",
+       "D-0230",
+       "D-0232",
+       "D-0233",
+       "D-0234",
+       "D-0235",
+       "D-0236",
+       "D-0239",
+       "D-0240",
+       "D-0241",
+       "D-0242",
+       "D-0243",
+       "D-0248",
+       "D-0249",
+       "D-0251",
+       "D-0257",
+       "D-0259",
+       "D-0260",
+       "D-0261",
+       "D-0262",
+       "D-0263",
+       "D-0264",
+       "D-0265",
+       "D-0266",
+       "D-0267",
+       "D-0269",
+       "D-0270",
+       "D-0271",
+       "D-0272"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "BEAM",
+    "memberCount": 17,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "1.0000",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.8226",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0284",
+       "D-0285",
+       "D-0286",
+       "D-0287",
+       "D-0290",
+       "D-0291",
+       "D-0293",
+       "D-0295",
+       "D-0297",
+       "D-0298",
+       "D-0299",
+       "D-0301",
+       "D-0303",
+       "D-0304",
+       "D-0305",
+       "D-0306",
+       "D-0307",
+       "D-0309",
+       "D-0310",
+       "D-0313",
+       "D-0314",
+       "D-0316",
+       "D-0318"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5294",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0288",
+       "D-0289",
+       "D-0292",
+       "D-0294",
+       "D-0296",
+       "D-0300",
+       "D-0302",
+       "D-0308",
+       "D-0311",
+       "D-0312",
+       "D-0315",
+       "D-0317",
+       "D-0319"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "COLUMN",
+    "memberCount": 9,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.25",
+    "affectedRatio": "0.6667",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.2476",
+      "unit": "m2/member",
+      "rating": "d",
+      "threshold": "0.40",
+      "defectIds": [
+       "D-0273",
+       "D-0274",
+       "D-0280"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5556",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0275",
+       "D-0276",
+       "D-0277",
+       "D-0278",
+       "D-0279",
+       "D-0281",
+       "D-0282",
+       "D-0283"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "SLAB",
+    "memberCount": 35,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "0.8000",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.5738",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0324",
+       "D-0327",
+       "D-0329",
+       "D-0331",
+       "D-0333",
+       "D-0339",
+       "D-0340",
+       "D-0342",
+       "D-0343",
+       "D-0344",
+       "D-0346",
+       "D-0347",
+       "D-0350",
+       "D-0351",
+       "D-0352",
+       "D-0353",
+       "D-0356",
+       "D-0359",
+       "D-0360",
+       "D-0361",
+       "D-0364",
+       "D-0365",
+       "D-0367",
+       "D-0368",
+       "D-0372",
+       "D-0374",
+       "D-0375",
+       "D-0377",
+       "D-0378",
+       "D-0380",
+       "D-0382",
+       "D-0383"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5714",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0320",
+       "D-0321",
+       "D-0322",
+       "D-0323",
+       "D-0325",
+       "D-0326",
+       "D-0328",
+       "D-0330",
+       "D-0332",
+       "D-0334",
+       "D-0335",
+       "D-0336",
+       "D-0337",
+       "D-0338",
+       "D-0341",
+       "D-0345",
+       "D-0348",
+       "D-0349",
+       "D-0354",
+       "D-0355",
+       "D-0357",
+       "D-0358",
+       "D-0362",
+       "D-0363",
+       "D-0366",
+       "D-0369",
+       "D-0370",
+       "D-0371",
+       "D-0373",
+       "D-0376",
+       "D-0379",
+       "D-0381"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "memberType": "WALL",
+    "memberCount": 13,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.15",
+    "affectedRatio": "0.6154",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.2",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.4027",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0387",
+       "D-0389",
+       "D-0390",
+       "D-0391",
+       "D-0392",
+       "D-0394",
+       "D-0395"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "BEAM",
+    "memberCount": 23,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "0.6957",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.5895",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0062",
+       "D-0063",
+       "D-0066",
+       "D-0068",
+       "D-0073",
+       "D-0074",
+       "D-0076",
+       "D-0077",
+       "D-0079",
+       "D-0080",
+       "D-0081",
+       "D-0083",
+       "D-0084",
+       "D-0085",
+       "D-0090",
+       "D-0092"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5217",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0061",
+       "D-0064",
+       "D-0065",
+       "D-0067",
+       "D-0069",
+       "D-0070",
+       "D-0071",
+       "D-0072",
+       "D-0075",
+       "D-0078",
+       "D-0082",
+       "D-0086",
+       "D-0087",
+       "D-0088",
+       "D-0089",
+       "D-0091"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "COLUMN",
+    "memberCount": 12,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.25",
+    "affectedRatio": "0.7500",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.4089",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0048",
+       "D-0050",
+       "D-0055",
+       "D-0056",
+       "D-0058",
+       "D-0060"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.5833",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0046",
+       "D-0047",
+       "D-0049",
+       "D-0051",
+       "D-0052",
+       "D-0053",
+       "D-0054",
+       "D-0057",
+       "D-0059"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "FOUNDATION",
+    "memberCount": 26,
+    "rating": "a",
+    "score": "1",
+    "weight": "0.20",
+    "affectedRatio": "0.8846",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "SLAB",
+    "memberCount": 34,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.20",
+    "affectedRatio": "0.6765",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.1",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.4498",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0096",
+       "D-0097",
+       "D-0100",
+       "D-0101",
+       "D-0102",
+       "D-0103",
+       "D-0104",
+       "D-0106",
+       "D-0107",
+       "D-0109",
+       "D-0110",
+       "D-0114",
+       "D-0115",
+       "D-0120",
+       "D-0121",
+       "D-0125",
+       "D-0126",
+       "D-0127",
+       "D-0128",
+       "D-0133",
+       "D-0134",
+       "D-0136",
+       "D-0137",
+       "D-0138"
+      ]
+     },
+     {
+      "indicator": "rebar_exposure_ratio",
+      "value": "0.4706",
+      "unit": "ratio",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0093",
+       "D-0094",
+       "D-0095",
+       "D-0098",
+       "D-0099",
+       "D-0105",
+       "D-0108",
+       "D-0111",
+       "D-0112",
+       "D-0113",
+       "D-0116",
+       "D-0117",
+       "D-0118",
+       "D-0119",
+       "D-0122",
+       "D-0123",
+       "D-0124",
+       "D-0129",
+       "D-0130",
+       "D-0131",
+       "D-0132",
+       "D-0135"
+      ]
+     }
+    ]
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "memberType": "WALL",
+    "memberCount": 15,
+    "rating": "e",
+    "score": "5",
+    "weight": "0.15",
+    "affectedRatio": "0.6667",
+    "evidence": [
+     {
+      "indicator": "crack_width_mm",
+      "value": "0",
+      "unit": "mm",
+      "rating": "a",
+      "threshold": "0.2",
+      "defectIds": []
+     },
+     {
+      "indicator": "spall_m2_per_member",
+      "value": "0.8635",
+      "unit": "m2/member",
+      "rating": "e",
+      "threshold": null,
+      "defectIds": [
+       "D-0141",
+       "D-0145",
+       "D-0146",
+       "D-0147",
+       "D-0150",
+       "D-0151",
+       "D-0153",
+       "D-0157",
+       "D-0158",
+       "D-0160",
+       "D-0161",
+       "D-0162",
+       "D-0164",
+       "D-0165",
+       "D-0167",
+       "D-0168",
+       "D-0169"
+      ]
+     }
+    ]
+   }
+  ],
+  "floorScores": [
+   {
+    "buildingCode": "B01",
+    "floorCode": "1F",
+    "score": "5.000000"
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "2F",
+    "score": "5.000000"
+   },
+   {
+    "buildingCode": "B01",
+    "floorCode": "B1",
+    "score": "4.200000"
+   }
+  ],
+  "buildingScores": [
+   {
+    "buildingCode": "B01",
+    "score": "4.813333"
+   }
+  ],
+  "facilityScore": "4.813",
+  "computedGrade": "E",
+  "appliedFloorRules": [],
+  "ruleVersion": "2026.1"
+ }
+}

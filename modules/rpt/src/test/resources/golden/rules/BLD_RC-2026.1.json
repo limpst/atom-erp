@@ -1,0 +1,382 @@
+{
+  "condRating": {
+    "extent": {
+      "delta": -1,
+      "floor": "b",
+      "lt": "0.10",
+      "metric": "affected_member_ratio"
+    },
+    "items": {
+      "BEAM.crack_width_mm": {
+        "bands": [
+          {
+            "lt": "0.1",
+            "rating": "a"
+          },
+          {
+            "lt": "0.2",
+            "rating": "b"
+          },
+          {
+            "lt": "0.3",
+            "rating": "c"
+          },
+          {
+            "lt": "1.0",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "mm"
+      },
+      "BEAM.rebar_exposure_ratio": {
+        "bands": [
+          {
+            "lt": "0.001",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.30",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "ratio"
+      },
+      "BEAM.spall_m2_per_member": {
+        "bands": [
+          {
+            "lt": "0.01",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.40",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "m2/member"
+      },
+      "COLUMN.crack_width_mm": {
+        "bands": [
+          {
+            "lt": "0.1",
+            "rating": "a"
+          },
+          {
+            "lt": "0.2",
+            "rating": "b"
+          },
+          {
+            "lt": "0.3",
+            "rating": "c"
+          },
+          {
+            "lt": "1.0",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "mm"
+      },
+      "COLUMN.rebar_exposure_ratio": {
+        "bands": [
+          {
+            "lt": "0.001",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.30",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "ratio"
+      },
+      "COLUMN.spall_m2_per_member": {
+        "bands": [
+          {
+            "lt": "0.01",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.40",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "m2/member"
+      },
+      "FOUNDATION.crack_width_mm": {
+        "bands": [
+          {
+            "lt": "0.1",
+            "rating": "a"
+          },
+          {
+            "lt": "0.2",
+            "rating": "b"
+          },
+          {
+            "lt": "0.3",
+            "rating": "c"
+          },
+          {
+            "lt": "0.5",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "mm"
+      },
+      "SLAB.crack_width_mm": {
+        "bands": [
+          {
+            "lt": "0.1",
+            "rating": "a"
+          },
+          {
+            "lt": "0.3",
+            "rating": "b"
+          },
+          {
+            "lt": "0.5",
+            "rating": "c"
+          },
+          {
+            "lt": "1.0",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "mm"
+      },
+      "SLAB.rebar_exposure_ratio": {
+        "bands": [
+          {
+            "lt": "0.001",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.30",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "ratio"
+      },
+      "SLAB.spall_m2_per_member": {
+        "bands": [
+          {
+            "lt": "0.01",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.40",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "m2/member"
+      },
+      "WALL.crack_width_mm": {
+        "bands": [
+          {
+            "lt": "0.2",
+            "rating": "a"
+          },
+          {
+            "lt": "0.3",
+            "rating": "b"
+          },
+          {
+            "lt": "0.5",
+            "rating": "c"
+          },
+          {
+            "lt": "1.0",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "mm"
+      },
+      "WALL.spall_m2_per_member": {
+        "bands": [
+          {
+            "lt": "0.01",
+            "rating": "a"
+          },
+          {
+            "lt": "0.05",
+            "rating": "b"
+          },
+          {
+            "lt": "0.15",
+            "rating": "c"
+          },
+          {
+            "lt": "0.40",
+            "rating": "d"
+          },
+          {
+            "else": true,
+            "rating": "e"
+          }
+        ],
+        "unit": "m2/member"
+      }
+    }
+  },
+  "effectiveFrom": "2026-01-01",
+  "effectiveTo": null,
+  "facilityClass": "BLD_RC",
+  "gradeBand": {
+    "bands": [
+      {
+        "grade": "A",
+        "lt": "1.5"
+      },
+      {
+        "grade": "B",
+        "lt": "2.5"
+      },
+      {
+        "grade": "C",
+        "lt": "3.5"
+      },
+      {
+        "grade": "D",
+        "lt": "4.5"
+      },
+      {
+        "else": true,
+        "grade": "E"
+      }
+    ],
+    "floorRules": [
+      {
+        "id": "FR-MAJOR-E-MIN-D",
+        "memberTypes": [
+          "FOUNDATION",
+          "COLUMN",
+          "BEAM"
+        ],
+        "minGrade": "D",
+        "rating": "e"
+      },
+      {
+        "id": "FR-MAJOR-D-MIN-C",
+        "memberTypes": [
+          "FOUNDATION",
+          "COLUMN"
+        ],
+        "minGrade": "C",
+        "rating": "d"
+      }
+    ],
+    "scores": {
+      "a": "1",
+      "b": "2",
+      "c": "3",
+      "d": "4",
+      "e": "5"
+    }
+  },
+  "gradeWeight": {
+    "floorAgg": {
+      "mode": "AVG_WORST_BLEND",
+      "worstWeight": "0.30"
+    },
+    "weights": {
+      "BEAM": "0.20",
+      "COLUMN": "0.25",
+      "FOUNDATION": "0.20",
+      "SLAB": "0.20",
+      "WALL": "0.15"
+    }
+  },
+  "legalBasis": "예시값 — 「시설물의 안전 및 유지관리 실시 세부지침」 상태평가 기준표로 교체 ⚠️ 법령 최신본 확인 필요",
+  "version": "2026.1"
+}

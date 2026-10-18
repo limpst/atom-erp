@@ -1,0 +1,2 @@
+{{report.title}}
+{{facility.name}} / {{inspection.date}}

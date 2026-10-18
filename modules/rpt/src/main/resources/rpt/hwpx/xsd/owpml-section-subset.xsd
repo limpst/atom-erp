@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OWPML 구역(section) 루트 — 부분 스키마(검증용). 본문은 hp:p 의 나열 -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"
+           xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph"
+           targetNamespace="http://www.hancom.co.kr/hwpml/2011/section"
+           elementFormDefault="qualified">
+  <xs:import namespace="http://www.hancom.co.kr/hwpml/2011/paragraph" schemaLocation="owpml-paragraph-subset.xsd"/>
+  <xs:element name="sec">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:p" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

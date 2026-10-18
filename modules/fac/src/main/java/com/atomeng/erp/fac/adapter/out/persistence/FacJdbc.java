@@ -49,13 +49,27 @@ public class FacJdbc implements RuleSource {
     // ------------------------------------------------------------ 등급 이력
     public UUID insertGrade(UUID buildingId, Grade grade, InspectionType type, LocalDate performedOn, UUID reportId,
                             String source, UUID recordedBy) {
+        return insertGrade(buildingId, grade, type, performedOn, reportId, source, recordedBy, null);
+    }
+
+    /** correctionOf = 같은 보고서의 이전 발행본(정정 전) 등급 행 — RPT 정정본(Rev.N) 발행 시 (ux_grade_report_building 대상 외) */
+    public UUID insertGrade(UUID buildingId, Grade grade, InspectionType type, LocalDate performedOn, UUID reportId,
+                            String source, UUID recordedBy, UUID correctionOf) {
         UUID id = UuidV7.next();
         jdbc.update("""
                 INSERT INTO fac.grade_history(id, building_id, grade, inspection_type, performed_on, report_id,
-                                              performer, source, recorded_by)
-                VALUES (?, ?, ?, ?, ?, ?, 'ATOM', ?, ?)""",
-                id, buildingId, grade.name(), type.name(), Date.valueOf(performedOn), reportId, source, recordedBy);
+                                              performer, source, recorded_by, correction_of, note)
+                VALUES (?, ?, ?, ?, ?, ?, 'ATOM', ?, ?, ?, ?)""",
+                id, buildingId, grade.name(), type.name(), Date.valueOf(performedOn), reportId, source, recordedBy,
+                correctionOf, correctionOf == null ? null : "RPT 정정본 발행");
         return id;
+    }
+
+    /** 같은 보고서 · 동의 가장 최근 등급 행(정정 체인의 끝) */
+    public java.util.Optional<UUID> latestGradeRowOfReport(UUID reportId, UUID buildingId) {
+        return jdbc.queryForList("""
+                SELECT id FROM fac.grade_history WHERE report_id = ? AND building_id = ?
+                 ORDER BY recorded_at DESC, id DESC LIMIT 1""", UUID.class, reportId, buildingId).stream().findFirst();
     }
 
     public List<GradeRow> grades(UUID buildingId) {

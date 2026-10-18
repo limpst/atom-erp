@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,eqp,cst,fcd,sal
+    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -90,6 +90,11 @@ atom:
       page-size: 100
       read-timeout: 10s
       max-attempts: 3
+  rpt:
+    facility-class: BLD_RC        # 상태평가 rule table 기본 시설물 분류(⚠️ 예시 규칙 V6_0_2)
+    pdf:
+      gotenberg-url: ${GOTENBERG_URL:}   # 비우면 스텁 변환기(합성 PDF, 경고 로그) — 운영은 Gotenberg(LibreOffice+H2Orestart)
+      timeout: 10m
   outbox:
     relay:
       enabled: true
@@ -107,7 +112,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

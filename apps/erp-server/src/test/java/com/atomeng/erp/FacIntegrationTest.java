@@ -14,6 +14,7 @@ import com.atomeng.common.events.OutboxRelay;
 import com.atomeng.erp.fac.adapter.in.event.ReportPublishedListener;
 import com.atomeng.erp.fac.application.DueScanService;
 import com.atomeng.erp.support.IntegrationTestBase;
+import com.atomeng.erp.support.RptFlow;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -33,7 +34,7 @@ import org.springframework.http.MediaType;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** 02 FAC 통합 테스트 — 등록·중복(TC-FAC-001), 등급(TC-FAC-003·005), 도래 스캔(TC-FAC-006), 이벤트 */
+/** 02 FAC 통합 테스트 — 등록·중복(TC-FAC-001), 등급(TC-FAC-003·005, 실제 RPT 발행 흐름으로 rpt.report.published), 도래 스캔(TC-FAC-006), 이벤트 */
 class FacIntegrationTest extends IntegrationTestBase {
 
     private static final AtomicLong PNU_SEQ = new AtomicLong(System.nanoTime() % 1_000_000_000L);
@@ -48,12 +49,14 @@ class FacIntegrationTest extends IntegrationTestBase {
     PlatformTransactionManager txManager;
 
     UUID pm;
+    RptFlow rptFlow;
 
     @BeforeEach
     void setUp() {
         jdbc.execute("TRUNCATE core.outbox_event, core.outbox_dead");
         pm = actor();
         clock.reset();
+        rptFlow = new RptFlow(mvc, jdbc, objectMapper, relay);
     }
 
     @AfterEach
@@ -93,18 +96,13 @@ class FacIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.status").value("CLASSIFIED"));
     }
 
-    /** RPT 미구현 → 보고서 발행 이벤트를 outbox 에 직접 넣고 Relay 로 전달(실제 경로와 동일) */
-    private UUID publishReport(String type, UUID buildingId, String grade, String inspectionType, LocalDate performedOn) {
-        UUID eventId = UUID.randomUUID();
-        UUID reportId = UUID.randomUUID();
-        String payload = """
-                {"reportId":"%s","buildingIds":["%s"],"grade":"%s","inspectionType":"%s","performedOn":"%s",
-                 "approvedBy":"%s"}""".formatted(reportId, buildingId, grade, inspectionType, performedOn, pm);
-        jdbc.update("""
-                INSERT INTO core.outbox_event(id, aggregate_type, aggregate_id, event_type, payload, next_attempt_at)
-                VALUES (?, 'Report', ?, ?, ?::jsonb, now() - interval '1 minute')""", eventId, reportId, type, payload);
-        // 과거 시각: DB 시계(now)와 JVM 시계(Relay 기준)의 수 ms 차이로 즉시 폴링이 놓치는 플래키 방지
-        return eventId;
+    /**
+     * 보고서 발행 → 등급 기록: <b>실제 RPT 발행 흐름</b>(보고서 생성 → 스냅샷 동결 → compose → 등급 확정 → 렌더 → 검토 요청 →
+     * qar.review.approved → 발행)으로 rpt.report.published 를 outbox 에 남긴다. Relay 전달은 각 테스트가 한다.
+     * @return rpt.report.published 이벤트 id
+     */
+    private UUID publishReport(UUID buildingId, String grade, String inspectionType, LocalDate performedOn) throws Exception {
+        return rptFlow.publishGrade(buildingId, grade, inspectionType, performedOn).eventId();
     }
 
     private int outboxCount(String type, UUID aggregateId) {
@@ -175,12 +173,12 @@ class FacIntegrationTest extends IntegrationTestBase {
         classify(b, "CLASS1");
         LocalDate p1 = today().minusDays(400);
         LocalDate p2 = today().minusDays(10);
-        publishReport("rpt.report.published", b, "B", "DETAILED", p1);
+        publishReport(b, "B", "DETAILED", p1);
         assertThat(relay.pollOnce().published()).isGreaterThanOrEqualTo(1);
         mvc.perform(as(get("/api/v1/fac/buildings/" + b + "/dues"), pm, "PM"))
                 .andExpect(jsonPath("$[?(@.inspectionType == 'DETAILED')].dueDate").value(p1.plusMonths(36).toString()));
 
-        publishReport("rpt.report.published", b, "D", "DETAILED", p2);
+        publishReport(b, "D", "DETAILED", p2);
         relay.pollOnce();
 
         mvc.perform(as(get("/api/v1/fac/buildings/" + b + "/grades"), pm, "PM"))
@@ -209,7 +207,7 @@ class FacIntegrationTest extends IntegrationTestBase {
     void tcFac005_duplicateDelivery() throws Exception {
         UUID b = register(pnu(), "합성 아파트 101동", "101동");
         classify(b, "CLASS2");
-        UUID eventId = publishReport("rpt.report.published", b, "C", "REGULAR", today().minusDays(30));
+        UUID eventId = publishReport(b, "C", "REGULAR", today().minusDays(30));
         relay.pollOnce();
         // 재전달(at-least-once) — 같은 envelope 을 다시 받는다
         var payload = objectMapper.readTree(jdbc.queryForObject(
@@ -230,7 +228,7 @@ class FacIntegrationTest extends IntegrationTestBase {
         classify(b, "CLASS2");
         // 정기점검(⚠️ 예시: A~C 6개월) — 도래일이 오늘+60일이 되도록 수행일 설정
         LocalDate performed = today().plusDays(60).minusMonths(6);
-        publishReport("rpt.report.published", b, "B", "REGULAR", performed);
+        publishReport(b, "B", "REGULAR", performed);
         relay.pollOnce();
         LocalDate dueDate = performed.plusMonths(6);
 
@@ -265,7 +263,7 @@ class FacIntegrationTest extends IntegrationTestBase {
     @DisplayName("TC-FAC-007(통합): 애플리케이션 계정으로도 grade_history UPDATE 불가")
     void tcFac007_viaApplication() throws Exception {
         UUID b = register(pnu(), "합성 체육관", "");
-        publishReport("rpt.report.published", b, "C", "DETAILED", today().minusDays(3));
+        publishReport(b, "C", "DETAILED", today().minusDays(3));
         relay.pollOnce();
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                         jdbc.update("UPDATE fac.grade_history SET grade = 'A' WHERE building_id = ?", b))

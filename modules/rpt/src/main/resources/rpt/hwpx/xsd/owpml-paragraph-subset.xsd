@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWPML(KS X 6101) 문단 네임스페이스 — RPT 가 만드는 요소만 담은 "부분 스키마"(검증용, 공식 XSD 아님).
+  문단(p) · 런(run) · 텍스트(t) · 표(tbl/tr/tc/subList/cellAddr/cellSpan/cellSz) 구조와 필수 속성을 엄격히 보고,
+  구역 설정(secPr) · 컨트롤(ctrl) · 그림(pic) 내부는 lax(알려진 요소만 검사)로 둔다.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph"
+           targetNamespace="http://www.hancom.co.kr/hwpml/2011/paragraph"
+           elementFormDefault="qualified">
+
+  <xs:complexType name="LaxType">
+    <xs:sequence>
+      <xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:anyAttribute processContents="lax"/>
+  </xs:complexType>
+
+  <xs:simpleType name="Bool01">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="0"/>
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="secPr" type="hp:LaxType"/>
+  <xs:element name="ctrl" type="hp:LaxType"/>
+  <xs:element name="pic" type="hp:LaxType"/>
+  <xs:element name="linesegarray" type="hp:LaxType"/>
+  <xs:element name="sz" type="hp:LaxType"/>
+  <xs:element name="pos" type="hp:LaxType"/>
+  <xs:element name="outMargin" type="hp:LaxType"/>
+  <xs:element name="inMargin" type="hp:LaxType"/>
+  <xs:element name="cellMargin" type="hp:LaxType"/>
+
+  <xs:element name="t">
+    <xs:complexType mixed="true">
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="run">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="hp:secPr"/>
+        <xs:element ref="hp:ctrl"/>
+        <xs:element ref="hp:t"/>
+        <xs:element ref="hp:tbl"/>
+        <xs:element ref="hp:pic"/>
+      </xs:choice>
+      <xs:attribute name="charPrIDRef" type="xs:unsignedInt" use="required"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="p">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:run" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="hp:linesegarray" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:unsignedInt" use="required"/>
+      <xs:attribute name="paraPrIDRef" type="xs:unsignedInt" use="required"/>
+      <xs:attribute name="styleIDRef" type="xs:unsignedInt" use="required"/>
+      <xs:attribute name="pageBreak" type="hp:Bool01" use="required"/>
+      <xs:attribute name="columnBreak" type="hp:Bool01" use="required"/>
+      <xs:attribute name="merged" type="hp:Bool01" use="required"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="subList">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:p" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="cellAddr">
+    <xs:complexType>
+      <xs:attribute name="colAddr" type="xs:nonNegativeInteger" use="required"/>
+      <xs:attribute name="rowAddr" type="xs:nonNegativeInteger" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="cellSpan">
+    <xs:complexType>
+      <xs:attribute name="colSpan" type="xs:positiveInteger" use="required"/>
+      <xs:attribute name="rowSpan" type="xs:positiveInteger" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="cellSz">
+    <xs:complexType>
+      <xs:attribute name="width" type="xs:nonNegativeInteger" use="required"/>
+      <xs:attribute name="height" type="xs:nonNegativeInteger" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tc">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:subList"/>
+        <xs:element ref="hp:cellAddr"/>
+        <xs:element ref="hp:cellSpan"/>
+        <xs:element ref="hp:cellSz"/>
+        <xs:element ref="hp:cellMargin" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="borderFillIDRef" type="xs:unsignedInt" use="required"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tr">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:tc" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tbl">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hp:sz" minOccurs="0"/>
+        <xs:element ref="hp:pos" minOccurs="0"/>
+        <xs:element ref="hp:outMargin" minOccurs="0"/>
+        <xs:element ref="hp:inMargin" minOccurs="0"/>
+        <xs:element ref="hp:tr" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="rowCnt" type="xs:positiveInteger" use="required"/>
+      <xs:attribute name="colCnt" type="xs:positiveInteger" use="required"/>
+      <xs:attribute name="borderFillIDRef" type="xs:unsignedInt" use="required"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

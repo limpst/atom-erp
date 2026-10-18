@@ -1,0 +1,145 @@
+{
+  "realm": "atom-internal",
+  "displayName": "에이톰 ERP (직원)",
+  "enabled": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "passwordPolicy": "length(12) and digits(1) and specialChars(1) and notUsername and passwordHistory(5)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "roles": {
+    "realm": [
+      { "name": "EXEC", "description": "임원 (MFA 필수)" },
+      { "name": "SALES", "description": "영업" },
+      { "name": "PM", "description": "책임기술자" },
+      { "name": "ENG", "description": "참여기술자" },
+      { "name": "QA", "description": "품질검토자 (MFA 필수)" },
+      { "name": "ADMIN", "description": "경영지원 (MFA 필수)" },
+      { "name": "LABELER", "description": "라벨러" },
+      { "name": "SYSADMIN", "description": "시스템 관리자 (MFA 필수)" },
+      { "name": "EMPLOYEE", "description": "전 직원 기본 역할 (v0.3, 법인카드 사용자)" },
+      { "name": "FIN", "description": "재무·회계 (v0.3)" },
+      { "name": "AUDITOR", "description": "감사 담당 (v0.3, 조회 전용·직무 분리)" }
+    ]
+  },
+  "defaultRole": { "name": "default-roles-atom-internal", "composite": true },
+  "groups": [
+    { "name": "mfa-required", "realmRoles": [], "attributes": { "note": ["EXEC·QA·ADMIN·SYSADMIN 소속자 — Conditional OTP flow 대상"] } }
+  ],
+  "requiredActions": [
+    { "alias": "CONFIGURE_TOTP", "name": "Configure OTP", "providerId": "CONFIGURE_TOTP", "enabled": true, "defaultAction": false, "priority": 10 }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "atom-browser-conditional-otp",
+      "description": "브라우저 로그인 + mfa-required 역할 보유 시 OTP (설계 8.1)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false, "autheticatorFlow": false },
+        { "flowAlias": "atom-forms", "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false, "autheticatorFlow": true }
+      ]
+    },
+    {
+      "alias": "atom-forms",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-username-password-form", "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false, "autheticatorFlow": false },
+        { "flowAlias": "atom-conditional-otp", "requirement": "CONDITIONAL", "priority": 20, "userSetupAllowed": false, "autheticatorFlow": true }
+      ]
+    },
+    {
+      "alias": "atom-conditional-otp",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "conditional-user-role", "authenticatorConfig": "mfa-role-exec", "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false, "autheticatorFlow": false },
+        { "authenticator": "auth-otp-form", "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": false, "autheticatorFlow": false }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    { "alias": "mfa-role-exec", "config": { "condUserRole": "EXEC", "negate": "false" } }
+  ],
+  "browserFlow": "atom-browser-conditional-otp",
+  "clientScopes": [
+    {
+      "name": "atom-claims",
+      "description": "ERP 클레임: roles(역할 목록), eid(직원 ID)",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false" },
+      "protocolMappers": [
+        {
+          "name": "employee_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": { "user.attribute": "employee_id", "claim.name": "eid", "jsonType.label": "String",
+                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "roles", "multivalued": "true", "jsonType.label": "String",
+                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["atom-claims", "profile", "email"],
+  "defaultOptionalClientScopes": ["offline_access"],
+  "clients": [
+    {
+      "clientId": "erp-web",
+      "name": "ERP 웹 (React)",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
+      "redirectUris": ["https://erp.atom-eng.co.kr/*", "http://localhost:5173/*"],
+      "webOrigins": ["+"],
+      "defaultClientScopes": ["atom-claims", "profile", "email"]
+    },
+    {
+      "clientId": "field-app",
+      "name": "현장 앱 (Flutter)",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": { "pkce.code.challenge.method": "S256", "client.offline.session.idle.timeout": "2592000" },
+      "redirectUris": ["kr.atom.field:/oauth2redirect"],
+      "defaultClientScopes": ["atom-claims", "profile"],
+      "optionalClientScopes": ["offline_access"]
+    },
+    {
+      "clientId": "erp-server",
+      "name": "ERP 서버 (서비스 계정)",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ERP_SERVER_SECRET}"
+    },
+    {
+      "clientId": "ai-service",
+      "name": "AIP FastAPI (서비스 계정)",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${AI_SERVICE_SECRET}"
+    }
+  ],
+  "users": []
+}

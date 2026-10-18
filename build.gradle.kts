@@ -21,6 +21,8 @@ subprojects {
             useJUnitPlatform()
             systemProperty("file.encoding", "UTF-8")
             systemProperty("user.timezone", "UTC")
+            systemProperty("java.awt.headless", "true")
+            systemProperty("atom.repo.root", rootDir.absolutePath)
             jvmArgs("-XX:+EnableDynamicAgentLoading", "-Xshare:off")
             testLogging {
                 events("failed", "skipped")

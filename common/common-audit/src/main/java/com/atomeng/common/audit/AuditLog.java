@@ -1,6 +1,7 @@
 package com.atomeng.common.audit;
 
 import com.atomeng.common.core.actor.CurrentActor;
+import com.atomeng.common.core.pii.PiiMasking;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,7 +28,7 @@ public class AuditLog {
 
     public AuditLog(JdbcTemplate jdbc, ObjectMapper objectMapper, CurrentActor currentActor) {
         this.jdbc = jdbc;
-        this.objectMapper = objectMapper;
+        this.objectMapper = PiiMasking.maskingMapper(objectMapper); // @Pii 속성은 감사 로그에 원문 저장 금지
         this.currentActor = currentActor;
     }
 

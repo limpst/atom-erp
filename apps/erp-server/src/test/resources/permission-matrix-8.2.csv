@@ -1,0 +1,13 @@
+role,SAL,FAC,HRQ,EQP,FLD,RPT,QAR,CST,PTL,DEM,AIP
+EXEC,R A,R,R A,R,R,R A,R A,R A,R,R A,R
+SALES,CRUD,CRU,R(가용인력),-,-,R◐,-,R◐,CRU,R,-
+PM,R U◐,CRU,R,CRU◐,CRUD◐,CRUD◐ A,R◐,CRU◐,R U◐,CRUD◐ A,C R◐
+ENG,-,R◐,R(본인),R C(대여),CRU◐,CRU◐,R◐,C(시간)◐,-,CRU◐,C R◐
+QA,-,R,R,R,R,R U(의견),CRUD A,-,-,R,R
+ADMIN,R U(계약),R,CRUD,CRUD,-,R,-,CRUD A,CRU,R,-
+LABELER,-,-,-,-,-,-,-,-,-,-,CRU(라벨 과제)◐
+CUSTOMER,R(견적)◐,R◐,-,-,-,R(공유분)◐,-,-,CRU◐,R◐,-
+SYSADMIN,설정,설정,설정,설정,설정,템플릿,체크리스트,설정,설정,설정,모델 배포
+EMPLOYEE,-,-,R(본인),-,-,-,-,C(경비)◐,-,-,-
+FIN,R,-,R,R,-,-,-,CRU A,R(청구),-,-
+AUDITOR,R,R,R,R,R,R,R,R,-,R,R(감사로그)

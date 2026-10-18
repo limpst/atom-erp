@@ -13,6 +13,7 @@ include(
     ":common:common-identity",
     ":common:common-events",
     ":common:common-audit",
+    ":common:common-evidence",
     ":common:common-testing",
 )
 // 업무 모듈 (com.atomeng.erp.{mod}) — Phase 0은 core만

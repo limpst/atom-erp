@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":common:common-identity"))
     implementation(project(":common:common-events"))
     implementation(project(":common:common-audit"))
+    implementation(project(":common:common-evidence"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.modulith:spring-modulith-api")

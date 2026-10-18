@@ -1,0 +1,58 @@
+{
+  "realm": "atom-portal",
+  "displayName": "에이톰 고객 포털",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 28800,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "passwordPolicy": "length(12) and digits(1) and notUsername and passwordHistory(3)",
+  "roles": {
+    "realm": [
+      { "name": "CUSTOMER", "description": "고객(건물주·관리주체) — 자기 고객사 데이터만(CLIENT 범위)" }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "atom-portal-claims",
+      "description": "포털 클레임: roles, cid(고객사 core.client.id)",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false" },
+      "protocolMappers": [
+        {
+          "name": "client_org_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": { "user.attribute": "client_id", "claim.name": "cid", "jsonType.label": "String",
+                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "roles", "multivalued": "true", "jsonType.label": "String",
+                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["atom-portal-claims", "profile", "email"],
+  "clients": [
+    {
+      "clientId": "portal-web",
+      "name": "고객 포털 (React SSR)",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "redirectUris": ["https://portal.atom-eng.co.kr/*", "http://localhost:5174/*"],
+      "webOrigins": ["+"],
+      "defaultClientScopes": ["atom-portal-claims", "profile", "email"]
+    }
+  ],
+  "users": []
+}

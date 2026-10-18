@@ -34,12 +34,23 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 public abstract class IntegrationTestBase {
 
     private static final String DB_URL = EmbeddedPg.newDatabaseUrl("erp_it");
+    /** 로컬 파일시스템 객체 저장소 루트(MinIO 대체) — 테스트 JVM 마다 새 임시 폴더 */
+    protected static final java.nio.file.Path EVIDENCE_ROOT;
+
+    static {
+        try {
+            EVIDENCE_ROOT = java.nio.file.Files.createTempDirectory("atom-evidence-it");
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry r) {
         r.add("spring.datasource.url", () -> DB_URL);
         r.add("spring.datasource.username", EmbeddedPg::user);
         r.add("spring.datasource.password", EmbeddedPg::password);
+        r.add("atom.evidence.local-root", EVIDENCE_ROOT::toString);
     }
 
     @Autowired

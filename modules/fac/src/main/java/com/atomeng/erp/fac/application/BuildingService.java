@@ -11,6 +11,13 @@ import com.atomeng.erp.fac.api.FacEvents;
 import com.atomeng.erp.fac.domain.model.Building;
 import com.atomeng.erp.fac.domain.model.FacTypes.SitbeopClass;
 import com.atomeng.erp.fac.domain.model.Site;
+import com.atomeng.erp.fac.application.port.RegisterPorts.AddressPort;
+import com.atomeng.erp.fac.application.port.RegisterPorts.BuildingRegisterPort;
+import com.atomeng.erp.fac.application.port.RegisterPorts.ExternalUnavailable;
+import com.atomeng.erp.fac.domain.model.FacTypes.DataSource;
+import com.atomeng.erp.fac.domain.register.RegisterModels.BuildingCandidate;
+import com.atomeng.erp.fac.domain.register.RegisterModels.NormalizedAddress;
+import com.atomeng.erp.fac.domain.register.RegisterModels.RegisterLookupResult;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,8 +36,17 @@ public class BuildingService {
     public static final String DUPLICATE = "FAC-409-001";
     public static final String INVALID = "FAC-422-001";
 
+    /**
+     * @param lookupAddress 주소가 오면 도로명주소 → PNU → 건축물대장 자동 입력(Step 3). 장애 시 수기 모드(TC-FAC-002)
+     * @param mgmBldrgstPk  표제부(동) 선택 키 — 다동이면 필수
+     */
     public record Register(UUID siteId, String siteName, UUID ownerClientId, Building.Spec spec, boolean force,
-                           String forceReason) {}
+                           String forceReason, String lookupAddress, String mgmBldrgstPk) {}
+
+    /** 등록 마법사용 조회 결과 (GET /register-lookup) */
+    public record LookupView(NormalizedAddress address, RegisterLookupResult register, String failureReason) {}
+
+    private record Enriched(Building.Spec spec, BuildingCandidate picked, String siteName, String failure) {}
 
     public record Candidate(UUID id, String name, Double nameSimilarity, String matchedBy) {}
 
@@ -41,9 +57,16 @@ public class BuildingService {
     private final AuditLog audit;
     private final CycleRecomputeService cycle;
     private final Clock clock;
+    private final AddressPort address;
+    private final BuildingRegisterPort register;
+    private final LocationNodeService nodes;
 
     public BuildingService(BuildingRepository buildings, SiteRepository sites, FacJdbc jdbc, OutboxPublisher outbox,
-                           AuditLog audit, CycleRecomputeService cycle, Clock clock) {
+                           AuditLog audit, CycleRecomputeService cycle, Clock clock, AddressPort address,
+                           BuildingRegisterPort register, LocationNodeService nodes) {
+        this.address = address;
+        this.register = register;
+        this.nodes = nodes;
         this.buildings = buildings;
         this.sites = sites;
         this.jdbc = jdbc;
@@ -53,10 +76,78 @@ public class BuildingService {
         this.clock = clock;
     }
 
-    /** 등록 — 중복 후보가 있으면 409 FAC-409-001 + candidates (TC-FAC-001). force=true 는 사유 필수·감사 */
-    @Transactional
-    public Building register(Register cmd) {
+    // 등록 — 중복 후보가 있으면 409 FAC-409-001 + candidates (TC-FAC-001). force=true 는 사유 필수·감사
+    /** 주소 → 정규화·PNU → 건축물대장. 외부 장애는 예외 대신 failureReason (수기 모드로 계속) */
+    public LookupView lookup(String rawAddress) {
+        try {
+            var addr = address.normalize(rawAddress);
+            if (addr.isEmpty()) {
+                return new LookupView(null, null, "ADDRESS_NOT_FOUND");
+            }
+            var reg = register.lookup(addr.get().pnu());
+            return new LookupView(addr.get(), reg, reg.available() ? null : reg.failureReason());
+        } catch (ExternalUnavailable e) {
+            return new LookupView(null, null, e.reason());
+        } catch (RuntimeException e) { // 4xx 등 예기치 못한 외부 오류도 수기 모드
+            return new LookupView(null, null, "API_ERROR");
+        }
+    }
+
+    private Enriched enrich(Register cmd) {
         var s = cmd.spec();
+        if (cmd.lookupAddress() == null || cmd.lookupAddress().isBlank()) {
+            return new Enriched(s, null, cmd.siteName(), null);
+        }
+        LookupView v = lookup(cmd.lookupAddress());
+        if (v.address() == null) {
+            return new Enriched(manual(s), null, cmd.siteName(), v.failureReason());
+        }
+        var a = v.address();
+        Building.Spec withAddr = new Building.Spec(s.name(), s.dongName(), a.pnu().value(),
+                or(s.roadAddress(), a.roadAddress()), or(s.jibunAddress(), a.jibunAddress()), s.mainPurposeNm(),
+                s.structureNm(), s.grossFloorArea(), s.floorsAbove(), s.floorsBelow(), s.approvalDate(),
+                DataSource.MANUAL);
+        if (!v.register().available()) {
+            return new Enriched(withAddr, null, cmd.siteName(), v.register().failureReason());
+        }
+        var picked = v.register().pick(cmd.mgmBldrgstPk(), s.dongName());
+        if (picked.isEmpty()) {
+            throw new DomainException(INVALID, "표제부(동)를 선택하세요(mgmBldrgstPk)").with("registerCandidates",
+                    v.register().titles().stream().map(t -> Map.of("mgmBldrgstPk", String.valueOf(t.mgmBldrgstPk()),
+                            "dongName", t.dongName(), "buildingName", t.buildingName())).toList());
+        }
+        var t = picked.get();
+        Building.Spec filled = new Building.Spec(or(s.name(), or(blankToNull(t.buildingName()), a.buildingName())),
+                or(s.dongName(), t.dongName()), a.pnu().value(), withAddr.roadAddress(), withAddr.jibunAddress(),
+                or(s.mainPurposeNm(), t.mainPurposeNm()), or(s.structureNm(), t.structureNm()),
+                or(s.grossFloorArea(), t.grossFloorArea()), or(s.floorsAbove(), t.floorsAbove()),
+                or(s.floorsBelow(), t.floorsBelow()), or(s.approvalDate(), t.approvalDate()), DataSource.REGISTER);
+        return new Enriched(filled, t, or(cmd.siteName(), v.register().siteName()), null);
+    }
+
+    private static Building.Spec manual(Building.Spec s) {
+        return new Building.Spec(s.name(), s.dongName(), s.pnu(), s.roadAddress(), s.jibunAddress(), s.mainPurposeNm(),
+                s.structureNm(), s.grossFloorArea(), s.floorsAbove(), s.floorsBelow(), s.approvalDate(),
+                DataSource.MANUAL);
+    }
+
+    private static <T> T or(T a, T b) {
+        return a != null ? a : b;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
+    }
+
+    @Transactional
+    public Building register(Register original) {
+        Enriched en = enrich(original);
+        var s = en.spec();
+        if (s.name() == null || s.name().isBlank()) {
+            throw new DomainException(INVALID, "건물명(name)이 필요합니다");
+        }
+        Register cmd = new Register(original.siteId(), en.siteName(), original.ownerClientId(), s, original.force(),
+                original.forceReason(), original.lookupAddress(), original.mgmBldrgstPk());
         String dong = s.dongName() == null ? "" : s.dongName().trim();
         List<Candidate> dupes = buildings.findDuplicateCandidates(s.pnu(), dong, s.name(), s.roadAddress()).stream()
                 .map(c -> new Candidate(c.getId(), c.getName(), c.getNameSimilarity(), c.getMatchedBy())).toList();
@@ -79,13 +170,19 @@ public class BuildingService {
         Building b = Building.register(siteId, new Building.Spec(s.name(), dong, s.pnu(), s.roadAddress(),
                 s.jibunAddress(), s.mainPurposeNm(), s.structureNm(), s.grossFloorArea(), s.floorsAbove(),
                 s.floorsBelow(), s.approvalDate(), s.dataSource()));
-        if (b.getPnu() != null) {
-            b.verify(); // 대장 ACL(Step 3) 전까지: PNU 가 있으면 VERIFIED 로 간주
+        if (en.picked() != null) {
+            b.attachRegisterSnapshot(en.picked().snapshotJson(), clock.instant());
+            b.verify(); // 대장 조회 성공 = VERIFIED (A6.1). 수기·장애는 DRAFT 유지
         }
         buildings.saveAndFlush(b);
+        nodes.createFloors(b.getId(), b.getFloorsBelow(), b.getFloorsAbove()); // 층수 → FLOOR 노드
         outbox.publish(new FacEvents.BuildingRegistered(b.getId(), siteId, b.getPnu(), b.getName(),
                 cmd.ownerClientId()));
         Map<String, Object> after = snapshot(b);
+        after.put("dataSource", b.getDataSource().name());
+        if (en.failure() != null) {
+            after.put("registerFailure", en.failure()); // TC-FAC-002: 수기 모드 전환 사유
+        }
         if (!dupes.isEmpty()) {
             after.put("forceReason", cmd.forceReason());
             after.put("candidates", dupes.stream().map(Candidate::id).toList());

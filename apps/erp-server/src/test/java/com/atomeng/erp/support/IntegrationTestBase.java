@@ -46,8 +46,24 @@ public abstract class IntegrationTestBase {
         }
     }
 
+    /** 공공 API(도로명주소·건축HUB) 대역 — 합성 응답만. 모든 통합 테스트가 공유(컨텍스트 1개 유지) */
+    protected static final com.github.tomakehurst.wiremock.WireMockServer PUBLIC_API =
+            new com.github.tomakehurst.wiremock.WireMockServer(
+                    com.github.tomakehurst.wiremock.core.WireMockConfiguration.options().dynamicPort());
+
+    static {
+        PUBLIC_API.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(PUBLIC_API::stop));
+    }
+
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry r) {
+        r.add("atom.fac.external.juso.base-url", () -> PUBLIC_API.baseUrl() + "/juso");
+        r.add("atom.fac.external.juso.confm-key", () -> "synthetic-test-key");
+        r.add("atom.fac.external.building-register.base-url", () -> PUBLIC_API.baseUrl() + "/hub");
+        r.add("atom.fac.external.building-register.service-key", () -> "synthetic-test-key");
+        r.add("atom.fac.external.building-register.read-timeout", () -> "400ms");
+        r.add("atom.fac.external.building-register.initial-backoff", () -> "20ms");
         r.add("spring.datasource.url", () -> DB_URL);
         r.add("spring.datasource.username", EmbeddedPg::user);
         r.add("spring.datasource.password", EmbeddedPg::password);

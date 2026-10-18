@@ -55,11 +55,11 @@ class FacMigrationTest {
     }
 
     @Test
-    @DisplayName("Step1: fac 테이블 14개 + 시드 규칙(⚠️ 예시) 적재")
+    @DisplayName("Step1: fac 테이블 15개(+node_defect_ref) + 시드 규칙(⚠️ 예시) 적재")
     void schemaAndSeed() throws Exception {
         try (var c = conn(); var st = c.createStatement()) {
             assertThat(scalar(st, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'fac'"))
-                    .isEqualTo(14L);
+                    .isEqualTo(15L);
             assertThat((Long) scalar(st, "SELECT count(*) FROM fac.inspection_cycle_rule")).isGreaterThanOrEqualTo(30L);
             assertThat(scalar(st, "SELECT count(*) FROM fac.inspection_cycle_rule WHERE legal_reference NOT LIKE '%⚠️ 예시%'"))
                     .as("모든 법령값은 예시 표시").isEqualTo(0L);

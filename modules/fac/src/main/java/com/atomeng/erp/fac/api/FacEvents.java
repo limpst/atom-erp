@@ -19,6 +19,15 @@ public final class FacEvents {
         @Override public UUID aggregateId() { return buildingId; }
     }
 
+    /** fac.building.merged — 중복 병합(source → survivor target), 소비: 전 모듈(참조 갱신, FLD 결함 재매핑) */
+    public record BuildingMerged(UUID sourceId, UUID targetId, int movedNodes, int copiedGrades) implements DomainEvent {
+        public static final String TYPE = "fac.building.merged";
+
+        @Override public String eventType() { return TYPE; }
+        @Override public String aggregateType() { return "Building"; }
+        @Override public UUID aggregateId() { return sourceId; }
+    }
+
     /** fac.grade.recorded — 소비: PTL, CST, SAL */
     public record GradeRecorded(UUID buildingId, String grade, String previousGrade, String inspectionType,
                                 LocalDate performedOn, UUID reportId) implements DomainEvent {

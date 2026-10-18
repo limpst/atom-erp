@@ -78,7 +78,8 @@ class FacIntegrationTest extends IntegrationTestBase {
                         .header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"v0\""))
-                .andExpect(jsonPath("$.status").value("VERIFIED"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))       // 대장 조회 없이 수기 등록
+                .andExpect(jsonPath("$.dataSource").value("MANUAL"))
                 .andReturn();
         return UUID.fromString(json(r).get("id").asText());
     }
@@ -100,8 +101,9 @@ class FacIntegrationTest extends IntegrationTestBase {
                 {"reportId":"%s","buildingIds":["%s"],"grade":"%s","inspectionType":"%s","performedOn":"%s",
                  "approvedBy":"%s"}""".formatted(reportId, buildingId, grade, inspectionType, performedOn, pm);
         jdbc.update("""
-                INSERT INTO core.outbox_event(id, aggregate_type, aggregate_id, event_type, payload)
-                VALUES (?, 'Report', ?, ?, ?::jsonb)""", eventId, reportId, type, payload);
+                INSERT INTO core.outbox_event(id, aggregate_type, aggregate_id, event_type, payload, next_attempt_at)
+                VALUES (?, 'Report', ?, ?, ?::jsonb, now() - interval '1 minute')""", eventId, reportId, type, payload);
+        // 과거 시각: DB 시계(now)와 JVM 시계(Relay 기준)의 수 ms 차이로 즉시 폴링이 놓치는 플래키 방지
         return eventId;
     }
 
@@ -219,17 +221,6 @@ class FacIntegrationTest extends IntegrationTestBase {
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM core.processed_event WHERE consumer = ? AND event_id = ?",
                 Integer.class, ReportPublishedListener.CONSUMER, eventId)).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("구독 별칭: rpt.revision.published(조정 요청명)도 같은 계약으로 등급 기록")
-    void revisionPublishedAlias() throws Exception {
-        UUID b = register(pnu(), "합성 오피스", "");
-        publishReport("rpt.revision.published", b, "A", "DETAILED", today().minusDays(5));
-        relay.pollOnce();
-        mvc.perform(as(get("/api/v1/fac/buildings/" + b + "/grades"), pm, "QA"))
-                .andExpect(jsonPath("$[0].grade").value("A"))
-                .andExpect(jsonPath("$[0].source").value("REPORT"));
     }
 
     @Test

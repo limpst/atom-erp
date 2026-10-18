@@ -6,6 +6,7 @@ import com.atomeng.common.web.http.IfMatch;
 import com.atomeng.common.web.http.PageResponse;
 import com.atomeng.erp.fac.adapter.out.persistence.FacJdbc;
 import com.atomeng.erp.fac.application.BuildingService;
+import com.atomeng.erp.fac.application.MergeService;
 import com.atomeng.erp.fac.domain.model.Building;
 import com.atomeng.erp.fac.domain.model.FacTypes.BuildingStatus;
 import com.atomeng.erp.fac.domain.model.FacTypes.DataSource;
@@ -51,7 +52,7 @@ class BuildingController {
             UUID siteId,
             @Size(max = 200) String siteName,
             UUID ownerClientId,
-            @NotBlank @Size(max = 200) String name,
+            @Size(max = 200) String name,
             @Size(max = 100) String dongName,
             @Pattern(regexp = "^\\d{19}$", message = "PNU 는 19자리 숫자") String pnu,
             @Size(max = 300) String roadAddress,
@@ -64,7 +65,11 @@ class BuildingController {
             LocalDate approvalDate,
             DataSource dataSource,
             boolean force,
-            @Size(max = 500) String forceReason) {}
+            @Size(max = 500) String forceReason,
+            @Size(max = 300) String lookupAddress,
+            @Size(max = 40) String mgmBldrgstPk) {}
+
+    record MergeRequest(@NotNull UUID targetId, @NotBlank @Size(max = 500) String reason) {}
 
     record ChangeBuildingRequest(
             @Size(min = 1, max = 200) String name,
@@ -96,12 +101,15 @@ class BuildingController {
                        JsonNode calcTrace) {}
 
     private final BuildingService service;
+    private final MergeService merges;
     private final FacJdbc jdbc;
     private final CurrentActor actor;
     private final ObjectMapper om;
 
-    BuildingController(BuildingService service, FacJdbc jdbc, CurrentActor actor, ObjectMapper om) {
+    BuildingController(BuildingService service, MergeService merges, FacJdbc jdbc, CurrentActor actor,
+                       ObjectMapper om) {
         this.service = service;
+        this.merges = merges;
         this.jdbc = jdbc;
         this.actor = actor;
         this.om = om;
@@ -113,7 +121,8 @@ class BuildingController {
         var b = service.register(new BuildingService.Register(r.siteId(), r.siteName(), r.ownerClientId(),
                 new Building.Spec(r.name(), r.dongName(), r.pnu(), r.roadAddress(), r.jibunAddress(),
                         r.mainPurposeNm(), r.structureNm(), r.grossFloorArea(), r.floorsAbove(), r.floorsBelow(),
-                        r.approvalDate(), r.dataSource()), r.force(), r.forceReason()));
+                        r.approvalDate(), r.dataSource()), r.force(), r.forceReason(), r.lookupAddress(),
+                r.mgmBldrgstPk()));
         return ResponseEntity.created(URI.create("/api/v1/fac/buildings/" + b.getId()))
                 .eTag(IfMatch.etagOf(b.getVersion())).body(BuildingResponse.of(b));
     }
@@ -161,6 +170,13 @@ class BuildingController {
         var b = service.confirmClassification(id, r.sitbeopClass(), r.bmaTarget(), r.ruleIds(), r.evidence(),
                 actor.actorIdOrSystem());
         return ResponseEntity.ok().eTag(IfMatch.etagOf(b.getVersion())).body(BuildingResponse.of(b));
+    }
+
+    /** 중복 병합: 이 시설물(source) → targetId(존속). PM (TC-FAC-011) */
+    @PostMapping("/{id}/merge")
+    @RequirePermission("fac:building:merge")
+    public MergeService.MergeReport merge(@PathVariable UUID id, @Valid @RequestBody MergeRequest r) {
+        return merges.merge(id, r.targetId(), r.reason());
     }
 
     /** 등급 이력 (append-only, 최신순) */

@@ -63,6 +63,11 @@ public class Building extends BaseEntity {
     private UUID mergedIntoId;
     @Column(name = "use_restriction_flag", nullable = false)
     private boolean useRestrictionFlag;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "register_snapshot", columnDefinition = "jsonb")
+    private String registerSnapshot;
+    @Column(name = "register_synced_at")
+    private java.time.Instant registerSyncedAt;
 
     protected Building() {}
 
@@ -122,6 +127,13 @@ public class Building extends BaseEntity {
         }
     }
 
+    /** 건축물대장 원본 스냅샷 보존 (FR-FAC-002) */
+    public void attachRegisterSnapshot(String json, java.time.Instant syncedAt) {
+        this.registerSnapshot = json;
+        this.registerSyncedAt = syncedAt;
+        this.dataSource = DataSource.REGISTER;
+    }
+
     // --- 상태 전이 (설계 A6.1) ---
     public void verify() {
         transition(EnumSet.of(BuildingStatus.DRAFT), BuildingStatus.VERIFIED);
@@ -178,4 +190,5 @@ public class Building extends BaseEntity {
     public DataSource getDataSource() { return dataSource; }
     public UUID getMergedIntoId() { return mergedIntoId; }
     public boolean isUseRestrictionFlag() { return useRestrictionFlag; }
+    public String getRegisterSnapshot() { return registerSnapshot; }
 }

@@ -191,12 +191,20 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
                 middle)).hasMessageContaining("immutable");
 
         // 트리거를 우회한 DB 변조(슈퍼유저) → 체인 검증이 정확히 그 고리를 지목
-        jdbc.execute("SET session_replication_role = replica");
-        try {
-            jdbc.update("UPDATE core.attachment SET sha256 = ? WHERE id = ?", "f".repeat(64), middle);
-        } finally {
-            jdbc.execute("SET session_replication_role = origin");
-        }
+        // 같은 커넥션에서 SET·UPDATE·복원 (풀의 다른 커넥션에 replica 모드가 새지 않도록)
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) c -> {
+            try (var st = c.createStatement()) {
+                st.execute("SET session_replication_role = replica");
+                try (var ps = c.prepareStatement("UPDATE core.attachment SET sha256 = ? WHERE id = ?")) {
+                    ps.setString(1, "f".repeat(64));
+                    ps.setObject(2, middle);
+                    ps.executeUpdate();
+                } finally {
+                    st.execute("SET session_replication_role = origin");
+                }
+            }
+            return null;
+        });
         mvc.perform(as(get("/api/v1/core/attachments/chains/" + scope), eng, "ENG"))
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.brokenAt").value(middle.toString()));

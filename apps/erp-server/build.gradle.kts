@@ -27,6 +27,7 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation(project(":common:common-testing"))
+    testImplementation(libs.wiremock)
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation(libs.archunit)
     testImplementation("org.springframework.security:spring-security-test")

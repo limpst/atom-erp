@@ -12,6 +12,7 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-api")
 
     testImplementation(project(":common:common-testing"))
+    testImplementation(libs.wiremock)
     testImplementation(project(":modules:core"))   // FK 대상 core 스키마 마이그레이션
     testImplementation("org.flywaydb:flyway-core")
     testImplementation("org.flywaydb:flyway-database-postgresql")

@@ -1,0 +1,34 @@
+{
+  "ruleVersion": "2025.1",
+  "legalBasis": "⚠️ 예시 값(합성) — 엔지니어링사업 대가의 기준 · 시설물 안전점검·진단 대가 기준 · 2025 엔지니어링 노임단가 최신본 확인 필요",
+  "laborUnitPrices": { "SPECIAL": 402000, "ADVANCED": 323000, "INTERMEDIATE": 261000, "BEGINNER": 199000 },
+  "overheadRate": { "min": 1.10, "max": 1.20, "default": 1.10 },
+  "techFeeRate": { "min": 0.20, "max": 0.40, "default": 0.20 },
+  "rounding": { "line": "FLOOR_1", "total": "FLOOR_1000" },
+  "baseManDays": [
+    { "serviceType": "PRECISE_DIAG", "facilityClass": "BUILDING",
+      "areaBands": [
+        { "fromM2": 0, "toM2": 10000, "workItems": { "DATA": 4.0, "FIELD": 22.0, "TEST": 8.0, "ANALYSIS": 6.0, "REPORT": 9.0 } },
+        { "fromM2": 10000, "toM2": 30000, "workItems": { "DATA": 5.0, "FIELD": 30.0, "TEST": 10.0, "ANALYSIS": 8.0, "REPORT": 11.0 } },
+        { "fromM2": 30000, "toM2": 50000, "workItems": { "DATA": 6.0, "FIELD": 38.0, "TEST": 12.0, "ANALYSIS": 10.0, "REPORT": 14.0 } }
+      ],
+      "gradeMix": { "SPECIAL": 0.10, "ADVANCED": 0.25, "INTERMEDIATE": 0.35, "BEGINNER": 0.30 } },
+    { "serviceType": "PRECISE_INSP", "facilityClass": "BUILDING",
+      "areaBands": [
+        { "fromM2": 0, "toM2": 10000, "workItems": { "DATA": 2.0, "FIELD": 10.0, "TEST": 3.0, "REPORT": 5.0 } },
+        { "fromM2": 10000, "toM2": 30000, "workItems": { "DATA": 3.0, "FIELD": 14.0, "TEST": 4.0, "REPORT": 6.5 } }
+      ],
+      "gradeMix": { "ADVANCED": 0.30, "INTERMEDIATE": 0.40, "BEGINNER": 0.30 } },
+    { "serviceType": "SEISMIC_EVAL", "facilityClass": "BUILDING",
+      "areaBands": [
+        { "fromM2": 0, "toM2": 20000, "workItems": { "DATA": 3.0, "FIELD": 8.0, "ANALYSIS": 18.0, "REPORT": 7.0 } }
+      ],
+      "gradeMix": { "SPECIAL": 0.20, "ADVANCED": 0.40, "INTERMEDIATE": 0.40 } }
+  ],
+  "adjustmentFactors": [
+    { "key": "AGE", "when": "years >= 30", "factor": 1.10 },
+    { "key": "STRUCTURE", "when": "structure == 'STEEL'", "factor": 1.05 },
+    { "key": "UNDERGROUND", "when": "basementFloors >= 3", "factor": 1.05 },
+    { "key": "OCCUPIED", "when": "inUse == true", "factor": 1.10 }
+  ]
+}

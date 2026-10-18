@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
         "atom.fac.due-scan.enabled=false",
         "atom.hrq.expiry.enabled=false",
         "atom.eqp.calibration-scan.enabled=false",
+        "atom.sal.collect.enabled=false",
         "spring.jpa.open-in-view=false"
 })
 public abstract class IntegrationTestBase {
@@ -66,6 +67,10 @@ public abstract class IntegrationTestBase {
         r.add("atom.fac.external.building-register.service-key", () -> "synthetic-test-key");
         r.add("atom.fac.external.building-register.read-timeout", () -> "400ms");
         r.add("atom.fac.external.building-register.initial-backoff", () -> "20ms");
+        r.add("atom.sal.g2b.base-url", () -> PUBLIC_API.baseUrl() + "/g2b");
+        r.add("atom.sal.g2b.service-key", () -> "synthetic-test-key");
+        r.add("atom.sal.g2b.read-timeout", () -> "400ms");
+        r.add("atom.sal.g2b.initial-backoff", () -> "20ms");
         r.add("spring.datasource.url", () -> DB_URL);
         r.add("spring.datasource.username", EmbeddedPg::user);
         r.add("spring.datasource.password", EmbeddedPg::password);

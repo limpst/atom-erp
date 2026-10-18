@@ -58,6 +58,14 @@ public class Project extends BaseEntity {
 
     protected Project() {}
 
+    /** SAL 계약에서 생성된 프로젝트의 계약 연결(논리 FK sal.contract.id) — 01-IMPL Step 9 */
+    public void linkContract(UUID contractId, String currency) {
+        this.contractId = contractId;
+        if (currency != null) {
+            this.currency = currency;
+        }
+    }
+
     public static Project create(String projectNo, String name, String serviceType, UUID clientId,
                                  LocalDate startDate, LocalDate endDate, BigDecimal contractAmount) {
         if (startDate != null && endDate != null && endDate.isBefore(startDate)) {

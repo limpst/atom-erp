@@ -2,6 +2,7 @@ package com.atomeng.erp.cst.api;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,5 +32,21 @@ public final class CstSubscriptionContracts {
     public record EqpEquipmentReturned(UUID rentalId, UUID equipmentId, String equipmentCode, UUID projectId,
                                        int days, LocalDate returnedOn) {
         public static final String TYPE = "eqp.equipment.returned";
+    }
+
+    /**
+     * sal.contract.signed (설계 08 B6 · 01 B6, 01-IMPL Step 9 이벤트 스키마) — 실행예산 Rev.0 초안 자동 생성(FR-CST-001, TC-CST-01).
+     * SAL 모듈(01) 발행 레코드(sal::api SalEvents.ContractSigned)와 필드가 같아야 한다 — 계약 테스트 SalCstContractTest.
+     * CST 는 sal 모듈에 의존하지 않는다(이벤트 계약만).
+     */
+    public record SalContractSigned(UUID contractId, UUID projectId, String projectNo, UUID clientId,
+                                    List<UUID> facilityIds, UUID estimateId, BigDecimal amount, String currency,
+                                    BigDecimal jointShare, LocalDate signedDate, LocalDate startDate, LocalDate endDate,
+                                    List<EstimateLine> estimateLines) {
+        public static final String TYPE = "sal.contract.signed";
+
+        /** 견적 산출내역 1줄 — LABOR(workItem × grade 인·일) / EXPENSE(경비 항목) */
+        public record EstimateLine(String lineType, String workItem, String grade, BigDecimal manDays,
+                                   BigDecimal unitPrice, BigDecimal quantity, BigDecimal amount) {}
     }
 }

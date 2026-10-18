@@ -1,0 +1,100 @@
+{
+  "caseId": "G-21",
+  "source": "합성 사례(synthetic) — 소수 연면적 0.5㎡ 초소형",
+  "asOfDate": "2026-01-15",
+  "ruleFixture": "fee-rule-2026.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 0.5,
+    "structure": "RC",
+    "basementFloors": 0,
+    "floors": 1,
+    "completionYear": 2020,
+    "inUse": false
+  },
+  "command": {
+    "serviceType": "PRECISE_INSP"
+  },
+  "expected": {
+    "directLabor": 5426000,
+    "directExpense": 0,
+    "overhead": 5968600,
+    "techFee": 2278920,
+    "subtotal": 13673000,
+    "vat": 1367300,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "0.60",
+        "amount": 201600
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "0.80",
+        "amount": 216800
+      },
+      {
+        "workItem": "DATA",
+        "grade": "BEGINNER",
+        "manDays": "0.60",
+        "amount": 124200
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "3.00",
+        "amount": 1008000
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "4.00",
+        "amount": 1084000
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "BEGINNER",
+        "manDays": "3.00",
+        "amount": 621000
+      },
+      {
+        "workItem": "TEST",
+        "grade": "ADVANCED",
+        "manDays": "0.90",
+        "amount": 302400
+      },
+      {
+        "workItem": "TEST",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.20",
+        "amount": 325200
+      },
+      {
+        "workItem": "TEST",
+        "grade": "BEGINNER",
+        "manDays": "0.90",
+        "amount": 186300
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "1.50",
+        "amount": 504000
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "2.00",
+        "amount": 542000
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "BEGINNER",
+        "manDays": "1.50",
+        "amount": 310500
+      }
+    ]
+  }
+}

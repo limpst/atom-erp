@@ -1,0 +1,108 @@
+{
+  "caseId": "G-08",
+  "source": "합성 사례(synthetic) — 내진성능평가, 기술료 상한 0.40",
+  "asOfDate": "2026-09-09",
+  "ruleFixture": "fee-rule-2026.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 12000,
+    "structure": "RC",
+    "basementFloors": 1,
+    "floors": 8,
+    "completionYear": 1999,
+    "inUse": false
+  },
+  "command": {
+    "serviceType": "SEISMIC_EVAL",
+    "techFeeRate": 0.4,
+    "expenses": [
+      {
+        "item": "PRINTING",
+        "quantity": 1,
+        "unitPrice": 450000
+      }
+    ]
+  },
+  "expected": {
+    "directLabor": 11750400,
+    "directExpense": 450000,
+    "overhead": 12925440,
+    "techFee": 9870336,
+    "subtotal": 34996000,
+    "vat": 3499600,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "SPECIAL",
+        "manDays": "0.60",
+        "amount": 250800
+      },
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "1.20",
+        "amount": 403200
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.20",
+        "amount": 325200
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "SPECIAL",
+        "manDays": "1.60",
+        "amount": 668800
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "3.20",
+        "amount": 1075200
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.20",
+        "amount": 867200
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "SPECIAL",
+        "manDays": "3.60",
+        "amount": 1504800
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "ADVANCED",
+        "manDays": "7.20",
+        "amount": 2419200
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "INTERMEDIATE",
+        "manDays": "7.20",
+        "amount": 1951200
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "SPECIAL",
+        "manDays": "1.40",
+        "amount": 585200
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "2.80",
+        "amount": 940800
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "2.80",
+        "amount": 758800
+      }
+    ]
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "caseId": "G-07",
+  "source": "합성 사례(synthetic) — 정밀점검 중형, 모든 보정",
+  "asOfDate": "2026-04-20",
+  "ruleFixture": "fee-rule-2026.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 15000,
+    "structure": "STEEL",
+    "basementFloors": 3,
+    "floors": 8,
+    "completionYear": 1980,
+    "inUse": true
+  },
+  "command": {
+    "serviceType": "PRECISE_INSP",
+    "expenses": [
+      {
+        "item": "TRAVEL",
+        "quantity": 12,
+        "unitPrice": 150000
+      },
+      {
+        "item": "PRINTING",
+        "quantity": 1,
+        "unitPrice": 450000
+      }
+    ]
+  },
+  "expected": {
+    "directLabor": 9948570,
+    "directExpense": 2250000,
+    "overhead": 10943427,
+    "techFee": 4178399,
+    "subtotal": 27320000,
+    "vat": 2732000,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "1.20",
+        "amount": 403200
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.60",
+        "amount": 433600
+      },
+      {
+        "workItem": "DATA",
+        "grade": "BEGINNER",
+        "manDays": "1.20",
+        "amount": 248400
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "5.60",
+        "amount": 1881600
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "7.47",
+        "amount": 2024370
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "BEGINNER",
+        "manDays": "5.60",
+        "amount": 1159200
+      },
+      {
+        "workItem": "TEST",
+        "grade": "ADVANCED",
+        "manDays": "1.60",
+        "amount": 537600
+      },
+      {
+        "workItem": "TEST",
+        "grade": "INTERMEDIATE",
+        "manDays": "2.13",
+        "amount": 577230
+      },
+      {
+        "workItem": "TEST",
+        "grade": "BEGINNER",
+        "manDays": "1.60",
+        "amount": 331200
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "2.60",
+        "amount": 873600
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.47",
+        "amount": 940370
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "BEGINNER",
+        "manDays": "2.60",
+        "amount": 538200
+      }
+    ]
+  }
+}

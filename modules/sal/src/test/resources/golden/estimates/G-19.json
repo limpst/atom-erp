@@ -1,0 +1,112 @@
+{
+  "caseId": "G-19",
+  "source": "합성 사례(synthetic) — 내진성능평가 사용 중 + 지하 3층, 2025 규칙",
+  "asOfDate": "2025-06-01",
+  "ruleFixture": "fee-rule-2025.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 19999.5,
+    "structure": "RC",
+    "basementFloors": 3,
+    "floors": 8,
+    "completionYear": 2001,
+    "inUse": true
+  },
+  "command": {
+    "serviceType": "SEISMIC_EVAL",
+    "expenses": [
+      {
+        "item": "TRAVEL",
+        "quantity": 12,
+        "unitPrice": 150000
+      },
+      {
+        "item": "PRINTING",
+        "quantity": 1,
+        "unitPrice": 450000
+      }
+    ]
+  },
+  "expected": {
+    "directLabor": 13062400,
+    "directExpense": 2250000,
+    "overhead": 14368640,
+    "techFee": 5486208,
+    "subtotal": 35167000,
+    "vat": 3516700,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "SPECIAL",
+        "manDays": "0.69",
+        "amount": 277380
+      },
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "1.39",
+        "amount": 448970
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.39",
+        "amount": 362790
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "SPECIAL",
+        "manDays": "1.85",
+        "amount": 743700
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "3.70",
+        "amount": 1195100
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.70",
+        "amount": 965700
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "SPECIAL",
+        "manDays": "4.16",
+        "amount": 1672320
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "ADVANCED",
+        "manDays": "8.32",
+        "amount": 2687360
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "INTERMEDIATE",
+        "manDays": "8.32",
+        "amount": 2171520
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "SPECIAL",
+        "manDays": "1.62",
+        "amount": 651240
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "3.23",
+        "amount": 1043290
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.23",
+        "amount": 843030
+      }
+    ]
+  }
+}

@@ -29,8 +29,11 @@ public final class EventNames {
     /** 구동사 과거형(checked-out 등 — 설계 04 B6 정식명): {동사}ed-{불변화사} */
     private static final Pattern PHRASAL = Pattern.compile("^(?:[a-z0-9]+-)*[a-z]+ed-(out|in|up|off|over|down)$");
 
-    /** 과거형이 아닌 정식 상태 서술 이벤트명(설계서에 고정된 것만) */
-    private static final Pattern STATE = Pattern.compile("^(due-soon)$");
+    /**
+     * 과거형이 아닌 정식 상태 서술 이벤트명(설계서에 고정된 것만):
+     * due-soon(설계 04 B6), ready-to-sign(설계 01 v0.3 B6 sal.contract.ready-to-sign)
+     */
+    private static final Pattern STATE = Pattern.compile("^(due-soon|ready-to-sign)$");
 
     private static final Pattern IRREGULAR = Pattern.compile(
             "^(sent|paid|made|done|built|set|run|won|lost|held|written|drawn|taken|given|sold|bought|begun|"

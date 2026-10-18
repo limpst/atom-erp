@@ -1,0 +1,79 @@
+{
+  "criteriaCode": "LOCAL_GOV_SERVICE_V2025",
+  "legalBasis": "⚠️ 예시 값(합성) — 지방자치단체 용역 적격심사 세부기준 최신본 확인 필요",
+  "passScore": 95.0,
+  "lowerLimitRate": 0.87745,
+  "similarYears": 5,
+  "capabilityItems": [
+    {
+      "key": "SIMILAR_PERFORMANCE",
+      "source": "performance_record.similar5y",
+      "reference": "estPrice",
+      "max": 15,
+      "table": [
+        {
+          "ratioGte": 1.0,
+          "score": 15
+        },
+        {
+          "ratioGte": 0.8,
+          "score": 13.2
+        },
+        {
+          "ratioGte": 0.5,
+          "score": 11
+        },
+        {
+          "ratioGte": 0,
+          "score": 9
+        }
+      ]
+    },
+    {
+      "key": "ENGINEERS",
+      "source": "engineers.qualifiedCount",
+      "reference": "engineers.required",
+      "max": 15,
+      "table": [
+        {
+          "ratioGte": 1.0,
+          "score": 15
+        },
+        {
+          "ratioGte": 0.5,
+          "score": 12
+        },
+        {
+          "ratioGte": 0,
+          "score": 8
+        }
+      ]
+    },
+    {
+      "key": "CREDIT",
+      "source": "credit.grade",
+      "max": 15,
+      "gradeTable": {
+        "AAA": 15,
+        "AA+": 15,
+        "A0": 14,
+        "BBB0": 13,
+        "BB0": 11
+      }
+    },
+    {
+      "key": "BONUS_DISABLED_STD",
+      "source": "company.isDisabledStandardWorkplace",
+      "max": 1,
+      "boolScore": 1.0
+    }
+  ],
+  "priceFormula": {
+    "type": "LOCAL_GOV_A",
+    "params": {
+      "maxScore": 55,
+      "k": 2,
+      "anchorRate": 0.88
+    }
+  }
+}

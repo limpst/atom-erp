@@ -26,7 +26,8 @@ class OutboxRulesTest {
     @ValueSource(strings = {"sal.contract.signed", "fld.survey.synced", "fld.defect.recorded",
             "rpt.report.published", "fac.inspection.due-approaching", "hrq.credential.expired",
             "core.project.created", "fac.inspection.overdue", "fac.grade.critical-detected",
-            "eqp.calibration.due-soon", "eqp.calibration.expired", "eqp.equipment.checked-out"})
+            "eqp.calibration.due-soon", "eqp.calibration.expired", "eqp.equipment.checked-out",
+            "sal.contract.ready-to-sign", "sal.estimate.issued", "sal.bid-notice.collected", "sal.opportunity.stage-changed"})
     @DisplayName("설계 10.1 v0.3: 정식 이벤트명은 {mod}.{aggregate}.{과거형} 규칙 통과")
     void validNames(String name) {
         assertThat(EventNames.requireValid(name)).isEqualTo(name);
@@ -34,7 +35,8 @@ class OutboxRulesTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"ContractSigned", "sal.contract", "sal.contract.sign", "SAL.contract.signed",
-            "sal.Contract.signed", "salesx.contract.signed", "eqp.calibration.soon"})
+            "sal.Contract.signed", "salesx.contract.signed", "eqp.calibration.soon",
+            "sal.contract.ready-to-go"})
     @DisplayName("규칙 위반 이벤트명은 발행 거부")
     void invalidNames(String name) {
         assertThatThrownBy(() -> EventNames.requireValid(name)).isInstanceOf(IllegalArgumentException.class);

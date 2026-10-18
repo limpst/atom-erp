@@ -1,0 +1,157 @@
+{
+  "caseId": "G-18",
+  "source": "합성 사례(synthetic) — 요율 상·하한 동시(제경비 1.20 · 기술료 0.20)",
+  "asOfDate": "2026-12-31",
+  "ruleFixture": "fee-rule-2026.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 31000,
+    "structure": "RC",
+    "basementFloors": 2,
+    "floors": 8,
+    "completionYear": 2010,
+    "inUse": false
+  },
+  "command": {
+    "serviceType": "PRECISE_DIAG",
+    "overheadRate": 1.2,
+    "techFeeRate": 0.2,
+    "expenses": [
+      {
+        "item": "MATERIAL_TEST",
+        "quantity": 12,
+        "unitPrice": 380000
+      }
+    ]
+  },
+  "expected": {
+    "directLabor": 22620000,
+    "directExpense": 4560000,
+    "overhead": 27144000,
+    "techFee": 9952800,
+    "subtotal": 64276000,
+    "vat": 6427600,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "SPECIAL",
+        "manDays": "0.60",
+        "amount": 250800
+      },
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "1.50",
+        "amount": 504000
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "2.10",
+        "amount": 569100
+      },
+      {
+        "workItem": "DATA",
+        "grade": "BEGINNER",
+        "manDays": "1.80",
+        "amount": 372600
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "SPECIAL",
+        "manDays": "3.80",
+        "amount": 1588400
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "9.50",
+        "amount": 3192000
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "13.30",
+        "amount": 3604300
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "BEGINNER",
+        "manDays": "11.40",
+        "amount": 2359800
+      },
+      {
+        "workItem": "TEST",
+        "grade": "SPECIAL",
+        "manDays": "1.20",
+        "amount": 501600
+      },
+      {
+        "workItem": "TEST",
+        "grade": "ADVANCED",
+        "manDays": "3.00",
+        "amount": 1008000
+      },
+      {
+        "workItem": "TEST",
+        "grade": "INTERMEDIATE",
+        "manDays": "4.20",
+        "amount": 1138200
+      },
+      {
+        "workItem": "TEST",
+        "grade": "BEGINNER",
+        "manDays": "3.60",
+        "amount": 745200
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "SPECIAL",
+        "manDays": "1.00",
+        "amount": 418000
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "ADVANCED",
+        "manDays": "2.50",
+        "amount": 840000
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.50",
+        "amount": 948500
+      },
+      {
+        "workItem": "ANALYSIS",
+        "grade": "BEGINNER",
+        "manDays": "3.00",
+        "amount": 621000
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "SPECIAL",
+        "manDays": "1.40",
+        "amount": 585200
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "3.50",
+        "amount": 1176000
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "4.90",
+        "amount": 1327900
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "BEGINNER",
+        "manDays": "4.20",
+        "amount": 869400
+      }
+    ]
+  }
+}

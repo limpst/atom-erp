@@ -1,0 +1,108 @@
+{
+  "caseId": "G-20",
+  "source": "합성 사례(synthetic) — 정밀점검 2025 규칙, 제경비 1.18",
+  "asOfDate": "2025-02-28",
+  "ruleFixture": "fee-rule-2025.json",
+  "facility": {
+    "facilityClass": "BUILDING",
+    "grossAreaM2": 21000.75,
+    "structure": "STEEL",
+    "basementFloors": 1,
+    "floors": 8,
+    "completionYear": 1988,
+    "inUse": false
+  },
+  "command": {
+    "serviceType": "PRECISE_INSP",
+    "overheadRate": 1.18,
+    "expenses": [
+      {
+        "item": "TRAVEL",
+        "quantity": 12,
+        "unitPrice": 150000
+      }
+    ]
+  },
+  "expected": {
+    "directLabor": 8291970,
+    "directExpense": 1800000,
+    "overhead": 9784524,
+    "techFee": 3615298,
+    "subtotal": 23491000,
+    "vat": 2349100,
+    "lines": [
+      {
+        "workItem": "DATA",
+        "grade": "ADVANCED",
+        "manDays": "1.04",
+        "amount": 335920
+      },
+      {
+        "workItem": "DATA",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.39",
+        "amount": 362790
+      },
+      {
+        "workItem": "DATA",
+        "grade": "BEGINNER",
+        "manDays": "1.04",
+        "amount": 206960
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "ADVANCED",
+        "manDays": "4.85",
+        "amount": 1566550
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "INTERMEDIATE",
+        "manDays": "6.47",
+        "amount": 1688670
+      },
+      {
+        "workItem": "FIELD",
+        "grade": "BEGINNER",
+        "manDays": "4.85",
+        "amount": 965150
+      },
+      {
+        "workItem": "TEST",
+        "grade": "ADVANCED",
+        "manDays": "1.39",
+        "amount": 448970
+      },
+      {
+        "workItem": "TEST",
+        "grade": "INTERMEDIATE",
+        "manDays": "1.85",
+        "amount": 482850
+      },
+      {
+        "workItem": "TEST",
+        "grade": "BEGINNER",
+        "manDays": "1.39",
+        "amount": 276610
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "ADVANCED",
+        "manDays": "2.25",
+        "amount": 726750
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "INTERMEDIATE",
+        "manDays": "3.00",
+        "amount": 783000
+      },
+      {
+        "workItem": "REPORT",
+        "grade": "BEGINNER",
+        "manDays": "2.25",
+        "amount": 447750
+      }
+    ]
+  }
+}

@@ -48,6 +48,30 @@ public class TestBeans {
         }
     }
 
+    /** SAL BR-SAL-011 HRQ 투입 가능성 포트 대역(HRQ 연동 전) — 기본 OK, 테스트가 충돌 계약을 지정(TC-SAL-030) */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    FakeAssignmentFeasibility fakeAssignmentFeasibility() {
+        return new FakeAssignmentFeasibility();
+    }
+
+    public static class FakeAssignmentFeasibility
+            implements com.atomeng.erp.sal.application.port.AssignmentFeasibilityPort {
+        private final java.util.Set<UUID> conflicting = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        public void markConflict(UUID contractId) {
+            conflicting.add(contractId);
+        }
+
+        @Override
+        public Result check(UUID contractId, UUID estimateId, java.time.LocalDate from, java.time.LocalDate to) {
+            return conflicting.contains(contractId)
+                    ? new Result(false, java.util.List.of(new Conflict(UUID.nameUUIDFromBytes(new byte[] {1}),
+                            "합성: 같은 기간 다른 프로젝트 투입")))
+                    : Result.okResult();
+        }
+    }
+
     @Bean
     TestEventConsumer testEventConsumer(JdbcTemplate jdbc) {
         return new TestEventConsumer(jdbc);

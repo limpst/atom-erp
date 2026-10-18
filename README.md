@@ -12,7 +12,8 @@
   6. **누가 무엇을 할 수 있나 표 전수 검사**: 설계 표(12역할 × 11모듈 = 132칸)를 한 칸씩 모두 시험합니다.
   7. **개인정보 가리기**: 민감정보를 조회하면 감사 로그에 "누가 봤는지"는 남기되, 이름은 `홍*동`처럼 가려서 남깁니다.
   8. **사진 증거 보관**: 현장 사진을 올리면 서버가 지문(SHA-256)을 다시 계산해 위조를 막고, 사진끼리 지문을 사슬처럼 이어(해시 체인) 중간 사진을 몰래 바꾸면 들통나게 합니다. 원본은 지울 수 없는 칸(WORM)에 보관하고 작은 미리보기(썸네일)를 만듭니다.
-- 모든 기능은 자동 시험 **267개**(266개 통과, 1개는 PostGIS 서버가 있을 때만 실행)로 확인했습니다. 시험 데이터는 전부 **가짜(합성) 데이터**입니다.
+  9. **첫 업무 모듈 FAC(시설물 마스터)**: 건물을 등록하고(같은 건물 중복 등록은 막음), 점검 보고서가 나오면 안전등급(A~E)을 기록합니다. 등급 기록은 고칠 수도 지울 수도 없습니다. 법에서 정한 점검 주기 표(⚠️ 예시 값)로 다음 점검 날짜를 계산하고, 180·90·30일 전과 날짜가 지났을 때 영업팀에 알림 이벤트를 보냅니다.
+- 모든 기능은 자동 시험 **296개**(295개 통과, 1개는 PostGIS 서버가 있을 때만 실행)로 확인했습니다. 시험 데이터는 전부 **가짜(합성) 데이터**입니다.
 
 > 설계 근거: Notion「00. 공통 아키텍처 · 설계 표준 v0.3」, 「00-IMPL. 공통 플랫폼 구현 보고서」, 「에이톰 플랫폼 모듈 라이브러리(ATOM-LIB-001)」.
 
@@ -48,7 +49,8 @@ flowchart BT
   end
   subgraph MODS["업무 모듈 com.atomeng.erp.{mod}"]
     CORE["core<br>V1__core.sql · Client · Project<br>api: ProjectCreatedEvent"]
-    NEXT["fac · fld · rpt · qar … (예정)"]
+    FAC["fac 시설물 마스터<br>V2_0_0 스키마 · 주기 엔진 · 도래 스캔<br>api: FacEvents"]
+    NEXT["fld · rpt · qar … (예정)"]
   end
   APP["apps/erp-server<br>Spring Boot 조립 · ModularityTests"]
   CW --> CC
@@ -58,7 +60,9 @@ flowchart BT
   CA --> CC
   CV --> CC
   CORE --> CW & CI & CE & CA & CV
-  NEXT -. "core::api 만" .-> CORE
+  FAC -. "core::api 만" .-> CORE
+  FAC --> CW & CI & CE & CA
+  NEXT -. "fac::api" .-> FAC
   APP --> CORE
 ```
 
@@ -147,6 +151,19 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 권한 매트릭스: `PermissionMatrixTest` 152건(132셀 + 커버리지 1 + HTTP 프로브 19). 미대상: TC-CORE-011(AIP, Step 12), 012(PITR, Step 15).
 
+## 4-1. FAC 시설물 마스터 (02 v0.3 / 02-IMPL Step 1·2·4·9·10·11 일부)
+
+| 항목 | 구현 |
+|---|---|
+| 스키마 | `modules/fac/.../db/migration/fac/V2_0_0__fac_schema.sql` — site·building(정본)·parcel·location_node(ltree)·drawing(+version)·분류 규칙/분류·grade_history·inspection_cycle_rule(EXCLUDE)·inspection_due·due_notification·repair_history·repair_target(대리키) = 14개 |
+| 불변 | `fac.forbid_grade_mutation()` 트리거 — UPDATE/DELETE/TRUNCATE 모두 `restrict_violation(23001)` |
+| PostGIS | `db/migration-ext/V2_99__fac_postgis_ext.sql`(site.boundary, building.location) — 프로필 postgis, out-of-order |
+| 규칙 | `V2_0_1__fac_cycle_rule_seed.sql` — 시특법 정기·정밀점검·정밀진단, 건축물관리법 점검 **⚠️ 예시 값**(approved_by NULL) |
+| 엔진 | `InspectionCycleEngine`(순수 도메인): 기준일 시점 유효 규칙, 등급 일치 우선, 상위 점검 갈음, 최초 점검(사용승인일), calc_trace |
+| API | `/api/v1/fac/buildings` POST(멱등)·GET 목록/단건(ETag)·PATCH(If-Match)·DELETE(논리) · `PUT /{id}/classification` · `GET /{id}/grades` · `GET /{id}/dues` |
+| 이벤트 | 발행 `fac.building.registered`, `fac.grade.recorded`, `fac.grade.critical-detected`, `fac.inspection.due-approaching`, `fac.inspection.overdue` (core outbox) · 구독 `rpt.report.published` + 별칭 `rpt.revision.published` (스텁 계약) |
+| TC | TC-FAC-001·003·004·005·006·007 (+ 상태 전이, 중복 PNU, 규칙 기간 중복, repair_target) |
+
 ## 5. 설계와 다른 점 (의도적 편차)
 
 1. **Redis 대신 DB 잠금**: 멱등 키 "처리 중" 잠금을 Redis `SET NX 30s` 대신 `idempotency_key` 행(response_code NULL)으로 구현. 30초 지난 잠금은 다음 요청이 이어받음. Redis 어댑터는 Step 2 로컬 스택 후 추가.
@@ -163,6 +180,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 12. **Keycloak 조건부 OTP**: `conditional-user-role` 은 역할 1개만 받으므로 JSON 에는 EXEC 예시만 — 운영은 `mfa-required` 복합 역할로 4역할을 묶어 적용(Step 2에서 실제 import 검증).
 13. **MinIO 어댑터 미구현**: 포트 + 로컬 파일시스템 어댑터(WORM 모사)만. presign URL 은 `local://` 표시용, 클라이언트 PUT 은 테스트에서 `storage.put` 으로 모사. 썸네일은 libvips webp 대신 JDK ImageIO PNG, 동기 리스너.
 14. 첨부 `:complete` 는 WORM 복사 후 DB 커밋 — DB 단계 실패 시 WORM 에 고아 객체가 남을 수 있음(정리 배치는 후속). 일일 해시 앵커(hash_anchor) 배치 미구현.
+16. **FAC**: 공통 6컬럼 version 은 bigint(설계 int), 컨슈머 멱등은 `core.processed_event`(설계 fac.processed_event), 등록 시 대장 ACL(Step 3)이 없어 PNU 가 있으면 VERIFIED 로 간주, 중복 탐지는 PNU+동 일치 + 같은 도로명주소·명칭 유사도 0.85(반경 50m 는 PostGIS 프로필 이후), 도래 스캔은 남은 일수 이하 가장 작은 threshold 하나만 발행(누락일 보충), RLS·병합·위치계층·도면은 미구현. 구독 이벤트명은 설계 정본 `rpt.report.published` 와 조정 요청명 `rpt.revision.published` 를 모두 수신(RPT 설계 확정 시 하나로).
 15. VIEW_PII 감사는 비동기·파일 폴백 대신 **동기 기록(실패 시 응답 실패)**. `@PostMapping` 에 `@Audited` 강제 ArchUnit 규칙은 아직(서비스에서 직접 기록하는 경로와 병존).
 
 ## 6. 다음 단계

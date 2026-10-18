@@ -12,6 +12,7 @@ public class DomainException extends RuntimeException {
     private final String code;
     private final transient Object[] args;
     private final transient List<Map<String, Object>> fieldErrors;
+    private final transient Map<String, Object> properties = new java.util.LinkedHashMap<>();
 
     public DomainException(String code, String message, Object... args) {
         this(code, message, List.of(), args);
@@ -39,6 +40,16 @@ public class DomainException extends RuntimeException {
 
     public List<Map<String, Object>> fieldErrors() {
         return fieldErrors;
+    }
+
+    /** problem+json 추가 속성 (예: 중복 후보 candidates) */
+    public DomainException with(String name, Object value) {
+        properties.put(name, value);
+        return this;
+    }
+
+    public Map<String, Object> properties() {
+        return java.util.Collections.unmodifiableMap(properties);
     }
 
     /** problem type URI 접미사. 예: CORE-422-009 → core-422-009 */

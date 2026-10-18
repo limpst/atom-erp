@@ -27,5 +27,5 @@ public final class EventNames {
 
     private static final Pattern IRREGULAR = Pattern.compile(
             "^(sent|paid|made|done|built|set|run|won|lost|held|written|drawn|taken|given|sold|bought|begun|"
-            + "chosen|frozen|withdrawn|overridden|undone|reset|rebuilt|resent|spent|split|shut|put|cut)$");
+            + "chosen|frozen|withdrawn|overridden|undone|reset|rebuilt|resent|spent|split|shut|put|cut|overdue)$");
 }

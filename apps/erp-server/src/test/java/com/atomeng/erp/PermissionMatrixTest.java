@@ -86,6 +86,8 @@ class PermissionMatrixTest extends IntegrationTestBase {
         String prefix = module.toLowerCase() + ":";
         Map<String, PermissionScope> actual = registry.permissionsOf(Role.valueOf(role)).entrySet().stream()
                 .filter(e -> e.getKey().startsWith(prefix))
+                // 모듈 설계서 A2 의 세분 권한(fac:building:* 등)은 8.2 매트릭스 범위 밖 → 매트릭스 리소스만 비교
+                .filter(e -> Interpreter.matrixResources(module).contains(e.getKey().split(":")[1]))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         assertThat(actual).as("%s × %s (%s)", role, module, cellText).isEqualTo(expected);
     }
@@ -114,6 +116,14 @@ class PermissionMatrixTest extends IntegrationTestBase {
         }
 
         static final Set<String> SELF = Set.of("본인", "시간", "경비", "라벨 과제");
+
+        /** 8.2 표 해석으로 나올 수 있는 리소스 전체(모듈 기본 + 한정어 + SYSADMIN 특수) */
+        static Set<String> matrixResources(String module) {
+            Set<String> r = new java.util.HashSet<>(QUALIFIER.values());
+            r.add(DEFAULT.get(module));
+            r.addAll(Set.of("setting", "template", "checklist", "model"));
+            return r;
+        }
         static final Pattern TOKEN = Pattern.compile("([CRUDA]+)(?:\\(([^)]*)\\))?(◐)?");
 
         static Map<String, PermissionScope> grants(String role, String module, String cell) {

@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 @TestPropertySource(properties = {
         "atom.security.enabled=false",
         "atom.outbox.relay.enabled=false",
+        "atom.fac.due-scan.enabled=false",
         "spring.jpa.open-in-view=false"
 })
 public abstract class IntegrationTestBase {

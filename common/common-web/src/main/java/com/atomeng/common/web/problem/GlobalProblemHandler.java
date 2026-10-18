@@ -41,6 +41,7 @@ public class GlobalProblemHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DomainException.class)
     ResponseEntity<ProblemDetail> domain(DomainException ex, HttpServletRequest req, Locale locale) {
         var pd = problems.create(ex.code(), ex.getMessage(), req.getRequestURI(), locale, ex.fieldErrors());
+        ex.properties().forEach(pd::setProperty);
         return respond(pd);
     }
 

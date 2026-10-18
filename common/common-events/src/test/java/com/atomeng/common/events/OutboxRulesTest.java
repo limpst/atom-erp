@@ -25,7 +25,7 @@ class OutboxRulesTest {
     @ParameterizedTest
     @ValueSource(strings = {"sal.contract.signed", "fld.survey.synced", "fld.defect.recorded",
             "rpt.report.published", "fac.inspection.due-approaching", "hrq.credential.expired",
-            "core.project.created"})
+            "core.project.created", "fac.inspection.overdue", "fac.grade.critical-detected"})
     @DisplayName("설계 10.1 v0.3: 정식 이벤트명은 {mod}.{aggregate}.{과거형} 규칙 통과")
     void validNames(String name) {
         assertThat(EventNames.requireValid(name)).isEqualTo(name);

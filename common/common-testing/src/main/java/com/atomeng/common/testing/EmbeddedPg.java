@@ -26,6 +26,7 @@ public final class EmbeddedPg {
         if (instance == null) {
             try {
                 instance = EmbeddedPostgres.builder()
+                        .setPGStartupWait(java.time.Duration.ofSeconds(90))   // 느린 PC·병렬 빌드 대비
                         .setServerConfig("timezone", "UTC")
                         .setServerConfig("max_connections", "200")
                         .setServerConfig("lc_messages", "C")   // 오류 메시지 영어 고정(OS 로캘 무관)

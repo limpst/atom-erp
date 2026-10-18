@@ -17,6 +17,6 @@ include(
     ":common:common-testing",
 )
 // 업무 모듈 (com.atomeng.erp.{mod}) — Phase 0은 core만
-include(":modules:core")
+include(":modules:core", ":modules:fac")
 // 실행 앱
 include(":apps:erp-server")

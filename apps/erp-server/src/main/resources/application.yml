@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core
+    schemas: core,fac
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core
+    locations: classpath:db/migration/core,classpath:db/migration/fac
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors
+    basename: messages/core-errors,messages/fac-errors
     fallback-to-system-locale: false
   mvc:
     problemdetails:
@@ -44,6 +44,11 @@ atom:
     required-clients: [field-app]
     retention: 24h
     lock-timeout: 30s
+  fac:
+    due-scan:
+      enabled: true
+      cron: "0 0 2 * * *"        # 매일 02:00 KST
+      thresholds: "180,90,30"
   outbox:
     relay:
       enabled: true
@@ -61,7 +66,8 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration-ext
+    out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---
 # 로컬 개발: Keycloak 없이 헤더 인증 스텁 (X-Actor-Id, X-Roles …). 운영 금지.

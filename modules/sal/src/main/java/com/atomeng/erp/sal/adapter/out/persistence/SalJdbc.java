@@ -100,7 +100,7 @@ public class SalJdbc {
 
     /** 영업 그룹(SALES_LEAD 등) — BR-SAL-006 한도 해석용 */
     public List<String> groupsOf(UUID employeeId) {
-        return jdbc.queryForList("SELECT group_code FROM sal.sales_group_member WHERE employee_id = ?", String.class,
+        return jdbc.queryForList("SELECT group_code FROM sal.sales_group_member WHERE employee_id = ? AND active", String.class,
                 employeeId);
     }
 }

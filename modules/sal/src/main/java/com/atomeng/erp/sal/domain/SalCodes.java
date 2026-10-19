@@ -21,6 +21,8 @@ public final class SalCodes {
     public static final String COLLECT_RUNNING = "SAL-409-006";
     /** NFR-SAL-05 / TC-SAL-014 발행 견적 불변(DB 트리거) */
     public static final String ESTIMATE_IMMUTABLE = "SAL-409-010";
+    /** 영업 그룹 소속 중복(비활성이면 수정으로 다시 활성화) */
+    public static final String GROUP_MEMBER_EXISTS = "SAL-409-011";
     public static final String INVALID = "SAL-422-001";
     /** BR-SAL-004 / TC-SAL-011 요율 범위 밖 */
     public static final String RATE_OUT_OF_RANGE = "SAL-422-002";

@@ -14,6 +14,13 @@ public final class CstErrors {
     /** 원 원장 행 미도착(순서 역전) - 예외로 트랜잭션을 롤백해 outbox 재시도(지수 백오프)에 맡긴다 (BR-CST-015 ⑤, TC-CST-14) */
     public static final String ORIGINAL_NOT_POSTED = "CST-409-003";
     public static final String PERIOD_STATE = "CST-409-004";
+    /** 요율 승인 4-eyes — 등록 · 수정자 ≠ 승인자 */
+    public static final String RATE_SAME_APPROVER = "CST-403-001";
+    /** 요율 상태(DRAFT 만 수정 · 승인 · 반려, APPROVED 만 종료) */
+    public static final String RATE_STATE = "CST-409-005";
+    public static final String RATE_DRAFT_EXISTS = "CST-409-006";
+    /** 승인된 요율과 적용 기간 겹침 */
+    public static final String RATE_OVERLAP = "CST-409-007";
     public static final String INVALID = "CST-422-001";
     public static final String RATE_NOT_FOUND = "CST-422-004";
     public static final String PROGRESS_LIMIT = "CST-422-013";

@@ -139,8 +139,9 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         pm = hrqEmployee("책임기술자", "ARCH", "SENIOR");
         eng = hrqEmployee("참여기술자", "ARCH", "INTER");
         qa = hrqEmployee("품질검토자", "ARCH", "SENIOR");
-        // QA 검토자 등록(qar.reviewer_profile) — 수동 배정도 활성 검토자 프로필이 있어야 한다(보안 검토 SEC-QAR-02)
-        jdbc.update("INSERT INTO qar.reviewer_profile(employee_id) VALUES (?) ON CONFLICT DO NOTHING", qa);
+        // QA 검토자 등록(관리 API, V0037) — 수동 배정도 활성 검토자 프로필이 있어야 한다(보안 검토 SEC-QAR-02)
+        call(postJson("/api/v1/qar/reviewer-profiles", json(map("employeeId", qa, "qualifications",
+                List.of("(합성) 건축구조 검토 자격")))), admin, "ADMIN", 201);
 
         // ------------------------------------------------------------ 1. SAL
         step("1 SAL 기회 → 계약 → 프로젝트 · 예산 초안");
@@ -304,8 +305,8 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         assertThat(call(get("/api/v1/eqp/equipment/" + equipment + "/validity?date=" + today), admin, "ADMIN", 200)
                 .get("valid").asBoolean()).isTrue();
         BigDecimal equipDaily = new BigDecimal("120000");
-        call(postJson("/api/v1/cst/rates", json(map("rateKind", "EQUIP_DAILY", "keyCode", eqCode, "value", equipDaily,
-                "validFrom", "2000-01-01", "sourceRef", "합성 손료"))), admin, "ADMIN", 201);
+        approveRate(call(postJson("/api/v1/cst/rates", json(map("rateKind", "EQUIP_DAILY", "keyCode", eqCode,
+                "value", equipDaily, "validFrom", "2000-01-01", "sourceRef", "합성 손료"))), admin, "ADMIN", 201));
         JsonNode res = call(postJson("/api/v1/eqp/reservations", json(map("equipmentId", equipment, "projectId", project,
                 "from", today.toString(), "to", today.plusDays(3).toString()))), pm, "PM", 201);
         call(postJson("/api/v1/eqp/reservations/" + id(res) + ":approve", "{}"), pm, "PM", 200);
@@ -758,16 +759,26 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         JsonNode rates = call(get("/api/v1/cst/rates?kind=STD_LABOR"), admin, "ADMIN", 200);
         for (var e : STD.entrySet()) {
             if (!rates.findValuesAsText("keyCode").contains(e.getKey())) {
-                call(postJson("/api/v1/cst/rates", json(map("rateKind", "STD_LABOR", "keyCode", e.getKey(),
-                        "value", e.getValue(), "validFrom", "2000-01-01", "sourceRef", "합성 테스트 단가"))), admin, "ADMIN", 201);
+                approveRate(call(postJson("/api/v1/cst/rates", json(map("rateKind", "STD_LABOR", "keyCode", e.getKey(),
+                        "value", e.getValue(), "validFrom", "2000-01-01", "sourceRef", "합성 테스트 단가"))), admin, "ADMIN",
+                        201));
             }
         }
     }
 
-    /** 근무일에 유효한 등급별 표준 일 단가(API 조회) */
+    /** 요율 초안 → EXEC 승인(등록자 ≠ 승인자, V0038) */
+    private JsonNode approveRate(JsonNode draft) throws Exception {
+        return call(postJson("/api/v1/cst/rates/" + draft.get("id").asText() + ":approve", "{}")
+                .header("If-Match", "\"v" + draft.get("version").asLong() + "\""), exec, "EXEC", 200);
+    }
+
+    /** 근무일에 유효한 등급별 표준 일 단가(API 조회, 승인된 행만) */
     private Map<String, BigDecimal> stdRates(LocalDate on) throws Exception {
         Map<String, BigDecimal> out = new LinkedHashMap<>();
         for (JsonNode r : call(get("/api/v1/cst/rates?kind=STD_LABOR"), admin, "ADMIN", 200)) {
+            if (!"APPROVED".equals(r.get("status").asText())) {
+                continue;
+            }
             LocalDate from = LocalDate.parse(r.get("validFrom").asText());
             LocalDate to = r.get("validTo").isNull() ? null : LocalDate.parse(r.get("validTo").asText());
             if (!on.isBefore(from) && (to == null || on.isBefore(to))) {

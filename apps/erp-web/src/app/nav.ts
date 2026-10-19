@@ -20,6 +20,9 @@ export const NAV: NavGroup[] = [
     items: [
       { label: '대시보드', module: 'HOME', path: '/' },
       { label: '프로젝트', module: 'CORE·CST', path: '/projects' },
+      { label: '관리 › 영업팀장 그룹', module: 'SAL', path: '/admin/sales-group', roles: ['ADMIN'] },
+      { label: '관리 › QA 검토자', module: 'QAR', path: '/admin/qa-reviewers', roles: ['ADMIN'] },
+      { label: '관리 › 표준 노임 단가', module: 'CST', path: '/admin/labor-rates', roles: ['ADMIN', 'EXEC', 'FIN', 'SYSADMIN'] },
     ],
   },
   {
@@ -43,7 +46,7 @@ export const NAV: NavGroup[] = [
     label: 'G3 재무·회계·감사',
     items: [
       { label: '법인카드 검토 큐', module: 'FCD', path: '/fcd/cases' },
-      { label: '원가 기간 · 요율', module: 'CST' },
+      { label: '원가 기간', module: 'CST' },
     ],
   },
   {

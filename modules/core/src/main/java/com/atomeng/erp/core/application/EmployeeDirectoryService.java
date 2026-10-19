@@ -38,4 +38,9 @@ public class EmployeeDirectoryService implements EmployeeDirectoryApi {
         }
         return created;
     }
+
+    @Override
+    public boolean isActiveEmployee(java.util.UUID id) {
+        return id != null && jdbc.activeEmployee(id);
+    }
 }

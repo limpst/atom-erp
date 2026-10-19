@@ -48,7 +48,7 @@ public final class DevServer {
 
         if (seed) {
             try {
-                new DevSeed("http://127.0.0.1:" + port, ctx.getBean(org.springframework.jdbc.core.JdbcTemplate.class))
+                new DevSeed("http://127.0.0.1:" + port)
                         .run();
             } catch (Exception e) {
                 System.err.println("[dev-seed] 실패: " + e);

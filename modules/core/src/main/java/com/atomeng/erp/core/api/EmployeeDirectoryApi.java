@@ -13,4 +13,7 @@ public interface EmployeeDirectoryApi {
 
     /** 없으면 만들고, 이미 있으면(같은 id) 그대로 둔다. @return 새로 만들었으면 true */
     boolean ensureEmployee(EmployeeRecord e);
+
+    /** 재직 중(삭제 · 퇴직 아님) 직원인지 — 다른 모듈의 직원 지정(영업 그룹 · QA 검토자 등) 검증용 */
+    boolean isActiveEmployee(UUID id);
 }

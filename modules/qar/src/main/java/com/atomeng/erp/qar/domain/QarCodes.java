@@ -27,6 +27,8 @@ public final class QarCodes {
     public static final String COMMENT_STATE = "QAR-409-006";
     /** AI 제안 이미 결정됨 */
     public static final String AI_DECIDED = "QAR-409-007";
+    /** 검토자 프로필 중복 등록 */
+    public static final String PROFILE_EXISTS = "QAR-409-008";
     public static final String INVALID = "QAR-422-001";
     /** BLOCKING · INFO 결과 waiver 불가(BR-QAR-001 · 006, TC-QAR-009) — QAR_WAIVER_NOT_ALLOWED */
     public static final String WAIVER_NOT_ALLOWED = "QAR-422-002";

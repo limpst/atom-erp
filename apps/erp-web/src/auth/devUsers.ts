@@ -16,7 +16,7 @@ const id = (n: number) => `00000000-0000-7000-8000-${n.toString(16).padStart(12,
 export const DEV_USERS: DevUser[] = [
   { id: id(1), name: '김임원', roles: ['EXEC'], note: '할인 승인 · 계약 결재 · 예산 승인' },
   { id: id(2), name: '박영업', roles: ['SALES'], note: '견적 작성 · 발행(할인 5%)' },
-  { id: id(3), name: '이영업팀장', roles: ['SALES'], note: '영업팀장(할인 10%) — 그룹은 서버 설정' },
+  { id: id(3), name: '이영업팀장', roles: ['SALES'], note: '영업팀장(할인 10%) — 공통 › 관리 › 영업팀장 그룹' },
   { id: id(4), name: '최책임', roles: ['PM'], note: '프로젝트 책임 · 타임시트 승인' },
   { id: id(5), name: '정참여', roles: ['ENG', 'EMPLOYEE'], note: '타임시트 입력 · 카드 소명' },
   { id: id(6), name: '한품질', roles: ['QA'], note: 'QAR 검토' },

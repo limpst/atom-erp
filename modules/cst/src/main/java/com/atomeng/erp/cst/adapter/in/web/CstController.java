@@ -28,7 +28,9 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,8 +52,15 @@ class CstController {
     static final String COST_REAL = "cst:cost-real:read";
 
     record RateRequest(@NotBlank String rateKind, @NotBlank @Size(max = 50) String keyCode,
-                       @NotNull @DecimalMin("0") BigDecimal value, @NotNull LocalDate validFrom,
-                       @NotBlank String sourceRef) {}
+                       @NotNull @DecimalMin("0") BigDecimal value, @NotNull LocalDate validFrom, LocalDate validTo,
+                       @NotBlank @Size(max = 500) String sourceRef) {}
+
+    record RateEditRequest(@DecimalMin("0") BigDecimal value, LocalDate validFrom, LocalDate validTo,
+                           @Size(max = 500) String sourceRef) {}
+
+    record RateRejectRequest(@NotBlank @Size(max = 500) String reason) {}
+
+    record RateRetireRequest(@NotNull LocalDate validTo) {}
 
     record ProgressRequest(@NotNull UUID wbsId, @NotNull @DecimalMin("0") @DecimalMax("100") BigDecimal pctComplete,
                            LocalDate asOf, @NotBlank String reason) {}
@@ -91,12 +100,56 @@ class CstController {
         return jdbc.rates(kind);
     }
 
+    /** ADMIN 초안 등록(DRAFT) — EXEC 승인 전에는 원장 · 예산에 쓰이지 않는다(V0038) */
     @PostMapping("/rates")
     @ResponseStatus(HttpStatus.CREATED)
     @RequirePermission("cst:rate:write")
-    public CstJdbc.RateRow registerRate(@Valid @RequestBody RateRequest r) {
-        return rates.register(new RateService.Register(r.rateKind(), r.keyCode(), r.value(), r.validFrom(),
-                r.sourceRef()));
+    public ResponseEntity<CstJdbc.RateRow> registerRate(@Valid @RequestBody RateRequest r) {
+        return withEtag(rates.register(new RateService.Register(r.rateKind(), r.keyCode(), r.value(), r.validFrom(),
+                r.validTo(), r.sourceRef())), HttpStatus.CREATED);
+    }
+
+    @GetMapping("/rates/{id}")
+    @RequirePermission("cst:rate:read")
+    public ResponseEntity<CstJdbc.RateRow> rate(@PathVariable UUID id) {
+        return withEtag(rates.get(id), HttpStatus.OK);
+    }
+
+    /** 초안 수정(ADMIN, If-Match) */
+    @PatchMapping("/rates/{id}")
+    @RequirePermission("cst:rate:write")
+    public ResponseEntity<CstJdbc.RateRow> editRate(@PathVariable UUID id, @Valid @RequestBody RateEditRequest r,
+                                                    @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return withEtag(rates.edit(id, IfMatch.require(ifMatch), new RateService.Edit(r.value(), r.validFrom(),
+                r.validTo(), r.sourceRef())), HttpStatus.OK);
+    }
+
+    /** EXEC 승인(If-Match, 등록 · 수정자 ≠ 승인자) */
+    @PostMapping("/rates/{id}:approve")
+    @RequirePermission("cst:rate:approve")
+    public ResponseEntity<CstJdbc.RateRow> approveRate(@PathVariable UUID id,
+                                                       @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return withEtag(rates.approve(id, IfMatch.require(ifMatch)), HttpStatus.OK);
+    }
+
+    /** EXEC 반려(If-Match, 사유) */
+    @PostMapping("/rates/{id}:reject")
+    @RequirePermission("cst:rate:approve")
+    public ResponseEntity<CstJdbc.RateRow> rejectRate(@PathVariable UUID id, @Valid @RequestBody RateRejectRequest r,
+                                                      @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return withEtag(rates.reject(id, IfMatch.require(ifMatch), r.reason()), HttpStatus.OK);
+    }
+
+    /** ADMIN 적용 종료(If-Match) — 오늘 이후 종료일만 */
+    @PostMapping("/rates/{id}:retire")
+    @RequirePermission("cst:rate:write")
+    public ResponseEntity<CstJdbc.RateRow> retireRate(@PathVariable UUID id, @Valid @RequestBody RateRetireRequest r,
+                                                      @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return withEtag(rates.retire(id, IfMatch.require(ifMatch), r.validTo()), HttpStatus.OK);
+    }
+
+    private static ResponseEntity<CstJdbc.RateRow> withEtag(CstJdbc.RateRow r, HttpStatus status) {
+        return ResponseEntity.status(status).eTag(IfMatch.etagOf(r.version())).body(r);
     }
 
     // ------------------------------------------------------------------ 원장

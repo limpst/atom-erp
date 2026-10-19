@@ -197,7 +197,11 @@ function MyWeek({ week, projectName, projects }: { week: string; projectName: (i
 
   // 열린(DRAFT/SUBMITTED) 항목 → 편집 행으로
   useEffect(() => {
-    if (!rows.data) return;
+    if (!rows.data) {
+      // 주를 바꾸면 새 주 데이터가 올 때까지 편집 행을 비운다 — 이전 주 행이 새 주로 제출되는 것을 막음
+      setLines([]);
+      return;
+    }
     const open = rows.data.filter((r) => r.status === 'DRAFT' || r.status === 'SUBMITTED');
     const byKey = new Map<string, Line>();
     for (const r of open) {

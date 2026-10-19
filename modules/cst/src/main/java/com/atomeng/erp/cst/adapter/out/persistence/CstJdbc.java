@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -170,30 +171,70 @@ public class CstJdbc {
 
     // ================================================================ 요율
 
+    /** 원장 · 예산이 쓰는 유효 요율 — 승인(APPROVED)된 행만 */
     public Optional<BigDecimal> effectiveRate(String kind, String key, LocalDate asOf) {
         return jdbc.queryForList("""
-                SELECT value FROM cst.rate_table WHERE rate_kind = ? AND key_code = ?
+                SELECT value FROM cst.rate_table WHERE rate_kind = ? AND key_code = ? AND status = 'APPROVED'
                    AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?)""", BigDecimal.class,
                 kind, key, d(asOf), d(asOf)).stream().findFirst();
     }
 
+    /** 기준 요율 행. status = DRAFT(ADMIN 등록 · 수정) → APPROVED(EXEC 승인, 등록자 ≠ 승인자) | REJECTED */
     public record RateRow(UUID id, String rateKind, String keyCode, BigDecimal value, LocalDate validFrom,
-                          LocalDate validTo, String sourceRef, long version) {}
+                          LocalDate validTo, String sourceRef, long version, String status, UUID createdBy,
+                          java.time.Instant createdAt, UUID approvedBy, java.time.Instant approvedAt,
+                          String rejectReason, java.time.Instant retiredAt) {}
 
     private RateRow rate(ResultSet rs, int i) throws SQLException {
         return new RateRow(rs.getObject("id", UUID.class), rs.getString("rate_kind"), rs.getString("key_code"),
                 rs.getBigDecimal("value"), ld(rs, "valid_from"), ld(rs, "valid_to"), rs.getString("source_ref"),
-                rs.getLong("version"));
+                rs.getLong("version"), rs.getString("status"), rs.getObject("created_by", UUID.class),
+                instant(rs, "created_at"), rs.getObject("approved_by", UUID.class), instant(rs, "approved_at"),
+                rs.getString("reject_reason"), instant(rs, "retired_at"));
+    }
+
+    private static java.time.Instant instant(ResultSet rs, String col) throws SQLException {
+        var t = rs.getTimestamp(col);
+        return t == null ? null : t.toInstant();
     }
 
     public List<RateRow> rates(String kind) {
         return jdbc.query("SELECT * FROM cst.rate_table WHERE (?::text IS NULL OR rate_kind = ?) "
-                + "ORDER BY rate_kind, key_code, valid_from", this::rate, kind, kind);
+                + "ORDER BY rate_kind, key_code, valid_from, created_at", this::rate, kind, kind);
+    }
+
+    public Optional<RateRow> findRate(UUID id) {
+        return jdbc.query("SELECT * FROM cst.rate_table WHERE id = ?", this::rate, id).stream().findFirst();
+    }
+
+    public UUID rateUpdatedBy(UUID id) {
+        return jdbc.queryForList("SELECT updated_by FROM cst.rate_table WHERE id = ?", UUID.class, id).stream()
+                .filter(Objects::nonNull).findFirst().orElse(null);
+    }
+
+    public Optional<RateRow> lockRate(UUID id) {
+        return jdbc.query("SELECT * FROM cst.rate_table WHERE id = ? FOR UPDATE", this::rate, id).stream().findFirst();
     }
 
     public Optional<RateRow> lockOpenEndedRate(String kind, String key) {
         return jdbc.query("SELECT * FROM cst.rate_table WHERE rate_kind = ? AND key_code = ? AND valid_to IS NULL "
-                + "FOR UPDATE", this::rate, kind, key).stream().findFirst();
+                + "AND status = 'APPROVED' FOR UPDATE", this::rate, kind, key).stream().findFirst();
+    }
+
+    /** [from, to) 와 겹치는 APPROVED 행(자기 자신 · except 제외) */
+    public List<RateRow> overlappingApproved(String kind, String key, LocalDate from, LocalDate to, UUID except) {
+        return jdbc.query("""
+                SELECT * FROM cst.rate_table WHERE rate_kind = ? AND key_code = ? AND status = 'APPROVED'
+                   AND (?::uuid IS NULL OR id <> ?::uuid)
+                   AND daterange(valid_from, coalesce(valid_to, 'infinity'::date), '[)')
+                       && daterange(?::date, coalesce(?::date, 'infinity'::date), '[)')
+                 ORDER BY valid_from""", this::rate, kind, key, except, except, d(from), d(to));
+    }
+
+    public boolean draftExists(String kind, String key, UUID except) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM cst.rate_table WHERE rate_kind = ? AND key_code = ? AND status = 'DRAFT'
+                                 AND (?::uuid IS NULL OR id <> ?::uuid))""", Boolean.class, kind, key, except, except));
     }
 
     public void closeRate(UUID id, LocalDate validTo, UUID by) {
@@ -201,11 +242,34 @@ public class CstJdbc {
                 + "WHERE id = ?", d(validTo), by, id);
     }
 
+    public void retireRate(UUID id, LocalDate validTo, UUID by) {
+        jdbc.update("UPDATE cst.rate_table SET valid_to = ?, retired_at = now(), retired_by = ?, updated_at = now(), "
+                + "updated_by = ?, version = version + 1 WHERE id = ?", d(validTo), by, by, id);
+    }
+
+    public void updateDraft(UUID id, BigDecimal value, LocalDate validFrom, LocalDate validTo, String sourceRef, UUID by) {
+        jdbc.update("""
+                UPDATE cst.rate_table SET value = ?, valid_from = ?, valid_to = ?, source_ref = ?, updated_at = now(),
+                       updated_by = ?, version = version + 1 WHERE id = ? AND status = 'DRAFT'""",
+                value, d(validFrom), d(validTo), sourceRef, by, id);
+    }
+
+    public void approveRate(UUID id, UUID by) {
+        jdbc.update("UPDATE cst.rate_table SET status = 'APPROVED', approved_by = ?, approved_at = now(), "
+                + "updated_at = now(), updated_by = ?, version = version + 1 WHERE id = ? AND status = 'DRAFT'", by, by, id);
+    }
+
+    public void rejectRate(UUID id, String reason, UUID by) {
+        jdbc.update("UPDATE cst.rate_table SET status = 'REJECTED', reject_reason = ?, updated_at = now(), "
+                + "updated_by = ?, version = version + 1 WHERE id = ? AND status = 'DRAFT'", reason, by, id);
+    }
+
     public void insertRate(RateRow r, UUID by) {
         jdbc.update("""
-                INSERT INTO cst.rate_table(id, rate_kind, key_code, value, valid_from, valid_to, source_ref, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", r.id(), r.rateKind(), r.keyCode(), r.value(), d(r.validFrom()),
-                d(r.validTo()), r.sourceRef(), by);
+                INSERT INTO cst.rate_table(id, rate_kind, key_code, value, valid_from, valid_to, source_ref, created_by,
+                                           status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", r.id(), r.rateKind(), r.keyCode(), r.value(), d(r.validFrom()),
+                d(r.validTo()), r.sourceRef(), by, r.status());
     }
 
     public Optional<BigDecimal> realDailyCost(UUID employeeId, String ym) {

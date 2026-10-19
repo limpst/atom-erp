@@ -226,6 +226,8 @@ cd apps/erp-web && npm install && npm run dev   # http://127.0.0.1:5173 — 자�
 | aip | V11_0_0 → V0031, V11_0_1 → V0032 |
 | fcd | V12_0_0 → V0033, V12_0_1 → V0034 |
 
+재번호 이후 추가: `V0035` core 투입 지정 권한 · `V0036` sal 영업 그룹 관리 · `V0037` qar 검토자 프로필 관리 · `V0038` cst 요율 승인(모두 기준선 등록).
+
 ## 3. 구현 내용 ↔ 설계 대응
 
 | 설계 | 구현 위치 | 핵심 |
@@ -302,7 +304,7 @@ cd apps/erp-web && npm install && npm run dev   # http://127.0.0.1:5173 — 자�
 | 월 마감 대사 | `hrq.manday.closed` → **원장 기록 없이** (프로젝트·기술자·등급·업무유형) 단위 `round(Σh/8, 2)` 비교, MATCHED/MISMATCH 기록, payload 해시 멱등, CST 마감 체크리스트 전제 |
 | 구독 스텁 | `fcd.expense.posted`(EXPENSE 행, 공급가만) → 더존 스텁 전표 → **`cst.voucher.synced`** 발행 · `fcd.expense.reversed`(역분개) · `eqp.equipment.returned`(일수 × EQUIP_DAILY) — 계약 레코드 `cst.api.CstSubscriptionContracts` |
 | EVM | `EvmCalculator`(순수 도메인): PV(LINEAR·FRONT_LOADED)·EV·AC·CV·SV·CPI·SPI·EAC(3분기 규칙)·ETC·VAC·TCPI + 경보(지수·EAC·소진율 격차·WBS 초과) / `GET /projects/{id}/evm` 스냅샷 저장, PM 은 표준단가 AC |
-| API | `/api/v1/cst/rates`(GET·POST) · `/projects/{id}/ledger`(실단가 열 마스킹) · `/ledger/summary` · `/evm` · `/progress`(±15%p 초과는 EXEC) · `/periods/{ym}` · `:close`(ADMIN, 체크리스트) · `:reopen`(SYSADMIN+사유) |
+| API | `/api/v1/cst/rates`(GET·POST 초안 · PATCH · `:approve`(EXEC 4-eyes) · `:reject` · `:retire`, 4-13 절) · `/projects/{id}/ledger`(실단가 열 마스킹) · `/ledger/summary` · `/evm` · `/progress`(±15%p 초과는 EXEC) · `/periods/{ym}` · `:close`(ADMIN, 체크리스트) · `:reopen`(SYSADMIN+사유) |
 | 이벤트 | 발행 `cst.voucher.synced`, `cst.period.closed`, `cst.ledger.corrected` |
 | 모듈 경계 | `allowedDependencies = core::api, hrq::api, fac::api` (ModularityTests), 원장 쓰기는 `CostLedgerService` 하나(ArchUnit) |
 | TC | TC-CST-04·05·10·11(일부)·13·14, TC-HRQ-010(+정정·조정 변형), 계약 테스트 `CstHrqContractTest` |
@@ -468,6 +470,18 @@ cd apps/erp-web && npm install && npm run dev   # http://127.0.0.1:5173 — 자�
 | 소비 모듈 연결 | **RPT**: `POST /reports/{id}/snapshots` 에 `fldRoundId` → 결함을 **fld::api `FldSurveyQuery.export`** 에서 읽음(확정 측정 · 균열폭 장비/측정일 · FAC 층 · 부재 매핑, RPT 표에 없는 유형은 제외 후 워터마크), source_watermarks = {fld::api, roundId, asOfSeq}. `fld.survey.completed` → `rpt.field_survey_completion`(V0022). **CST**: `fld.survey.completed` → milestone_event 가 같은 WBS 에 진척 100%(EVENT). **QAR**: `QarEvidencePort` 기본 구현을 `FldEvidenceAdapter` 로 교체 — **AC-PHO-001 · 002 가 FLD 검증 사진으로 실제 판정**(회차 없으면 기존처럼 INFO), `fld.ai-suggestion.discrepancy` → `qar.fld_ai_discrepancy`(V0025) |
 | 모듈 경계 | `allowedDependencies = core::api, fac::api, eqp::api, aip::api`, RPT · QAR 에 `fld::api` 추가, ArchUnit(fld → 다른 모듈 내부 0건, fld 내부 참조 0건, fld::api 소비자는 RPT · QAR 만 · FAC · CST 는 이벤트 계약만) |
 | TC | **TC-FLD-002**(3회 재전송 DUPLICATE · 배치 안 중복) · **003**(두 기기 폭 0.25/0.30 → CONFLICT · 재전송 같은 충돌 · 잠금 차단 · KEEP_CLIENT/MERGE/KEEP_SERVER) · **004**(메모/방향 자동 병합 · 같은 필드 LWW 도착 순서 무관) · **005**(60% 끊김 → 재시작 같은 세션 → HEAD 재개, 전송 합 = 파일 크기, 옛 offset 409, 체크섬 422) · **006**(1바이트 변조 → REJECTED · reuploadRequests → 재업로드 VERIFIED · WORM 변조 MISMATCH) · **011**(422 + 목록) · **013**(재구축 해시 동일 + 리듀서 무작위 순서 1,000가지 수렴) · **014**(교정 만료 → 잠정 · DRAFT · 추적 0) · **015**(+10분 드리프트 경고) + 불변 트리거 · 이벤트 계약(`FldContractTest`) · RPT 스냅샷 · CST 진척 · QAR 원천 · FAC 읽기 모델 실제 흐름 |
+
+## 4-13. 공통 관리 API — 영업팀장 그룹 · QA 검토자 · 기준 요율 승인 (웹 프론트엔드가 찾은 "관리 API 없음" 보완)
+
+dev 시드(`DevSeed`)는 이제 **직접 SQL 없이** 아래 API 로만 만듭니다. 웹 화면은 `공통 › 관리 › …`(apps/erp-web).
+
+| 대상 | API | 권한 · 규칙 |
+|---|---|---|
+| SAL 영업팀장 그룹(`sal.sales_group_member`, BR-SAL-006 할인 한도 10%) | `GET/POST /api/v1/sal/sales-group-members` · `GET/PATCH …/{employeeId}/{groupCode}`(If-Match) | `V0036`: `sal:sales-group:read/write` **ADMIN 전용**(설계 01 미지정). 재직 직원만(`core::api EmployeeDirectoryApi.isActiveEmployee`), 중복 409 `SAL-409-011`, 비활성화 = `active=false`(행 보존) — 할인 한도 해석은 활성 행만. 감사 로그 before/after |
+| QAR 검토자 프로필(`qar.reviewer_profile`) | `GET/POST /api/v1/qar/reviewer-profiles` · `GET/PATCH …/{employeeId}`(If-Match) | `V0037`: `qar:reviewer-profile:read/write` **ADMIN 전용**(설계 07 은 관리 주체 미지정 · QA 팀장 역할 코드 없음). 단계 `QA_REVIEW` 만(CHECK), `maxOpen` 1~50, `expertise` {RT_…: 건수}, `qualifications`(기록용 text[]), 중복 409 `QAR-409-008`, 비활성화하면 자동 · 수동 배정 후보에서 빠짐. 감사 로그 |
+| CST 기준 요율(`cst.rate_table`, 표준 노임 단가 등) | `GET/POST /api/v1/cst/rates` · `GET/PATCH /rates/{id}` · `POST /rates/{id}:approve` · `:reject` · `:retire`(모두 If-Match) | `V0038`: 설계 08 A2 "노임단가 · 제경비율 · 환율 기준 관리 — ADMIN 관리 · EXEC 승인" → **ADMIN 초안(DRAFT) → EXEC 승인(`cst:rate:approve`), 등록 · 마지막 수정자 ≠ 승인자(403 `CST-403-001`)**. 원장 · 예산은 APPROVED 행만. 기간 겹침 EXCLUDE 는 APPROVED 행에만, 키당 초안 1개(409 `CST-409-006`), 무기한 초안 승인 때 직전 무기한 행 자동 마감, 남은 겹침 409 `CST-409-007`, DRAFT 만 수정(409 `CST-409-005`), 종료는 오늘 이후로만(소급 금지). 기존 행은 APPROVED 로 간주. **요율 값은 마이그레이션에 넣지 않음** — dev 시드만 ⚠️ 예시 합성 값 |
+
+시험: `AdminMasterDataIntegrationTest`(권한 · If-Match 428/412 · 문제 코드 · 감사 건수 · 할인 그룹 해석 · 4-eyes · 승인 전 원장 미사용 · 겹침 · 반려 · 소급 종료 금지), `CstIntegrationTest` · `GoldenPathScenarioTest` 는 요율을 등록 → EXEC 승인으로, 골든 패스는 QA 검토자를 API 로 등록.
 
 ## 5. 설계와 다른 점 (의도적 편차)
 

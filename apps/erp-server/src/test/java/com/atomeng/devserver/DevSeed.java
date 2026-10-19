@@ -15,10 +15,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * 웹 개발용 합성 시드 — 실제 HTTP API 로만 만든다(직접 SQL 은 API 가 없는 두 곳: 영업팀장 그룹 · QA 검토자 프로필).
+ * 웹 개발용 합성 시드 — 실제 HTTP API 로만 만든다(직접 SQL 없음 — 영업팀장 그룹 · QA 검토자 · 기준 요율도 관리 API).
  * 사람 · 회사 · 금액은 전부 가짜. 사용자 ID 는 apps/erp-web/src/auth/devUsers.ts 와 같다.
  */
 final class DevSeed {
@@ -31,14 +30,12 @@ final class DevSeed {
             QA = user(6), AUDITOR = user(7), FIN = user(8), ADMIN = user(9), PM2 = user(10);
 
     private final String base;
-    private final JdbcTemplate jdbc;
     private final HttpClient http = HttpClient.newHttpClient();
     private final ObjectMapper om = new ObjectMapper();
     private final LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
-    DevSeed(String base, JdbcTemplate jdbc) {
+    DevSeed(String base) {
         this.base = base;
-        this.jdbc = jdbc;
     }
 
     void run() throws Exception {
@@ -59,9 +56,11 @@ final class DevSeed {
             }
             call("POST", "/api/v1/hrq/employees", b, ADMIN, "ADMIN", null);
         }
-        jdbc.update("INSERT INTO sal.sales_group_member(employee_id, group_code) VALUES (?, 'SALES_LEAD') "
-                + "ON CONFLICT DO NOTHING", SALES_LEAD);
-        jdbc.update("INSERT INTO qar.reviewer_profile(employee_id) VALUES (?) ON CONFLICT DO NOTHING", QA);
+        // 영업팀장 그룹(할인 한도 10%) · QA 검토자 프로필 — ADMIN 관리 API(V0036 · V0037)
+        call("POST", "/api/v1/sal/sales-group-members", map("employeeId", SALES_LEAD, "groupCode", "SALES_LEAD",
+                "note", "(합성) 영업1팀장"), ADMIN, "ADMIN", null);
+        call("POST", "/api/v1/qar/reviewer-profiles", map("employeeId", QA, "maxOpen", 5,
+                "expertise", map("RT_PSD", 3), "qualifications", List.of("(합성) 건축구조 검토 자격")), ADMIN, "ADMIN", null);
 
         // 1. 고객 · 영업기회 · 견적 · 계약 → 프로젝트 · 예산 초안(CST, outbox 비동기)
         UUID client = id(call("POST", "/api/v1/core/clients",
@@ -130,11 +129,14 @@ final class DevSeed {
             }
         }
 
-        // 4-0. CST 표준 노임 일 단가(⚠️ 합성 값) — 없으면 승인 타임시트가 원장에 못 올라간다
+        // 4-0. CST 표준 노임 일 단가(⚠️ 예시 · 합성 값, 실제 노임단가 아님) — ADMIN 초안 → EXEC 승인(4-eyes, V0038).
+        //      없으면 승인 타임시트가 원장에 못 올라간다. 마이그레이션에는 값을 넣지 않는다(ADMIN 입력만).
         Object[][] std = {{"JUNIOR", 207000}, {"INTER", 271000}, {"SENIOR", 336000}, {"MASTER", 418000}};
         for (Object[] r : std) {
-            call("POST", "/api/v1/cst/rates", map("rateKind", "STD_LABOR", "keyCode", r[0], "value", r[1],
-                    "validFrom", "2000-01-01", "sourceRef", "(합성) 개발 시드 단가"), ADMIN, "ADMIN", null);
+            JsonNode draft = call("POST", "/api/v1/cst/rates", map("rateKind", "STD_LABOR", "keyCode", r[0],
+                    "value", r[1], "validFrom", "2000-01-01", "sourceRef", "⚠️ 예시 — (합성) 개발 시드 단가"), ADMIN,
+                    "ADMIN", null);
+            call("POST", "/api/v1/cst/rates/" + id(draft) + ":approve", map(), EXEC, "EXEC", etag(draft));
         }
 
         // 4. 타임시트 — 지난주 제출 → PM 승인(원가 원장 반영), 이번 주는 비워 둔다

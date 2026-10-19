@@ -63,6 +63,12 @@ class CstIntegrationTest extends IntegrationTestBase {
 
     // ------------------------------------------------------------------ helpers
 
+    private JsonNode approveRate(JsonNode draft, UUID exec) throws Exception {
+        return json(mvc.perform(as(postJson("/api/v1/cst/rates/" + draft.get("id").asText() + ":approve", "{}")
+                .header("If-Match", "\"v" + draft.get("version").asLong() + "\""), exec, "EXEC"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED")).andReturn());
+    }
+
     private UUID employee(String grade) throws Exception {
         UUID id = UUID.randomUUID();
         String empNo = "C-" + SEQ.incrementAndGet();
@@ -363,17 +369,19 @@ class CstIntegrationTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM cst.voucher_sync WHERE expense_report_id = ? AND kind = "
                 + "'REVERSED'", Integer.class, report)).isEqualTo(1);
 
-        // 요율 API: PM 403, ADMIN 등록, 같은 키 이전 시작일 422, 이후 시작일이면 직전 행 자동 마감
+        // 요율 API: PM 403, ADMIN 초안 등록 → EXEC 승인(V0038), 같은 키 이전 시작일 422, 이후 시작일이면 승인 때 직전 행 자동 마감
         String code = "EQ-SYN-" + SEQ.incrementAndGet();
         String body = "{\"rateKind\":\"EQUIP_DAILY\",\"keyCode\":\"%s\",\"value\":%s,\"validFrom\":\"%s\",\"sourceRef\":\"합성 손료\"}";
+        UUID exec = actor();
         mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 150000, "2025-01-01")), pm, "PM"))
                 .andExpect(status().isForbidden());
-        mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 150000, "2025-01-01")), admin, "ADMIN"))
-                .andExpect(status().isCreated());
+        approveRate(json(mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 150000, "2025-01-01")),
+                admin, "ADMIN")).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn()), exec);
         mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 160000, "2024-12-01")), admin, "ADMIN"))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("CST-422-001"));
-        mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 170000, "2025-12-01")), admin, "ADMIN"))
-                .andExpect(status().isCreated());
+        approveRate(json(mvc.perform(as(postJson("/api/v1/cst/rates", body.formatted(code, 170000, "2025-12-01")),
+                admin, "ADMIN")).andExpect(status().isCreated()).andReturn()), exec);
         mvc.perform(as(get("/api/v1/cst/rates?kind=EQUIP_DAILY"), admin, "ADMIN"))
                 .andExpect(jsonPath("$[?(@.keyCode == '" + code + "' && @.validFrom == '2025-01-01')].validTo")
                         .value(org.hamcrest.Matchers.contains("2025-12-01")));

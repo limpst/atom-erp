@@ -11,6 +11,9 @@ import { TimesheetPage } from '@/features/hrq/TimesheetPage';
 import { FcdCasesPage } from '@/features/fcd/FcdCasesPage';
 import { ReportsPage } from '@/features/rpt/ReportsPage';
 import { ReportDetailPage } from '@/features/rpt/ReportDetailPage';
+import { SalesGroupPage } from '@/features/admin/SalesGroupPage';
+import { ReviewerProfilesPage } from '@/features/admin/ReviewerProfilesPage';
+import { LaborRatesPage } from '@/features/admin/LaborRatesPage';
 
 function Themed() {
   const { theme } = useThemeContext();
@@ -38,6 +41,9 @@ function Themed() {
           <Route path="fcd/cases" element={<FcdCasesPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
+          <Route path="admin/sales-group" element={<SalesGroupPage />} />
+          <Route path="admin/qa-reviewers" element={<ReviewerProfilesPage />} />
+          <Route path="admin/labor-rates" element={<LaborRatesPage />} />
           <Route path="*" element={<div className="empty">페이지를 찾을 수 없습니다</div>} />
         </Route>
       </Routes>

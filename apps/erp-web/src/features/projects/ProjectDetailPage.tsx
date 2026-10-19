@@ -276,7 +276,7 @@ export function ProjectDetailPage() {
       </div>
 
       <Card title="원가 원장 (append-only ledger)">
-        {ledger.error ? <Unavailable error={ledger.error} /> : <DataGrid<LedgerRow> rowData={ledger.data} columnDefs={ledgerCols} height={260} />}
+        {ledger.error ? <Unavailable error={ledger.error} /> : <DataGrid<LedgerRow> testId="ledger-grid" rowData={ledger.data} columnDefs={ledgerCols} height={260} />}
       </Card>
     </>
   );

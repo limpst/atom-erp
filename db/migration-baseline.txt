@@ -37,3 +37,7 @@
 0032 | aip | db/migration/aip/V0032__aip_seed.sql | bba911edd2bb0f1b1f3562279aedce4c05cfcd8242d30fa52cca24097b8d125b
 0033 | fcd | db/migration/fcd/V0033__fcd_schema.sql | d3fbd4218fbc294ce553edce0e9ed1eebd62bc6176e7b8115ab0b57f6d0a428a
 0034 | fcd | db/migration/fcd/V0034__fcd_seed.sql | da666cb6009bb5954086fecbd162dd57044da43c7fb9f2b98e08459f7eb3de13
+0035 | core | db/migration/core/V0035__core_project_member_permission.sql | dfd8e00bac488039611db2c0525a547632fdf93349b56425c1e319deb8eb27cd
+0036 | sal | db/migration/sal/V0036__sal_sales_group_admin.sql | 0bef8e5572acaf07eec749bc231b5302b34502f3a575417b9d52c2087366d312
+0037 | qar | db/migration/qar/V0037__qar_reviewer_profile_admin.sql | 7e5b31932903e4ed5be3bdf41075b5d4524f580d8eed78f5448d5ac208ea9fc1
+0038 | cst | db/migration/cst/V0038__cst_rate_approval.sql | 055dfad7392ee696d5de08a03feee864f4cbe3801bd882a7dda825827514c542

@@ -226,7 +226,7 @@ class DemController {
 
     /** 감리일지 업서트(오프라인 동기화 멱등: clientOpId) — 200, 잠금 이후 도착이면 202 + amendmentPending */
     @PutMapping("/daily-logs/{workPackageId}/{date}")
-    @RequirePermission("dem:supervision-log:create")
+    @RequirePermission(value = "dem:supervision-log:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> upsertLog(@PathVariable UUID workPackageId,
                                                          @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                                                          @RequestHeader(value = "If-Match", required = false) String ifMatch,
@@ -244,7 +244,7 @@ class DemController {
     }
 
     @GetMapping("/daily-logs/{logId}")
-    @RequirePermission("dem:supervision-log:read")
+    @RequirePermission(value = "dem:supervision-log:read", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> log(@PathVariable UUID logId) {
         var body = logs.read(logId);
         return ResponseEntity.ok().eTag(IfMatch.etagOf((Long) body.get("version"))).body(body);

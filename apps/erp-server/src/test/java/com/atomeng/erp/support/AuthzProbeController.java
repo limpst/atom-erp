@@ -45,7 +45,7 @@ public class AuthzProbeController {
     }
 
     @PostMapping("/api/v1/test/cst/expenses")
-    @RequirePermission("cst:expense:create")
+    @RequirePermission(value = "cst:expense:create", scopeCheckedInService = true)   // 역할 프로브(EMPLOYEE=SELF)
     public Map<String, Object> expense() {
         return OK;
     }
@@ -63,8 +63,42 @@ public class AuthzProbeController {
     }
 
     @PostMapping("/api/v1/test/aip/label-tasks")
-    @RequirePermission("aip:label-task:create")
+    @RequirePermission(value = "aip:label-task:create", scopeCheckedInService = true)   // 역할 프로브(LABELER=SELF)
     public Map<String, Object> labelTask() {
+        return OK;
+    }
+
+    // ---------------------------------------------------------------- CMN-05 실패하는 쪽으로 닫힘
+
+    /** 범위 판정 수단 없음 — PROJECT/CLIENT 범위 호출자는 403, ALL 만 통과 */
+    @GetMapping("/api/v1/test/cmn05/undeclared/{id}")
+    @RequirePermission("rpt:report:read")
+    public Map<String, Object> undeclared(@PathVariable UUID id) {
+        return OK;
+    }
+
+    @GetMapping("/api/v1/test/cmn05/reports/{id}")
+    @RequirePermission(value = "rpt:report:read", scopeResolver = ProbeScopeResolver.class, resourceParam = "id")
+    public Map<String, Object> resolvedReport(@PathVariable UUID id) {
+        return OK;
+    }
+
+    @GetMapping("/api/v1/test/cmn05/timesheets/{id}")
+    @RequirePermission(value = "hrq:timesheet:read", scopeResolver = ProbeScopeResolver.class, resourceParam = "id")
+    public Map<String, Object> resolvedTimesheet(@PathVariable UUID id) {
+        return OK;
+    }
+
+    /** SELF 범위는 프로젝트로 판정할 수 없다 → projectIdParam 만 있으면 거부 */
+    @GetMapping("/api/v1/test/cmn05/projects/{projectId}/timesheets")
+    @RequirePermission(value = "hrq:timesheet:read", projectIdParam = "projectId")
+    public Map<String, Object> selfByProject(@PathVariable UUID projectId) {
+        return OK;
+    }
+
+    @GetMapping("/api/v1/test/cmn05/service-checked/{id}")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
+    public Map<String, Object> serviceChecked(@PathVariable UUID id) {
         return OK;
     }
 }

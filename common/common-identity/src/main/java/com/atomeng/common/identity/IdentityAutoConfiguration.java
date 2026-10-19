@@ -58,8 +58,9 @@ public class IdentityAutoConfiguration {
 
     @Bean
     RequirePermissionAspect requirePermissionAspect(PermissionRegistry registry,
-            ObjectProvider<ProjectScopeResolver> scopes, Clock clock) {
-        return new RequirePermissionAspect(registry, scopes, clock);
+            ObjectProvider<ProjectScopeResolver> scopes, org.springframework.beans.factory.BeanFactory beans,
+            Clock clock) {
+        return new RequirePermissionAspect(registry, scopes, beans, clock);
     }
 
     @Bean

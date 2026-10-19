@@ -82,7 +82,7 @@ class FldController {
     // ------------------------------------------------------------------ 회차 · 구역 · 결함
 
     @PostMapping("/rounds")
-    @RequirePermission("fld:round:create")
+    @RequirePermission(value = "fld:round:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> createRound(@Valid @RequestBody RoundRequest r) {
         Map<String, Object> v = survey.createRound(new SurveyService.CreateRound(r.projectId(), r.buildingId(),
                 r.roundNo(), r.surveyType(), r.evidenceMode(), r.startedOn()));
@@ -90,33 +90,33 @@ class FldController {
     }
 
     @GetMapping("/rounds/{id}")
-    @RequirePermission("fld:round:read")
+    @RequirePermission(value = "fld:round:read", scopeCheckedInService = true)
     public Map<String, Object> round(@PathVariable UUID id) {
         return survey.round(id);
     }
 
     @PostMapping("/rounds/{id}/zones")
     @ResponseStatus(HttpStatus.CREATED)
-    @RequirePermission("fld:zone:assign")
+    @RequirePermission(value = "fld:zone:assign", scopeCheckedInService = true)
     public Map<String, Object> addZone(@PathVariable UUID id, @Valid @RequestBody ZoneRequest z) {
         return survey.addZone(id, new SurveyService.CreateZone(z.zoneName(), z.floorNodeId(), z.sheetId(),
                 z.zoneGeomNorm(), z.assigneeId()));
     }
 
     @GetMapping("/rounds/{id}/defects")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public List<Map<String, Object>> defects(@PathVariable UUID id, @RequestParam(required = false) UUID zoneId) {
         return survey.defects(id, zoneId);
     }
 
     @GetMapping("/defects/{id}")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public Map<String, Object> defect(@PathVariable UUID id) {
         return survey.defect(id);
     }
 
     @GetMapping("/defects/{id}/history")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public Map<String, Object> history(@PathVariable UUID id, @RequestParam(required = false) Instant asOf) {
         return survey.history(id, asOf);
     }
@@ -130,20 +130,20 @@ class FldController {
     // ------------------------------------------------------------------ 구역 잠금
 
     @GetMapping("/zones/{id}/lock-check")
-    @RequirePermission("fld:zone:lock")
+    @RequirePermission(value = "fld:zone:lock", scopeCheckedInService = true)
     public Map<String, Object> lockCheck(@PathVariable UUID id) {
         var issues = survey.lockCheck(id);
         return Map.of("zoneId", id, "ready", issues.isEmpty(), "issues", issues);
     }
 
     @PostMapping("/zones/{id}/lock")
-    @RequirePermission("fld:zone:lock")
+    @RequirePermission(value = "fld:zone:lock", scopeCheckedInService = true)
     public Map<String, Object> lock(@PathVariable UUID id) {
         return survey.lock(id);
     }
 
     @PostMapping("/zones/{id}/unlock")
-    @RequirePermission("fld:zone:lock")
+    @RequirePermission(value = "fld:zone:lock", scopeCheckedInService = true)
     public Map<String, Object> unlock(@PathVariable UUID id, @Valid @RequestBody UnlockIn r) {
         return survey.unlock(id, r.reason());
     }
@@ -151,7 +151,7 @@ class FldController {
     // ------------------------------------------------------------------ 동기화
 
     @PostMapping("/sync/push")
-    @RequirePermission("fld:defect:update")
+    @RequirePermission(value = "fld:defect:update", scopeCheckedInService = true)
     public Map<String, Object> push(@Valid @RequestBody PushIn r) {
         return sync.push(new SyncService.PushRequest(r.deviceId(), r.roundId(),
                 r.clientLastPulledSeq() == null ? 0 : r.clientLastPulledSeq(),
@@ -160,7 +160,7 @@ class FldController {
     }
 
     @GetMapping("/sync/pull")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public Map<String, Object> pull(@RequestParam UUID roundId, @RequestParam(required = false) UUID deviceId,
                                     @RequestParam(required = false) Long sinceSeq,
                                     @RequestParam(required = false) String changeToken,
@@ -169,14 +169,14 @@ class FldController {
     }
 
     @GetMapping("/sync/conflicts")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public List<Map<String, Object>> conflicts(@RequestParam UUID roundId, @RequestParam(required = false) UUID zoneId) {
         survey.round(roundId);   // 범위 확인
         return sync.openConflicts(roundId, zoneId);
     }
 
     @GetMapping("/sync/conflicts/{id}")
-    @RequirePermission("fld:defect:read")
+    @RequirePermission(value = "fld:defect:read", scopeCheckedInService = true)
     public Map<String, Object> conflict(@PathVariable UUID id) {
         Map<String, Object> c = sync.conflictView(id);
         survey.round((UUID) c.get("roundId"));
@@ -184,7 +184,7 @@ class FldController {
     }
 
     @PostMapping("/sync/conflicts/{id}/resolve")
-    @RequirePermission("fld:conflict:resolve")
+    @RequirePermission(value = "fld:conflict:resolve", scopeCheckedInService = true)
     public Map<String, Object> resolve(@PathVariable UUID id, @Valid @RequestBody ResolveIn r) {
         return sync.resolve(id, new SyncService.Resolve(r.opId(), r.deviceId(), r.hlc(), r.resolution(), r.merged()));
     }
@@ -206,7 +206,7 @@ class FldController {
     }
 
     @PostMapping("/uploads")
-    @RequirePermission("fld:photo:upload")
+    @RequirePermission(value = "fld:photo:upload", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> createUpload(@Valid @RequestBody UploadIn r) {
         var s = uploads.create(new PhotoUploadService.CreateUpload(r.photoId(), r.roundId(), r.defectId(), r.deviceId(),
                 r.sha256(), r.sizeBytes(), r.mimeType(), r.kind(), r.takenAt(), r.exif()));
@@ -217,20 +217,20 @@ class FldController {
     }
 
     @RequestMapping(value = "/uploads/{id}", method = RequestMethod.HEAD)
-    @RequirePermission("fld:photo:upload")
+    @RequirePermission(value = "fld:photo:upload", scopeCheckedInService = true)
     public ResponseEntity<Void> head(@PathVariable UUID id) {
         return ResponseEntity.ok().headers(tus(uploads.head(id))).build();
     }
 
     @GetMapping("/uploads/{id}")
-    @RequirePermission("fld:photo:upload")
+    @RequirePermission(value = "fld:photo:upload", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> upload(@PathVariable UUID id) {
         var s = uploads.head(id);
         return ResponseEntity.ok().headers(tus(s)).body(view(s));
     }
 
     @PatchMapping(value = "/uploads/{id}", consumes = OFFSET_OCTET_STREAM)
-    @RequirePermission("fld:photo:upload")
+    @RequirePermission(value = "fld:photo:upload", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> patch(@PathVariable UUID id,
                                                      @RequestHeader("Upload-Offset") long offset,
                                                      @RequestHeader(value = "Upload-Checksum", required = false)
@@ -241,13 +241,13 @@ class FldController {
     }
 
     @GetMapping("/photos/{id}/verify")
-    @RequirePermission("fld:photo:verify")
+    @RequirePermission(value = "fld:photo:verify", scopeCheckedInService = true)
     public Map<String, Object> verifyPhoto(@PathVariable UUID id) {
         return uploads.verify(id);
     }
 
     @GetMapping("/rounds/{id}/evidence/verify")
-    @RequirePermission("fld:photo:verify")
+    @RequirePermission(value = "fld:photo:verify", scopeCheckedInService = true)
     public Map<String, Object> verifyChain(@PathVariable UUID id) {
         return uploads.verifyChain(id);
     }
@@ -255,7 +255,7 @@ class FldController {
     // ------------------------------------------------------------------ AI 제안
 
     @PostMapping("/photos/{id}/ai:analyze")
-    @RequirePermission("fld:ai-suggestion:request")
+    @RequirePermission(value = "fld:ai-suggestion:request", scopeCheckedInService = true)
     public Map<String, Object> analyze(@PathVariable UUID id) {
         return ai.analyze(id);
     }

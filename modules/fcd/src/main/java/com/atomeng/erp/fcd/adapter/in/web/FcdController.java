@@ -141,7 +141,7 @@ class FcdController {
 
     @PostMapping("/cards/{id}/assignments")
     @ResponseStatus(HttpStatus.CREATED)
-    @RequirePermission("fcd:card:assign")
+    @RequirePermission(value = "fcd:card:assign", scopeCheckedInService = true)
     public Map<String, Object> assign(@PathVariable UUID id, @Valid @RequestBody AssignRequest r) {
         if (selfOnly("fcd:card:assign") && !r.employeeId().equals(me().actorId())) {
             throw new DomainException(FcdErrors.NOT_OWNER, "본인 대여만 신청할 수 있습니다");
@@ -255,7 +255,7 @@ class FcdController {
     // ------------------------------------------------------------------ 거래 조회
 
     @GetMapping("/transactions")
-    @RequirePermission("fcd:txn:read")
+    @RequirePermission(value = "fcd:txn:read", scopeCheckedInService = true)
     public List<Map<String, Object>> transactions(@RequestParam(required = false) LocalDate from,
                                                   @RequestParam(required = false) LocalDate to) {
         UUID emp = selfOnly("fcd:txn:read") ? me().actorId() : null;
@@ -269,7 +269,7 @@ class FcdController {
     }
 
     @GetMapping("/transactions/{id}/risk")
-    @RequirePermission("fcd:txn:read")
+    @RequirePermission(value = "fcd:txn:read", scopeCheckedInService = true)
     public List<Map<String, Object>> risk(@PathVariable UUID id) {
         if (selfOnly("fcd:txn:read")) {
             UUID owner = jdbc.query("SELECT employee_id FROM fcd.txn WHERE id = ?", rs -> rs.next() ? rs.getObject(1, UUID.class)
@@ -287,13 +287,13 @@ class FcdController {
     // ------------------------------------------------------------------ 케이스
 
     @GetMapping("/cases")
-    @RequirePermission("fcd:case:read")
+    @RequirePermission(value = "fcd:case:read", scopeCheckedInService = true)
     public List<Map<String, Object>> cases() {
         return cases.list(selfOnly("fcd:case:read") ? me().actorId() : null);
     }
 
     @GetMapping("/cases/{id}")
-    @RequirePermission("fcd:case:read")
+    @RequirePermission(value = "fcd:case:read", scopeCheckedInService = true)
     public Map<String, Object> caseView(@PathVariable UUID id) {
         Map<String, Object> c = cases.view(id);
         if (selfOnly("fcd:case:read") && !me().actorId().equals(c.get("subject_employee_id"))) {
@@ -310,7 +310,7 @@ class FcdController {
 
     @PostMapping("/cases/{id}/explanations")
     @ResponseStatus(HttpStatus.CREATED)
-    @RequirePermission("fcd:case:explain")
+    @RequirePermission(value = "fcd:case:explain", scopeCheckedInService = true)
     public Map<String, Object> explain(@PathVariable UUID id, @Valid @RequestBody ExplanationRequest r) {
         return cases.submitExplanation(id, me().actorId(), r.purpose(), r.text(),
                 r.attendees() == null ? null : r.attendees().toString());
@@ -345,14 +345,14 @@ class FcdController {
     // ------------------------------------------------------------------ 정산
 
     @PutMapping("/transactions/{id}/expense")
-    @RequirePermission("fcd:expense:write")
+    @RequirePermission(value = "fcd:expense:write", scopeCheckedInService = true)
     public Map<String, Object> expense(@PathVariable UUID id, @Valid @RequestBody ExpenseRequest r) {
         return expenses.upsertLine(id, me().actorId(), new ExpenseService.LineInput(r.accountCode(), r.purpose(),
                 r.projectId(), r.wbsCode(), r.supplyAmount(), r.vatAmount(), r.vatDeductible(), r.attendees()));
     }
 
     @PostMapping("/expense-reports/{period}:submit")
-    @RequirePermission("fcd:expense:write")
+    @RequirePermission(value = "fcd:expense:write", scopeCheckedInService = true)
     public Map<String, Object> submit(@PathVariable String period) {
         UUID me = me().actorId();
         return expenses.submit(me, period, cases.blockingCases(me));
@@ -371,7 +371,7 @@ class FcdController {
     }
 
     @GetMapping("/expense-reports/{id}")
-    @RequirePermission("fcd:expense:write")
+    @RequirePermission(value = "fcd:expense:write", scopeCheckedInService = true)
     public Map<String, Object> report(@PathVariable UUID id) {
         Map<String, Object> r = expenses.report(id);
         // SEC-FCD-002: fcd:expense:write 는 모든 역할에 SELF — 결재(approve) · 전기(post) 권한자만 남의 정산서를 본다
@@ -382,7 +382,7 @@ class FcdController {
     }
 
     @GetMapping("/employees/{id}/expense-gate")
-    @RequirePermission("fcd:case:read")
+    @RequirePermission(value = "fcd:case:read", scopeCheckedInService = true)
     public Map<String, Object> gate(@PathVariable UUID id) {
         // SEC-FCD-003: SELF 범위(EMPLOYEE · PM)는 본인 게이트만 — 남의 '조사 중' 여부 노출 방지
         if (selfOnly("fcd:case:read") && !me().actorId().equals(id)) {

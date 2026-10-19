@@ -92,7 +92,7 @@ class QarController {
     // ------------------------------------------------------------------ 검토 · 전이
 
     @PostMapping("/reviews")
-    @RequirePermission("qar:author:create")
+    @RequirePermission(value = "qar:author:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody CreateReviewRequest r) {
         Map<String, Object> v = reviews.create(r.revisionId());
         return ResponseEntity.created(URI.create("/api/v1/qar/reviews/" + v.get("id")))
@@ -100,19 +100,19 @@ class QarController {
     }
 
     @GetMapping("/reviews/{id}")
-    @RequirePermission("qar:review:read")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> get(@PathVariable UUID id) {
         return withEtag(reviews.get(id));
     }
 
     @PostMapping("/reviews/{id}/autocheck-runs")
-    @RequirePermission("qar:author:update")
+    @RequirePermission(value = "qar:author:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> autocheck(@PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.CREATED).body(autochecks.run(id));
     }
 
     @PostMapping("/reviews/{id}/submit")
-    @RequirePermission("qar:author:update")
+    @RequirePermission(value = "qar:author:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> submit(@PathVariable UUID id,
                                                       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
         return withEtag(engine.handle(id, Command.SUBMIT, IfMatch.require(ifMatch), WorkflowEngine.Input.NONE));
@@ -128,7 +128,7 @@ class QarController {
     }
 
     @PostMapping("/reviews/{id}/approve")
-    @RequirePermission("qar:approval:approve")
+    @RequirePermission(value = "qar:approval:approve", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> approve(@PathVariable UUID id,
                                                        @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
         return withEtag(engine.handle(id, Command.APPROVE, IfMatch.require(ifMatch), WorkflowEngine.Input.NONE));
@@ -136,7 +136,7 @@ class QarController {
 
     /** RESUBMIT_PREP — 반려 후 수정본으로 새 라운드(미해결 코멘트 이월) */
     @PostMapping("/reviews/{id}/resubmit")
-    @RequirePermission("qar:author:update")
+    @RequirePermission(value = "qar:author:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> resubmit(@PathVariable UUID id,
                                                         @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
         return withEtag(engine.handle(id, Command.RESUBMIT_PREP, IfMatch.require(ifMatch), WorkflowEngine.Input.NONE));
@@ -144,7 +144,7 @@ class QarController {
 
     /** BR-QAR-010 REOPEN_FOR_CORRECTION — 정정본(RPT Rev.N) 재검토: APPROVED → SELF_CHECK */
     @PostMapping("/reviews/{id}/reopen-for-correction")
-    @RequirePermission("qar:author:update")
+    @RequirePermission(value = "qar:author:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> reopen(@PathVariable UUID id,
                                                       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
         return withEtag(engine.handle(id, Command.REOPEN_FOR_CORRECTION, IfMatch.require(ifMatch),
@@ -153,7 +153,7 @@ class QarController {
 
     /** 단계 결정 PASS / REJECT — QA 단계는 QA 담당자, 승인 단계 REJECT 는 책임기술자 */
     @PostMapping("/rounds/{roundId}/decision")
-    @RequirePermission("qar:decision:update")
+    @RequirePermission(value = "qar:decision:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> decision(@PathVariable UUID roundId, @Valid @RequestBody DecisionRequest r,
                                                         @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
         Command cmd = switch (r.decision()) {
@@ -169,19 +169,19 @@ class QarController {
     // ------------------------------------------------------------------ 자동검사 · 체크리스트 · 배정 · waiver
 
     @GetMapping("/rounds/{roundId}/autocheck-results")
-    @RequirePermission("qar:review:read")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
     public Map<String, Object> autocheckResults(@PathVariable UUID roundId) {
         return autochecks.latestResults(roundId);
     }
 
     @GetMapping("/rounds/{roundId}/checklist")
-    @RequirePermission("qar:review:read")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
     public Map<String, Object> checklist(@PathVariable UUID roundId) {
         return checklist.view(roundId);
     }
 
     @PutMapping("/rounds/{roundId}/checklist/{itemId}")
-    @RequirePermission("qar:answer:update")
+    @RequirePermission(value = "qar:answer:update", scopeCheckedInService = true)
     public Map<String, Object> answer(@PathVariable UUID roundId, @PathVariable UUID itemId,
                                       @Valid @RequestBody AnswerRequest r) {
         ChecklistService.Stage stage;
@@ -200,7 +200,7 @@ class QarController {
     }
 
     @PostMapping("/autocheck-results/{id}/waiver")
-    @RequirePermission("qar:waiver:create")
+    @RequirePermission(value = "qar:waiver:create", scopeCheckedInService = true)
     public Map<String, Object> waiver(@PathVariable UUID id, @Valid @RequestBody WaiverRequest r) {
         return waivers.addReason(id, r.reason());
     }
@@ -208,20 +208,20 @@ class QarController {
     // ------------------------------------------------------------------ 코멘트 · 앵커
 
     @PostMapping("/rounds/{roundId}/comments")
-    @RequirePermission("qar:remark:create")
+    @RequirePermission(value = "qar:remark:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> comment(@PathVariable UUID roundId, @Valid @RequestBody CommentRequest r) {
         return ResponseEntity.status(HttpStatus.CREATED).body(comments.create(roundId,
                 new CommentService.NewComment(r.severity(), r.issueCode(), r.anchor(), r.body())));
     }
 
     @GetMapping("/rounds/{roundId}/comments")
-    @RequirePermission("qar:review:read")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
     public List<Map<String, Object>> comments(@PathVariable UUID roundId) {
         return comments.list(roundId);
     }
 
     @PostMapping("/comments/{id}/replies")
-    @RequirePermission("qar:thread:create")
+    @RequirePermission(value = "qar:thread:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> reply(@PathVariable UUID id, @Valid @RequestBody ReplyRequest r) {
         ReplyAction a;
         try {
@@ -233,7 +233,7 @@ class QarController {
     }
 
     @GetMapping("/rounds/{roundId}/anchors")
-    @RequirePermission("qar:review:read")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> anchors(@PathVariable UUID roundId,
                                                        @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false)
                                                        String ifNoneMatch) {

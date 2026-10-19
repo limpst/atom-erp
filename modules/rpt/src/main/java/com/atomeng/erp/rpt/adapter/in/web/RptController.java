@@ -127,7 +127,7 @@ class RptController {
 
     // ------------------------------------------------------------------------------------- 보고서
     @PostMapping("/reports")
-    @RequirePermission("rpt:report:create")
+    @RequirePermission(value = "rpt:report:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody CreateReportRequest r) {
         Map<String, Object> v = reports.create(new ReportService.CreateReport(r.projectId(), r.facilityId(),
                 r.reportType(), r.title(), r.inspectionDate(), r.locale(), r.facilityClass(), r.dueDate(),
@@ -137,25 +137,25 @@ class RptController {
     }
 
     @GetMapping("/reports")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public List<Map<String, Object>> list(@RequestParam UUID projectId) {
         return reports.list(projectId);
     }
 
     @GetMapping("/reports/{id}")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> report(@PathVariable UUID id) {
         return withEtag(reports.get(id));
     }
 
     @PostMapping("/reports/{id}/snapshots")
-    @RequirePermission("rpt:report:create")
+    @RequirePermission(value = "rpt:report:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> freeze(@PathVariable UUID id, @Valid @RequestBody FreezeRequest r) {
         return ResponseEntity.status(201).body(snapshots.freeze(id, r.document(), r.facilityName(), r.fldRoundId()));
     }
 
     @PostMapping("/reports/{id}/revisions")
-    @RequirePermission("rpt:report:create")
+    @RequirePermission(value = "rpt:report:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> correction(@PathVariable UUID id, @Valid @RequestBody CorrectionRequest r) {
         Map<String, Object> v = reports.createCorrection(id, r.changeNote(), r.reuseSnapshot() == null || r.reuseSnapshot());
         return ResponseEntity.created(URI.create("/api/v1/rpt/revisions/" + v.get("id"))).body(v);
@@ -163,38 +163,38 @@ class RptController {
 
     // ------------------------------------------------------------------------------------- 리비전
     @GetMapping("/revisions/{revId}")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> revision(@PathVariable UUID revId) {
         return withEtag(reports.revision(revId));
     }
 
     @GetMapping("/revisions/{revId}/validation-issues")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public List<Map<String, Object>> issues(@PathVariable UUID revId) {
         return snapshots.issues(revId);
     }
 
     @PostMapping("/revisions/{revId}/compose")
-    @RequirePermission("rpt:report:update")
+    @RequirePermission(value = "rpt:report:update", scopeCheckedInService = true)
     public Map<String, Object> compose(@PathVariable UUID revId) {
         return compose.compose(revId);
     }
 
     /** AI 소견 초안(aip::api REPORT_DRAFT 동기 Job) — 제안만 돌려주고 본문에는 반영하지 않는다 */
     @PostMapping("/revisions/{revId}/ai-draft")
-    @RequirePermission("rpt:report:update")
+    @RequirePermission(value = "rpt:report:update", scopeCheckedInService = true)
     public Map<String, Object> aiDraft(@PathVariable UUID revId) {
         return aiDraft.draft(revId);
     }
 
     @GetMapping("/revisions/{revId}/grade")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public Map<String, Object> grade(@PathVariable UUID revId) {
         return compose.grade(revId);
     }
 
     @PutMapping("/revisions/{revId}/grade/decision")
-    @RequirePermission("rpt:grade:decide")
+    @RequirePermission(value = "rpt:grade:decide", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> decide(@PathVariable UUID revId,
                                                       @RequestHeader(value = "If-Match", required = false) String ifMatch,
                                                       @Valid @RequestBody GradeDecisionRequest r) {
@@ -204,13 +204,13 @@ class RptController {
     }
 
     @GetMapping("/revisions/{revId}/sections")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public List<Map<String, Object>> sections(@PathVariable UUID revId) {
         return sections.list(revId);
     }
 
     @PutMapping("/revisions/{revId}/sections/{key}")
-    @RequirePermission("rpt:report:update")
+    @RequirePermission(value = "rpt:report:update", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> saveSection(@PathVariable UUID revId, @PathVariable String key,
                                                            @RequestHeader(value = "If-Match", required = false) String ifMatch,
                                                            @Valid @RequestBody SectionRequest r) {
@@ -220,7 +220,7 @@ class RptController {
     }
 
     @GetMapping(value = "/revisions/{revId}/drawings/{building}/{floor}.dxf")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public ResponseEntity<byte[]> dxf(@PathVariable UUID revId, @PathVariable String building, @PathVariable String floor) {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/dxf"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()   // SEC-RPT-03: RFC 6266 인코딩
@@ -229,13 +229,13 @@ class RptController {
     }
 
     @PostMapping("/revisions/{revId}/render")
-    @RequirePermission("rpt:report:update")
+    @RequirePermission(value = "rpt:report:update", scopeCheckedInService = true)
     public Map<String, Object> render(@PathVariable UUID revId) {
         return render.render(revId);
     }
 
     @GetMapping("/revisions/{revId}/files/report.{ext}")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public ResponseEntity<byte[]> file(@PathVariable UUID revId, @PathVariable String ext) {
         String kind = "pdf".equals(ext) ? "pdf" : "hwpx";
         return ResponseEntity.ok()
@@ -245,7 +245,7 @@ class RptController {
     }
 
     @GetMapping("/revisions/{revId}/anchors")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public ResponseEntity<Object> anchors(@PathVariable UUID revId) {
         reports.revision(revId);   // 존재 · 범위 확인
         Object v = query.anchorsJson(revId);
@@ -253,27 +253,27 @@ class RptController {
     }
 
     @GetMapping("/revisions/{revId}/section-editors")
-    @RequirePermission("rpt:report:read")
+    @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public Object sectionEditors(@PathVariable UUID revId) {
         reports.revision(revId);
         return query.sectionEditors(revId);
     }
 
     @PostMapping("/revisions/{revId}/review-request")
-    @RequirePermission("rpt:report:update")
+    @RequirePermission(value = "rpt:report:update", scopeCheckedInService = true)
     public Map<String, Object> reviewRequest(@PathVariable UUID revId) {
         return publish.requestReview(revId);
     }
 
     @PostMapping("/revisions/{revId}/publish")
-    @RequirePermission("rpt:report:approve")
+    @RequirePermission(value = "rpt:report:approve", scopeCheckedInService = true)
     public Map<String, Object> publish(@PathVariable UUID revId) {
         return publish.publish(revId);
     }
 
     /** v0.2: 발주처 납품 확인(수령증 첨부) → DELIVERED + rpt.report.delivered */
     @PostMapping("/revisions/{revId}/delivery-confirmation")
-    @RequirePermission("rpt:delivery:confirm")
+    @RequirePermission(value = "rpt:delivery:confirm", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> deliveryConfirmation(@PathVariable UUID revId,
                                                                     @Valid @RequestBody DeliveryRequest r) {
         return ResponseEntity.status(201).body(publish.confirmDelivery(revId, new PublishService.DeliveryConfirmation(

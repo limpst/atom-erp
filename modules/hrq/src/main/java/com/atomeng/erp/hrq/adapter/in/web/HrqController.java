@@ -130,7 +130,7 @@ class HrqController {
     }
 
     @GetMapping("/employees")
-    @RequirePermission("hrq:employee:read")
+    @RequirePermission(value = "hrq:employee:read", scopeCheckedInService = true)
     public List<HrqJdbc.EmployeeRow> list(@RequestParam(required = false) String field) {
         var rows = jdbc.employees(field);
         if (hasAny(EMPLOYEE_READ_ALL)) {
@@ -142,7 +142,7 @@ class HrqController {
     }
 
     @GetMapping("/employees/{id}")
-    @RequirePermission("hrq:employee:read")
+    @RequirePermission(value = "hrq:employee:read", scopeCheckedInService = true)
     public Map<String, Object> detail(@PathVariable UUID id,
                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                       LocalDate gradeAt) {
@@ -176,7 +176,7 @@ class HrqController {
     // ------------------------------------------------------------ 자격
     @PostMapping("/employees/{id}/credentials")
     @ResponseStatus(HttpStatus.CREATED)
-    @RequirePermission("hrq:credential:create")
+    @RequirePermission(value = "hrq:credential:create", scopeCheckedInService = true)
     public Map<String, UUID> addCredential(@PathVariable UUID id, @Valid @RequestBody CredentialRequest r) {
         requireSelfOr(id, Role.ADMIN);
         return Map.of("id", credentials.register(id, r.typeCode(), r.certNo(), r.acquiredOn(), r.expiresOn()));
@@ -213,7 +213,7 @@ class HrqController {
 
     // ------------------------------------------------------------ 타임시트
     @PutMapping("/timesheets/{empId}/weeks/{isoWeek}")
-    @RequirePermission("hrq:timesheet:write")
+    @RequirePermission(value = "hrq:timesheet:write", scopeCheckedInService = true)
     public List<HrqJdbc.TimesheetRow> saveWeek(@PathVariable UUID empId, @PathVariable String isoWeek,
                                                @Valid @RequestBody WeekRequest r) {
         requireSelfOr(empId);
@@ -230,7 +230,7 @@ class HrqController {
     /** (v0.3) 확정 타임시트 정정 — Idempotency-Key 필수(설계 B4). 같은 키 재요청은 공통 필터가 재반환(TC-HRQ-013) */
     @PostMapping("/timesheets/{id}:correct")
     @ResponseStatus(HttpStatus.CREATED)
-    @RequirePermission("hrq:timesheet:correct")
+    @RequirePermission(value = "hrq:timesheet:correct", scopeCheckedInService = true)
     public HrqJdbc.TimesheetRow correct(@PathVariable UUID id,
                                         @RequestHeader(value = "Idempotency-Key", required = false) String key,
                                         @Valid @RequestBody CorrectRequest r) {
@@ -245,7 +245,7 @@ class HrqController {
     }
 
     @GetMapping("/timesheets/{empId}/weeks/{isoWeek}")
-    @RequirePermission("hrq:timesheet:read")
+    @RequirePermission(value = "hrq:timesheet:read", scopeCheckedInService = true)
     public List<HrqJdbc.TimesheetRow> week(@PathVariable UUID empId, @PathVariable String isoWeek) {
         requireSelfOr(empId, Role.EXEC, Role.PM, Role.ADMIN);
         LocalDate mon = weekMonday(isoWeek);
@@ -253,7 +253,7 @@ class HrqController {
     }
 
     @GetMapping("/timesheets/keys/{timesheetKey}/revisions")
-    @RequirePermission("hrq:timesheet:read")
+    @RequirePermission(value = "hrq:timesheet:read", scopeCheckedInService = true)
     public List<HrqJdbc.TimesheetRow> revisions(@PathVariable UUID timesheetKey) {
         var rows = jdbc.revisions(timesheetKey);
         // SEC-HRQ-001: SELF 범위(ENG · LABELER)는 본인 타임시트 이력만 (week 조회와 같은 규칙)

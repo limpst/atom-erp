@@ -5,6 +5,7 @@ import com.atomeng.common.identity.authz.RequirePermission;
 import com.atomeng.erp.aip.adapter.out.persistence.AipJdbc;
 import com.atomeng.erp.aip.api.AipServiceCode;
 import com.atomeng.erp.aip.application.AipAccess;
+import com.atomeng.erp.aip.application.AipJobScopeResolver;
 import com.atomeng.erp.aip.application.AsyncJobProcessor;
 import com.atomeng.erp.aip.application.InferenceAuditService;
 import com.atomeng.erp.aip.application.JobService;
@@ -85,7 +86,7 @@ class AipController {
     // ------------------------------------------------------------------ Job
 
     @PostMapping("/jobs")
-    @RequirePermission("aip:inference-job:create")
+    @RequirePermission(value = "aip:inference-job:create", scopeCheckedInService = true)
     ResponseEntity<Map<String, Object>> create(@RequestHeader(value = "Idempotency-Key", required = false) String key,
                                                @Valid @RequestBody CreateJobRequest req) {
         AipServiceCode code;
@@ -112,7 +113,7 @@ class AipController {
     }
 
     @GetMapping("/jobs/{id}")
-    @RequirePermission("aip:inference-job:read")
+    @RequirePermission(value = "aip:inference-job:read", scopeResolver = AipJobScopeResolver.class, resourceParam = "id")
     Map<String, Object> job(@PathVariable UUID id) {
         Map<String, Object> j = jobs.get(id);
         access.requireProject("aip:inference-job:read", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
@@ -120,7 +121,7 @@ class AipController {
     }
 
     @GetMapping("/jobs/{id}/events")
-    @RequirePermission("aip:inference-job:read")
+    @RequirePermission(value = "aip:inference-job:read", scopeResolver = AipJobScopeResolver.class, resourceParam = "id")
     List<Map<String, Object>> events(@PathVariable UUID id) {
         Map<String, Object> j = jobs.get(id);
         access.requireProject("aip:inference-job:read", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
@@ -128,7 +129,7 @@ class AipController {
     }
 
     @DeleteMapping("/jobs/{id}")
-    @RequirePermission("aip:inference-job:create")
+    @RequirePermission(value = "aip:inference-job:create", scopeResolver = AipJobScopeResolver.class, resourceParam = "id")
     Map<String, Object> cancel(@PathVariable UUID id) {
         Map<String, Object> j = jobs.get(id);
         access.requireProject("aip:inference-job:create", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
@@ -177,7 +178,7 @@ class AipController {
     // ------------------------------------------------------------------ 제안 · 피드백
 
     @GetMapping("/photos/{attachmentId}/suggestions")
-    @RequirePermission("aip:suggestion:read")
+    @RequirePermission(value = "aip:suggestion:read", scopeCheckedInService = true)
     List<Map<String, Object>> suggestionsOf(@PathVariable UUID attachmentId) {
         List<Map<String, Object>> rows = suggestions.byPhoto(attachmentId);
         rows.forEach(r -> access.requireProject("aip:suggestion:read", AipJdbc.uuid(r, "project_id"),
@@ -186,7 +187,7 @@ class AipController {
     }
 
     @PostMapping("/suggestions/{id}/decision")
-    @RequirePermission("aip:suggestion:update")
+    @RequirePermission(value = "aip:suggestion:update", scopeCheckedInService = true)
     Map<String, Object> decide(@PathVariable UUID id, @Valid @RequestBody DecisionRequest req) {
         Map<String, Object> s = suggestions.get(id);
         access.requireProject("aip:suggestion:update", AipJdbc.uuid(s, "project_id"),
@@ -222,7 +223,7 @@ class AipController {
     // ------------------------------------------------------------------ 레지스트리 · 감사
 
     @GetMapping("/models")
-    @RequirePermission("aip:inference-job:read")
+    @RequirePermission(value = "aip:inference-job:read", scopeCheckedInService = true)
     List<Map<String, Object>> models() {
         return AipJdbc.cleanAll(registry.models());
     }

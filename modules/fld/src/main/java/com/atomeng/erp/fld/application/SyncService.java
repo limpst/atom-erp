@@ -233,15 +233,26 @@ public class SyncService {
             b.duplicates++;
             return replay(inBatch);
         }
-        List<Map<String, Object>> prior = fld.jdbc().queryForList("SELECT status, seq, result::text AS result "
-                + "FROM fld.sync_op WHERE op_id = ?", op.opId());
+        List<Map<String, Object>> prior = fld.jdbc().queryForList("SELECT status, seq, result::text AS result, actor_id, "
+                + "round_id FROM fld.sync_op WHERE op_id = ?", op.opId());
         if (!prior.isEmpty()) {
+            // SEC-2026-10-19: opId 는 전역 PK — 다른 사용자 · 다른 회차의 op 결과를 재반환하지 않는다(결과 노출 방지)
+            if (!b.actorId.equals(prior.get(0).get("actor_id")) || !b.round.id().equals(prior.get(0).get("round_id"))) {
+                b.rejected++;
+                return opIdInUse(op);
+            }
             b.duplicates++;
             Map<String, Object> r = new LinkedHashMap<>(asMap(fld.tree((String) prior.get(0).get("result"))));
             return replay(r);
         }
-        List<Long> seqs = fld.jdbc().queryForList("SELECT seq FROM fld.defect_event WHERE op_id = ?", Long.class,
-                op.opId());
+        List<Map<String, Object>> evs = fld.jdbc().queryForList(
+                "SELECT seq, actor_id, round_id FROM fld.defect_event WHERE op_id = ?", op.opId());
+        if (!evs.isEmpty() && (!b.actorId.equals(evs.get(0).get("actor_id"))
+                || !b.round.id().equals(evs.get(0).get("round_id")))) {
+            b.rejected++;
+            return opIdInUse(op);
+        }
+        List<Long> seqs = evs.stream().map(e -> ((Number) e.get("seq")).longValue()).toList();
         if (!seqs.isEmpty()) {   // 충돌 해결 op 등 sync_op 없이 저장된 이벤트
             b.duplicates++;
             return replay(result(op, "ACCEPTED", seqs.get(0)));
@@ -265,12 +276,25 @@ public class SyncService {
         }
     }
 
+    /** SEC-2026-10-19: 미래 HLC 거부 기준(서버 시각 + maxFutureSkew) */
+    private boolean tooFarInFuture(String hlc, Instant now) {
+        return Hlc.parse(hlc).wallMs() > now.plus(props.sync().maxFutureSkew()).toEpochMilli();
+    }
+
     private static Map<String, Object> replay(Map<String, Object> original) {
         Map<String, Object> r = new LinkedHashMap<>(original);
         if ("ACCEPTED".equals(r.get("status"))) {
             r.put("status", "DUPLICATE");
         }
         r.put("replayed", true);
+        return r;
+    }
+
+    /** 남의 opId 와 겹침 — 저장 결과 없이 거부만 알린다(op 로그 PK 가 같아 기록하지 않음) */
+    private static Map<String, Object> opIdInUse(PushOp op) {
+        Map<String, Object> r = result(op, "REJECTED", null);
+        r.put("reason", "OP_ID_IN_USE");
+        r.put("message", "이미 다른 사용자 · 회차에서 사용된 opId 입니다 — 새 opId 로 다시 보내십시오");
         return r;
     }
 
@@ -322,6 +346,9 @@ public class SyncService {
         }
         if (!Hlc.valid(op.hlc())) {
             throw new Reject("INVALID_HLC", "HLC 형식 오류(wallMs16:counter4:node): " + op.hlc());
+        }
+        if (tooFarInFuture(op.hlc(), b.now)) {
+            throw new Reject("HLC_IN_FUTURE", "기기 시계가 서버보다 " + props.sync().maxFutureSkew() + " 넘게 앞섭니다: " + op.hlc());
         }
         if (op.defectId() == null || op.payload() == null || !op.payload().isObject()) {
             throw new Reject("INVALID_PAYLOAD", "defectId · payload(object) 필수");
@@ -957,7 +984,7 @@ public class SyncService {
             DefectState s = DefectState.replay((UUID) c.get("defect_id"), fld.events((UUID) c.get("defect_id")));
             String fieldHlc = s.fieldHlc(((String) c.get("field")).equals("status") ? "removed" : (String) c.get("field"));
             String floor = Hlc.compare(serverHlc, fieldHlc) >= 0 ? serverHlc : fieldHlc;
-            String hlc = Hlc.valid(r.hlc()) && Hlc.compare(r.hlc(), floor) > 0 ? r.hlc()
+            String hlc = Hlc.valid(r.hlc()) && !tooFarInFuture(r.hlc(), now) && Hlc.compare(r.hlc(), floor) > 0 ? r.hlc()
                     : (floor == null ? new Hlc(now.toEpochMilli(), 0, SERVER_NODE)
                     : Hlc.parse(floor).successor(now.toEpochMilli(), SERVER_NODE)).pack();
             if ("status".equals(c.get("field"))) {

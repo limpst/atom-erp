@@ -13,18 +13,23 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record FldProperties(Sync sync, Upload upload, Ai ai) {
 
     public FldProperties {
-        sync = sync == null ? new Sync(null, null, null, null) : sync;
+        sync = sync == null ? new Sync(null, null, null, null, null) : sync;
         upload = upload == null ? new Upload(null, null) : upload;
         ai = ai == null ? new Ai(null) : ai;
     }
 
+    /**
+     * @param maxFutureSkew 기기 HLC 가 서버 시각보다 이만큼 넘게 미래면 op 거부(HLC_IN_FUTURE, SEC-2026-10-19) — 미래 시각으로
+     *                      LWW 를 항상 이기거나 16자리 wallMs 를 넘겨 정렬을 깨는 것을 막는다. 기본 24시간(오프라인 기기 여유).
+     */
     public record Sync(Integer maxOps, Duration visibilityWindow, Duration clockDriftWarn,
-                       Duration geometryConflictWindow) {
+                       Duration geometryConflictWindow, Duration maxFutureSkew) {
         public Sync {
             maxOps = maxOps == null ? 500 : maxOps;
             visibilityWindow = visibilityWindow == null ? Duration.ofSeconds(2) : visibilityWindow;
             clockDriftWarn = clockDriftWarn == null ? Duration.ofMinutes(5) : clockDriftWarn;
             geometryConflictWindow = geometryConflictWindow == null ? Duration.ofMinutes(5) : geometryConflictWindow;
+            maxFutureSkew = maxFutureSkew == null ? Duration.ofHours(24) : maxFutureSkew;
         }
     }
 

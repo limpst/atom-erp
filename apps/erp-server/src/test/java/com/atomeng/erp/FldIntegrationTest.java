@@ -252,6 +252,50 @@ class FldIntegrationTest extends IntegrationTestBase {
         return d;
     }
 
+    // ================================================================== 보안 검토 2026-10-19 회귀
+
+    @Test
+    @DisplayName("SEC-2026-10-19: 남의 opId 재전송은 저장 결과 대신 OP_ID_IN_USE · 미래 HLC(24시간 초과) 거부 · lock-check 프로젝트 범위")
+    void secOpIdScopeFutureHlcAndLockCheckScope() throws Exception {
+        Fx f = fixture();
+        UUID device = UUID.randomUUID();
+        UUID d = UUID.randomUUID();
+        UUID opId = UUID.randomUUID();
+        JsonNode first = push(f.eng(), "ENG", device, f.round(), 0,
+                op(opId, d, "DefectCreated", hlc(0, 0, "s1"), created(f.zone(), "CRK", null)));
+        assertThat(first.at("/results/0/status").asText()).isEqualTo("ACCEPTED");
+        long seq = first.at("/results/0/seq").asLong();
+        // 같은 회차의 다른 투입 인원이 같은 opId 로 보냄 → 원래 결과(seq · code)를 돌려받지 못함
+        UUID eng2 = employee();
+        flow.member(f.project(), eng2, "PART");
+        JsonNode other = push(eng2, "ENG", UUID.randomUUID(), f.round(), 0,
+                op(opId, UUID.randomUUID(), "DefectCreated", hlc(0, 0, "s2"), created(f.zone(), "CRK", null)));
+        assertThat(other.at("/results/0/status").asText()).isEqualTo("REJECTED");
+        assertThat(other.at("/results/0/reason").asText()).isEqualTo("OP_ID_IN_USE");
+        assertThat(other.at("/results/0/seq").isMissingNode()).isTrue();
+        assertThat(other.toString()).doesNotContain("CRK-0001");
+        // 본인 재전송은 여전히 DUPLICATE(같은 seq)
+        JsonNode again = push(f.eng(), "ENG", device, f.round(), 0,
+                op(opId, d, "DefectCreated", hlc(0, 0, "s1"), created(f.zone(), "CRK", null)));
+        assertThat(again.at("/results/0/status").asText()).isEqualTo("DUPLICATE");
+        assertThat(again.at("/results/0/seq").asLong()).isEqualTo(seq);
+
+        // 미래 HLC: 25시간 앞 → HLC_IN_FUTURE(이벤트 저장 없음), 10분 앞은 기존처럼 경고만
+        UUID d2 = UUID.randomUUID();
+        JsonNode future = push(f.eng(), "ENG", device, f.round(), 0,
+                op(UUID.randomUUID(), d2, "DefectCreated", hlc(Duration.ofHours(25).toMillis(), 0, "s1"),
+                        created(f.zone(), "CRK", null)),
+                op(UUID.randomUUID(), d2, "DefectCreated", "9999999999999999:0000:s1", created(f.zone(), "CRK", null)));
+        assertThat(future.findValuesAsText("reason")).containsExactly("HLC_IN_FUTURE", "HLC_IN_FUTURE");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fld.defect_event WHERE defect_id = ?", Integer.class, d2))
+                .isZero();
+
+        // lock-check: 투입되지 않은 PM 은 403, 담당 PM 은 200
+        call(get("/api/v1/fld/zones/" + f.zone() + "/lock-check"), employee(), "PM", null)
+                .andExpect(status().isForbidden());
+        call(get("/api/v1/fld/zones/" + f.zone() + "/lock-check"), f.pm(), "PM", null).andExpect(status().isOk());
+    }
+
     // ================================================================== TC-FLD-002 · 013 · FR-FLD-020 · FAC 구독
 
     @Test

@@ -66,8 +66,11 @@ public class DailyLogService {
     private final ObjectMapper om;
     private final Clock clock;
 
+    private final DemAccess access;
+
     public DailyLogService(DemJdbc dem, SupervisorService supervisors, RuleParams rules, OutboxPublisher outbox,
-                           AuditLog audit, CurrentActor actor, ObjectMapper om, Clock clock) {
+                           AuditLog audit, CurrentActor actor, ObjectMapper om, Clock clock, DemAccess access) {
+        this.access = access;
         this.dem = dem;
         this.supervisors = supervisors;
         this.rules = rules;
@@ -417,7 +420,29 @@ public class DailyLogService {
         return i == null ? null : i.toString();
     }
 
+    /**
+     * GET /daily-logs/{id}({@link #read}) 범위 검사(보안 검토 2026-10-19: 경로 id 로 다른 프로젝트 · 다른 고객사 일지 열람 차단).
+     * PROJECT 범위는 투입 인원 외에 일지 작성자 · 해당 패키지 지정 감리자도 허용(직접 작성 · 담당하는 일지).
+     */
+    private void requireReadScope(UUID logId) {
+        var r = dem.one("감리일지", """
+                SELECT l.author_id, l.work_package_id, w.project_id
+                  FROM dem.daily_log l JOIN dem.work_package w ON w.id = l.work_package_id WHERE l.id = ?""", logId);
+        UUID wp = (UUID) r.get("work_package_id");
+        UUID author = (UUID) r.get("author_id");
+        access.requireProject("dem:supervision-log:read", (UUID) r.get("project_id"), emp -> emp.equals(author)
+                || Boolean.TRUE.equals(dem.jdbc().queryForObject("""
+                        SELECT EXISTS (SELECT 1 FROM dem.supervisor_assignment
+                                        WHERE work_package_id = ? AND employee_id = ? AND status = 'ACTIVE')""",
+                        Boolean.class, wp, emp)));
+    }
+
     /** 원문 + 정정 이력 + 유효 뷰(APPLIED 정정을 순서대로 최상위 필드에 적용) */
+    public Map<String, Object> read(UUID logId) {
+        requireReadScope(logId);
+        return detail(logId);
+    }
+
     public Map<String, Object> detail(UUID logId) {
         Map<String, Object> m = view(logId);
         List<Map<String, Object>> amendments = new ArrayList<>();

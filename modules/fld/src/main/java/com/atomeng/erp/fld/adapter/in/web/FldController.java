@@ -132,7 +132,7 @@ class FldController {
     @GetMapping("/zones/{id}/lock-check")
     @RequirePermission("fld:zone:lock")
     public Map<String, Object> lockCheck(@PathVariable UUID id) {
-        var issues = survey.lockIssues(id);
+        var issues = survey.lockCheck(id);
         return Map.of("zoneId", id, "ready", issues.isEmpty(), "issues", issues);
     }
 

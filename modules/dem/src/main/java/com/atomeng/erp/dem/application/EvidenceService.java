@@ -63,8 +63,16 @@ public class EvidenceService {
                 + "WHERE attachment_id = ? OR sha256 = ? ORDER BY received_at LIMIT 1", r.attachmentId(), claimed);
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL", r.workPackageId());
         var att = dem.one("첨부", """
-                SELECT bucket, object_key, sha256 FROM core.attachment WHERE id = ? AND deleted_at IS NULL""",
-                r.attachmentId());
+                SELECT bucket, object_key, sha256, owner_module, created_by FROM core.attachment
+                 WHERE id = ? AND deleted_at IS NULL""", r.attachmentId());
+        // 보안 검토 2026-10-19: 다른 모듈(FLD · RPT …)의 첨부나 남이 올린 첨부를 id 만 알고 증거 사진으로 끌어오지 못하게 한다.
+        // DEM 첨부 파이프라인으로 호출자 본인이 올린 첨부만 등록(시스템 실행은 웹 경계 밖이라 작성자 검사 생략).
+        if (!"DEM".equals(att.get("owner_module"))) {
+            throw new DomainException(DemErrors.INVALID, "DEM 증거 사진 첨부(ownerModule=DEM)만 등록할 수 있습니다");
+        }
+        if (actor.current().isPresent() && !actor.actorIdOrSystem().equals(att.get("created_by"))) {
+            throw new DomainException(DemErrors.INVALID, "본인이 올린 첨부만 증거 사진으로 등록할 수 있습니다");
+        }
         String recorded = ((String) att.get("sha256")).trim();
         String server = rehash((String) att.get("bucket"), (String) att.get("object_key"));
         if (!claimed.equals(recorded) || !recorded.equals(server)) {
@@ -79,6 +87,11 @@ public class EvidenceService {
                     .with("reason", "EVIDENCE_HASH_MISMATCH").with("serverSha256", server);
         }
         if (!existing.isEmpty()) {
+            // 같은 사진(첨부 · 해시)이 다른 업무 패키지에 이미 있으면 그 패키지의 사진 정보를 돌려주지 않는다(sha256 UNIQUE)
+            if (!r.workPackageId().equals(existing.get(0).get("work_package_id"))) {
+                throw new DomainException(DemErrors.EVIDENCE_DUPLICATE_OTHER_PACKAGE,
+                        "같은 사진이 다른 업무 패키지에 이미 등록되어 있습니다");
+            }
             return new Registered(false, view((UUID) existing.get(0).get("id")));
         }
         UUID id = UuidV7.next();

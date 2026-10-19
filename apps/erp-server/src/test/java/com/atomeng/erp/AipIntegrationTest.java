@@ -2,6 +2,7 @@ package com.atomeng.erp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -139,6 +140,27 @@ class AipIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("SEC-2026-10-19: 프로젝트 없는 Job 은 요청자 본인 · ALL 범위만 조회/취소, 남의 Idempotency-Key 는 409 · jobId 비노출")
+    void secProjectlessJobOwnerOnlyAndKeyIsolation() throws Exception {
+        UUID engA = flow.employee("AIP-SEC-A");
+        UUID engB = flow.employee("AIP-SEC-B");
+        String body = "{\"serviceCode\":\"KB_SEARCH\",\"params\":{\"query\":\"합성 질의\"}}";
+        String key = "sec-" + UUID.randomUUID();
+        UUID job = createJob(engA, "ENG", body, key, 202);
+        call(get("/api/v1/aip/jobs/" + job), engA, "ENG", 200);
+        call(get("/api/v1/aip/jobs/" + job), engB, "ENG", 403);
+        call(get("/api/v1/aip/jobs/" + job + "/events"), engB, "ENG", 403);
+        call(delete("/api/v1/aip/jobs/" + job), engB, "ENG", 403);
+        call(get("/api/v1/aip/jobs/" + job), UUID.randomUUID(), "QA", 200);   // ALL 범위
+        // 다른 사용자가 같은 키 · 같은 본문 → 남의 Job 을 재반환하지 않고 409, 응답에 jobId 없음
+        JsonNode conflict = call(json(post("/api/v1/aip/jobs"), body).header("Idempotency-Key", key), engB, "ENG", 409);
+        assertThat(conflict.get("code").asText()).isEqualTo("AIP-409-003");
+        assertThat(conflict.toString()).doesNotContain(job.toString());
+        // 본인 재전송은 여전히 같은 Job
+        assertThat(createJob(engA, "ENG", body, key, 202)).isEqualTo(job);
+    }
+
+    @Test
     @DisplayName("NFR-AIP-03: 워커 비활성(미설정)이어도 Job 생성 202 · QUEUED 대기, 동기 호출은 DISABLED")
     void workerDisabledKeepsErpWorking() throws Exception {
         worker.setEnabled(false);
@@ -226,6 +248,10 @@ class AipIntegrationTest extends IntegrationTestBase {
         assertThat(jobs.queuePosition(p1)).isEqualTo(1);
         assertThat(jobs.dequeue("w", List.of("KB_SEARCH"), 4500, 60).orElseThrow().get("id")).isEqualTo(p1);
         UUID sys = UUID.randomUUID();
+        // 프로젝트 없는 Job 취소는 요청자 본인만(SEC-2026-10-19) — 시험 Job 의 요청자를 sys 로 둔다
+        jdbc.update("UPDATE aip.job SET requested_by = ? WHERE id = ?", sys, p3);
+        call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/aip/jobs/" + p3),
+                UUID.randomUUID(), "PM", 403);
         JsonNode c = call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/aip/jobs/" + p3),
                 sys, "PM", 200);
         assertThat(c.get("status").asText()).isEqualTo("CANCELLED");
@@ -366,7 +392,14 @@ class AipIntegrationTest extends IntegrationTestBase {
         JsonNode denied = call(json(post(base + "/promote"), "{\"targetStage\":\"SHADOW\",\"serviceCode\":\"SITE_HAZARD\"}"),
                 ml, "SYSADMIN", 409);
         assertThat(denied.get("code").asText()).isEqualTo("AIP-409-002");
-        call(json(post(base + "/approval"), "{\"role\":\"QA\"}"), UUID.randomUUID(), "QA", 200);
+        // SEC-2026-10-19: 본문 role 은 호출자의 실제 역할이어야 함(QA 가 EXEC 승인 기록 불가) · 기록된 승인은 덮어쓰기 불가
+        call(json(post(base + "/approval"), "{\"role\":\"EXEC\"}"), UUID.randomUUID(), "QA", 403);
+        assertThat(jdbc.queryForMap("SELECT exec_approved_by FROM aip.model_version WHERE id = ?", m)
+                .get("exec_approved_by")).isNull();
+        UUID qa = UUID.randomUUID();
+        call(json(post(base + "/approval"), "{\"role\":\"QA\"}"), qa, "QA", 200);
+        call(json(post(base + "/approval"), "{\"role\":\"QA\"}"), UUID.randomUUID(), "QA", 409);
+        assertThat(jdbc.queryForObject("SELECT approved_by FROM aip.model_version WHERE id = ?", UUID.class, m)).isEqualTo(qa);
         call(json(post(base + "/promote"), "{\"targetStage\":\"SHADOW\",\"serviceCode\":\"SITE_HAZARD\"}"), ml, "SYSADMIN", 200);
         assertThat(registry.resolve("SITE_HAZARD", UUID.randomUUID()).shadowModel()).isEqualTo("hazard-lora");
         JsonNode canary = call(json(post(base + "/promote"), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"SITE_HAZARD\","

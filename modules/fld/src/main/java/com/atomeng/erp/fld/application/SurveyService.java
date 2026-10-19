@@ -161,6 +161,14 @@ public class SurveyService {
 
     // ------------------------------------------------------------------ 구역 잠금 (FR-FLD-019, TC-FLD-011)
 
+    /** GET /zones/{id}/lock-check — 회차 프로젝트 범위 확인 후 잠금 검증 사유(SEC-2026-10-19: 범위 검사 누락 수정) */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> lockCheck(UUID zoneId) {
+        Zone z = fld.zone(zoneId);
+        access.requireProject("fld:zone:lock", fld.round(z.roundId()).projectId());
+        return lockIssues(zoneId);
+    }
+
     /** 잠금 검증 사유(모두 모아 한 번에): 필수값 누락(DRAFT) · 미해결 충돌 · 미결 AI 제안 · 사진 미검증(REJECTED) */
     public List<Map<String, Object>> lockIssues(UUID zoneId) {
         List<Map<String, Object>> issues = new ArrayList<>();

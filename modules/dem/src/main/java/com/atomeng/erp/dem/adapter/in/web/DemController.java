@@ -246,7 +246,7 @@ class DemController {
     @GetMapping("/daily-logs/{logId}")
     @RequirePermission("dem:supervision-log:read")
     public ResponseEntity<Map<String, Object>> log(@PathVariable UUID logId) {
-        var body = logs.detail(logId);
+        var body = logs.read(logId);
         return ResponseEntity.ok().eTag(IfMatch.etagOf((Long) body.get("version"))).body(body);
     }
 

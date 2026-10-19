@@ -24,6 +24,8 @@ public final class DemErrors {
     public static final String SUPERVISOR_GAP = "DEM-409-006";
     /** 증거 사진 해시 불일치 (EVIDENCE_HASH_MISMATCH) */
     public static final String EVIDENCE_HASH_MISMATCH = "DEM-409-007";
+    /** 같은 증거 사진(sha256)이 다른 업무 패키지에 이미 등록됨 — 보안 검토 2026-10-19 */
+    public static final String EVIDENCE_DUPLICATE_OTHER_PACKAGE = "DEM-409-008";
     /** 일지 · 리비전 버전 불일치(If-Match) 는 공통 CORE-412-001 */
     public static final String INVALID = "DEM-422-001";
     /** BR-DEM-002 / TC-DEM-001 자격 · 퇴사 (DEM_SUPERVISOR_NOT_QUALIFIED) */

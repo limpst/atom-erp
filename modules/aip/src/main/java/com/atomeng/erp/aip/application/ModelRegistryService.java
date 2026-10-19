@@ -1,8 +1,11 @@
 package com.atomeng.erp.aip.application;
 
 import com.atomeng.common.core.actor.CurrentActor;
+import com.atomeng.common.core.error.CoreErrors;
 import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.events.OutboxPublisher;
+import com.atomeng.common.identity.AtomAuthentication;
+import com.atomeng.common.identity.Role;
 import com.atomeng.erp.aip.adapter.out.persistence.AipJdbc;
 import com.atomeng.erp.aip.api.AipEvents;
 import com.atomeng.erp.aip.domain.AipCodes;
@@ -79,12 +82,23 @@ public class ModelRegistryService {
     /** 승인 기록 — QA(품질) 또는 EXEC(최종) */
     @Transactional
     public Map<String, Object> approve(UUID modelId, String approverRole) {
-        db.lock("model_version", modelId);
+        Map<String, Object> m = db.lock("model_version", modelId);
         String col = switch (approverRole) {
             case "QA" -> "approved_by";
             case "EXEC" -> "exec_approved_by";
             default -> throw new DomainException(AipCodes.PROMOTION_DENIED, "승인 역할은 QA · EXEC 만: " + approverRole);
         };
+        // SEC-2026-10-19: 본문의 role 은 호출자가 실제로 가진 역할이어야 한다(QA 가 EXEC 승인을 대신 기록 금지).
+        // 인증 주체가 없는 시스템 호출은 웹 경계 밖이므로 그대로 둔다.
+        boolean holds = AtomAuthentication.currentPrincipal()
+                .map(p -> p.roles().contains(Role.valueOf(approverRole))).orElse(true);
+        if (!holds) {
+            throw new DomainException(CoreErrors.PERMISSION_DENIED, "호출자에게 없는 승인 역할: " + approverRole);
+        }
+        // 이미 기록된 승인은 덮어쓰지 않는다(승인자 바꿔치기 방지)
+        if (m.get(col) != null) {
+            throw new DomainException(AipCodes.PROMOTION_DENIED, approverRole + " 승인이 이미 기록되어 있습니다");
+        }
         db.jdbc().update("UPDATE aip.model_version SET " + col + " = ? WHERE id = ?", actor.actorIdOrSystem(), modelId);
         return db.get("model_version", modelId);
     }

@@ -156,6 +156,12 @@ class DemIntegrationTest extends IntegrationTestBase {
 
     private Fixture demProject() throws Exception {
         UUID project = coreProject();
+        // 담당 PM 투입(RESP) — 일지 열람은 PROJECT 범위(보안 검토 2026-10-19)
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성PM', DATE '2020-01-01', ?, ?) ON CONFLICT (id) DO NOTHING", pm,
+                "DPM-" + SEQ.incrementAndGet(), pm, pm);
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, 'RESP', DATE '2020-01-01', DATE '2099-12-31')", project, pm);
         UUID building = building();
         var r = mvc.perform(as(postJson("/api/v1/dem/projects", """
                         {"projectId":"%s","buildingId":"%s","packages":[{"packageType":"DEM_SUPERVISION"},
@@ -382,6 +388,25 @@ class DemIntegrationTest extends IntegrationTestBase {
         UUID p1 = registerPhoto(eng, f.supervisionWp(), att1, 201);
         UUID p2 = registerPhoto(eng, f.supervisionWp(), att2, 201);
         assertThat(registerPhoto(eng, f.supervisionWp(), att1, 200)).isEqualTo(p1);   // 재등록 = 기존 id(멱등)
+        // 보안 검토 2026-10-19: 다른 패키지로 같은 사진 등록 → 409(그 패키지 사진 정보 비노출),
+        // 남이 올린 첨부 · DEM 외 모듈 첨부는 422
+        mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
+                        {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
+                        att1.get("attachmentId").asText(), att1.get("sha256").asText(), f.designWp())), eng, "ENG"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEM-409-008"))
+                .andExpect(jsonPath("$.id").doesNotExist());
+        JsonNode attOther = upload(eng, 7);
+        mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
+                        {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
+                        attOther.get("attachmentId").asText(), attOther.get("sha256").asText(), f.supervisionWp())),
+                        engineer(true), "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEM-422-001"));
+        jdbc.update("UPDATE core.attachment SET owner_module = 'FLD' WHERE id = ?::uuid", attOther.get("attachmentId").asText());
+        mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
+                        {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
+                        attOther.get("attachmentId").asText(), attOther.get("sha256").asText(), f.supervisionWp())),
+                        eng, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEM-422-001"));
         assertThat(events("dem.evidence-photo.registered", p1)).isEqualTo(1);
         assertThat(lastEvent("dem.evidence-photo.registered", p1).get("sha256").asText())
                 .isEqualTo(att1.get("sha256").asText());
@@ -451,6 +476,19 @@ class DemIntegrationTest extends IntegrationTestBase {
         mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), pm, "PM")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.checklist.length()").value(3))
                 .andExpect(jsonPath("$.checklist[0].photoIds[0]").value(p1.toString()));
+        // 보안 검토 2026-10-19: 일지 열람 범위 — 투입 안 된 PM · ENG 403, 지정 감리자(작성자) 200,
+        // 다른 고객사 CUSTOMER 403, 발주 고객사 CUSTOMER 200
+        mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), actor(), "PM"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-002"));
+        mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), stranger, "ENG")).andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), eng, "ENG")).andExpect(status().isOk());
+        UUID owner = jdbc.queryForObject("SELECT client_id FROM core.project WHERE id = ?", UUID.class, f.projectId());
+        mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), UUID.randomUUID(), "CUSTOMER")
+                        .header("X-Client-Org-Id", UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), UUID.randomUUID(), "CUSTOMER")
+                        .header("X-Client-Org-Id", owner.toString()))
+                .andExpect(status().isOk());
 
         // TC-DEM-009: 업로드 후 원본 1바이트 변조(로컬 WORM 모사를 우회) → verify MISMATCH
         mvc.perform(as(get("/api/v1/dem/evidence/photos/" + p2 + "/verify"), pm, "PM"))

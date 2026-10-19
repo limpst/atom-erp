@@ -115,21 +115,23 @@ class AipController {
     @RequirePermission("aip:inference-job:read")
     Map<String, Object> job(@PathVariable UUID id) {
         Map<String, Object> j = jobs.get(id);
-        access.requireProject("aip:inference-job:read", AipJdbc.uuid(j, "project_id"));
+        access.requireProject("aip:inference-job:read", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
         return view(j);
     }
 
     @GetMapping("/jobs/{id}/events")
     @RequirePermission("aip:inference-job:read")
     List<Map<String, Object>> events(@PathVariable UUID id) {
-        access.requireProject("aip:inference-job:read", AipJdbc.uuid(jobs.get(id), "project_id"));
+        Map<String, Object> j = jobs.get(id);
+        access.requireProject("aip:inference-job:read", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
         return AipJdbc.cleanAll(jobs.events(id));
     }
 
     @DeleteMapping("/jobs/{id}")
     @RequirePermission("aip:inference-job:create")
     Map<String, Object> cancel(@PathVariable UUID id) {
-        access.requireProject("aip:inference-job:create", AipJdbc.uuid(jobs.get(id), "project_id"));
+        Map<String, Object> j = jobs.get(id);
+        access.requireProject("aip:inference-job:create", AipJdbc.uuid(j, "project_id"), AipJdbc.uuid(j, "requested_by"));
         return view(jobs.cancel(id));
     }
 
@@ -178,14 +180,17 @@ class AipController {
     @RequirePermission("aip:suggestion:read")
     List<Map<String, Object>> suggestionsOf(@PathVariable UUID attachmentId) {
         List<Map<String, Object>> rows = suggestions.byPhoto(attachmentId);
-        rows.forEach(r -> access.requireProject("aip:suggestion:read", AipJdbc.uuid(r, "project_id")));
+        rows.forEach(r -> access.requireProject("aip:suggestion:read", AipJdbc.uuid(r, "project_id"),
+                AipJdbc.uuid(jobs.get(AipJdbc.uuid(r, "job_id")), "requested_by")));
         return AipJdbc.cleanAll(rows);
     }
 
     @PostMapping("/suggestions/{id}/decision")
     @RequirePermission("aip:suggestion:update")
     Map<String, Object> decide(@PathVariable UUID id, @Valid @RequestBody DecisionRequest req) {
-        access.requireProject("aip:suggestion:update", AipJdbc.uuid(suggestions.get(id), "project_id"));
+        Map<String, Object> s = suggestions.get(id);
+        access.requireProject("aip:suggestion:update", AipJdbc.uuid(s, "project_id"),
+                AipJdbc.uuid(jobs.get(AipJdbc.uuid(s, "job_id")), "requested_by"));
         return AipJdbc.clean(suggestions.decide(id, new SuggestionService.Decision(req.decision(), req.reasonCode(), req.modified())));
     }
 

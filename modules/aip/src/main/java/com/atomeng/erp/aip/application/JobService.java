@@ -95,7 +95,7 @@ public class JobService {
         if (c.idempotencyKey() != null) {
             Optional<Map<String, Object>> existing = byKey(c.idempotencyKey());
             if (existing.isPresent()) {
-                return replayOrConflict(existing.get(), hash);
+                return replayOrConflict(existing.get(), hash, c.requesterModule());
             }
         }
         UUID subject = c.inputs() != null && !c.inputs().isEmpty() && c.inputs().get(0).attachmentId() != null
@@ -127,14 +127,22 @@ public class JobService {
                     c.serviceCode().vramBudgetMb(), c.maxAttempts() == null ? 3 : c.maxAttempts(),
                     c.deadline() == null ? null : c.deadline().toSeconds(), c.deadline() == null ? null : c.deadline().toSeconds());
         } catch (DuplicateKeyException race) {
-            return replayOrConflict(byKey(c.idempotencyKey()).orElseThrow(), hash);
+            return replayOrConflict(byKey(c.idempotencyKey()).orElseThrow(), hash, c.requesterModule());
         }
         event(id, "STATE", Map.of("to", "QUEUED"));
         outbox.publish(new AipEvents.JobQueued(id, c.serviceCode().name(), priority));
         return new Created(db.get("job", id), false);
     }
 
-    private Created replayOrConflict(Map<String, Object> row, String hash) {
+    private Created replayOrConflict(Map<String, Object> row, String hash, String requesterModule) {
+        // SEC-2026-10-19: aip.job.idempotency_key 는 전역 UNIQUE 라 HTTP 클라이언트가 고른 키가 다른 사용자의 키와 겹칠 수 있다.
+        // HTTP 직접 요청(requesterModule 없음)은 같은 사용자가 만든 Job 만 재반환하고, 남의 Job 이면 jobId 도 알려 주지 않는다.
+        // 모듈 간 동기 호출(RPT · QAR — 'qar-review-{round}' 같은 업무 키)은 사용자와 무관하게 같은 Job 을 재사용하는 것이 설계다.
+        UUID owner = AipJdbc.uuid(row, "requested_by");
+        boolean webCaller = actor.current().isPresent();   // 배치 · 시스템 실행은 웹 경계 밖
+        if (requesterModule == null && webCaller && owner != null && !owner.equals(actor.actorIdOrSystem())) {
+            throw new DomainException(AipCodes.IDEMPOTENCY_MISMATCH, "이미 사용 중인 Idempotency-Key 입니다");
+        }
         if (!hash.equals(AipJdbc.str(row, "input_sha256"))) {
             throw new DomainException(AipCodes.IDEMPOTENCY_MISMATCH, "같은 Idempotency-Key 로 다른 입력")
                     .with("jobId", AipJdbc.uuid(row, "id"));

@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.atomeng.erp.aip.adapter.out.persistence.AipJdbc;
 import com.atomeng.erp.aip.adapter.out.worker.HttpAipWorkerClient;
+import com.atomeng.erp.aip.adapter.out.worker.WorkerRequestSigner;
 import com.atomeng.erp.aip.api.AipJobApi;
 import com.atomeng.erp.aip.api.AipServiceCode;
 import com.atomeng.erp.aip.application.AipProperties;
@@ -89,9 +90,19 @@ class AipWorkerContractTest {
                 .withHeader("Content-Type", "application/json").withBody(body))));
     }
 
+    /** 합성 공유 비밀(시험 전용, 32바이트 이상) */
+    static final byte[] SECRET = "synthetic-test-secret-0123456789abcdef".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    /** 서버가 첨부에서 읽은 원본이라고 가정하는 합성 1×1 PNG */
+    static final byte[] PNG = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    static HttpAipWorkerClient client(String base) {
+        return new HttpAipWorkerClient(base, Duration.ofSeconds(2), AipJdbc.MAPPER, SECRET, java.util.List.of(),
+                java.time.Clock.systemUTC());
+    }
+
     static JobExecutor executor(String base) {
-        AipWorkerPort worker = new HttpAipWorkerClient(base, Duration.ofSeconds(2), AipJdbc.MAPPER);
-        return new JobExecutor(worker, new AipProperties(null, null, null, null));
+        return new JobExecutor(client(base), new AipProperties(null, null, null, null), id -> PNG);
     }
 
     static JsonNode json(String s) throws Exception {
@@ -121,30 +132,41 @@ class AipWorkerContractTest {
         JobExecutor ex = executor(WM.baseUrl());
         UUID job = UUID.randomUUID();
         JobExecutor.Execution det = ex.execute(AipServiceCode.CRACK_DETECT, job, json("""
-                {"imageB64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-                 "chain":["CRACK_MEASURE"],"minConfidence":0.35,"context":{"member":"기둥 C3"},
+                {"chain":["CRACK_MEASURE"],"minConfidence":0.35,"context":{"member":"기둥 C3"},
                  "scale":{"source":"ARUCO","markerSizeMm":50,"dictionary":"DICT_4X4_50"},"boundariesMm":[0.1,0.2,0.3]}"""),
-                route("crack"), Duration.ofSeconds(5));
+                route("crack"), Duration.ofSeconds(5), UUID.randomUUID());
         assertThat(det.output().path("detected").asBoolean()).isTrue();
         assertThat(det.output().path("measure").path("components").get(0).path("widthMaxMm").asDouble()).isEqualTo(0.3);
         assertThat(det.adapter()).isEqualTo("crack");
-        ex.execute(AipServiceCode.CRACK_MEASURE, job, json("{\"imageB64\":\"aaaaaaaaaa\",\"scale\":{\"source\":\"MANUAL\","
-                + "\"mmPerPx\":0.05,\"mmPerPxUncert\":0.0005}}"), null, Duration.ofSeconds(5));
+        // 보안 검토 AIP-03: 클라이언트 imageB64 · 계약 밖 필드(attachmentId 등)는 워커로 가지 않고, 이미지는 서버 원본
+        ex.execute(AipServiceCode.CRACK_MEASURE, job, json("{\"imageB64\":\"Zm9yZ2Vk\",\"attachmentId\":\"x\","
+                + "\"scale\":{\"source\":\"MANUAL\",\"mmPerPx\":0.05,\"mmPerPxUncert\":0.0005}}"), null,
+                Duration.ofSeconds(5), UUID.randomUUID());
         JobExecutor.Execution draft = ex.execute(AipServiceCode.REPORT_DRAFT, job,
                 json("{\"facts\":{\"crack.count\":4,\"crack.max_width_mm\":0.3},\"query\":\"슬래브 균열 소견\"}"),
-                route("gemma-4-12b-it"), Duration.ofSeconds(5));
+                route("gemma-4-12b-it"), Duration.ofSeconds(5), null);
         assertThat(draft.retrievedChunkIds()).containsExactly("c1");
         ex.execute(AipServiceCode.REPORT_REVIEW, job, json("""
                 {"roundId":"r1","reportType":"RT_PRC","locale":"ko","sections":[{"key":"ch7.opinion","blocks":[
                  {"id":"b1","text":"상태평가 결과는 C"}]}],"facts":{"grade":"C"},"checks":[]}"""), route("gemma-4-12b-it"),
-                Duration.ofSeconds(5));
+                Duration.ofSeconds(5), null);
         ex.execute(AipServiceCode.KB_SEARCH, job, json("{\"query\":\"백태 균열\",\"scopes\":[\"INTERNAL\"],\"k\":8}"), null,
-                Duration.ofSeconds(5));
+                Duration.ofSeconds(5), null);
         int checked = 0;
         for (ServeEvent ev : WM.getAllServeEvents()) {
             String path = ev.getRequest().getUrl();
             Set<ValidationMessage> errs = contract.validateRequest(path, json(ev.getRequest().getBodyAsString()));
             assertThat(errs).as("요청 계약 위반 " + path + " " + ev.getRequest().getBodyAsString()).isEmpty();
+            // AIP-06: 모든 요청에 서명 헤더 3종, 서명 = HMAC(공유 비밀, ts · nonce · POST · path · sha256(body))
+            String ts = ev.getRequest().getHeader(WorkerRequestSigner.TIMESTAMP);
+            String nonce = ev.getRequest().getHeader(WorkerRequestSigner.NONCE);
+            assertThat(ev.getRequest().getHeader(WorkerRequestSigner.SIGNATURE)).isEqualTo("v1="
+                    + WorkerRequestSigner.signature(SECRET, ts, nonce, "POST", path, ev.getRequest().getBody()));
+            // AIP-03: 이미지 본문은 언제나 서버 원본(클라이언트가 보낸 값이 아님)
+            JsonNode sent = json(ev.getRequest().getBodyAsString());
+            if (sent.has("imageB64")) {
+                assertThat(sent.get("imageB64").asText()).isEqualTo(java.util.Base64.getEncoder().encodeToString(PNG));
+            }
             checked++;
         }
         assertThat(checked).isEqualTo(7);   // score · findings · measure(체인) + measure · draft · review · search
@@ -159,25 +181,44 @@ class AipWorkerContractTest {
         assertThat(contract.validateResponse(AipWorkerPort.CRACK_SCORE, "post", "503",
                 json("{\"code\":\"AIP-503-001\",\"title\":\"vLLM 응답 없음\",\"detail\":\"x\"}"))).isEmpty();
         JobExecutor ex = executor(WM.baseUrl());
-        assertThatThrownBy(() -> ex.execute(AipServiceCode.CRACK_DETECT, UUID.randomUUID(), json("{\"imageB64\":\"aaaaaaaa\"}"),
-                route("crack"), Duration.ofSeconds(5))).isInstanceOf(AipJobApi.AipUnavailableException.class)
+        assertThatThrownBy(() -> ex.execute(AipServiceCode.CRACK_DETECT, UUID.randomUUID(), json("{}"),
+                route("crack"), Duration.ofSeconds(5), UUID.randomUUID())).isInstanceOf(AipJobApi.AipUnavailableException.class)
                 .hasMessageContaining("AIP-503-001");
         WM.stubFor(post(urlEqualTo(AipWorkerPort.KB_SEARCH)).willReturn(aResponse().withStatus(200).withFixedDelay(1500)
                 .withHeader("Content-Type", "application/json").withBody(SAMPLES.get(AipWorkerPort.KB_SEARCH))));
         assertThatThrownBy(() -> ex.execute(AipServiceCode.KB_SEARCH, UUID.randomUUID(), json("{\"query\":\"q\"}"), null,
-                Duration.ofMillis(300))).isInstanceOf(AipJobApi.AipTimeoutException.class);
+                Duration.ofMillis(300), null)).isInstanceOf(AipJobApi.AipTimeoutException.class);
         JobExecutor dead = executor("http://127.0.0.1:1");
         assertThatThrownBy(() -> dead.execute(AipServiceCode.KB_SEARCH, UUID.randomUUID(), json("{\"query\":\"q\"}"), null,
-                Duration.ofSeconds(2))).isInstanceOf(AipJobApi.AipUnavailableException.class);
-        assertThatThrownBy(() -> new HttpAipWorkerClient("https://api.example.com", Duration.ofSeconds(1), AipJdbc.MAPPER))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("BR-AIP-011");
+                Duration.ofSeconds(2), null)).isInstanceOf(AipJobApi.AipUnavailableException.class);
+        assertThatThrownBy(() -> client("https://api.example.com")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("BR-AIP-011");
+    }
+
+    @Test
+    @DisplayName("보안 검토 AIP-06: 워커 주소는 루프백 또는 allowed-hosts 에 적은 호스트만(사설망 대역 전체 허용 안 함), 공유 비밀 32바이트 미만 거부")
+    void workerAddressAndSecret() {
+        for (String bad : java.util.List.of("http://10.0.0.5:8090", "http://192.168.1.20:8090", "http://172.16.0.3:8090",
+                "http://127.0.0.1.evil.example:8090", "http://user@127.0.0.1:8090", "ftp://127.0.0.1:8090")) {
+            assertThatThrownBy(() -> client(bad)).as(bad).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(client("http://127.0.0.1:8090")).isNotNull();
+        assertThat(client("http://localhost:8090")).isNotNull();
+        assertThat(new HttpAipWorkerClient("http://10.0.0.5:8090", Duration.ofSeconds(1), AipJdbc.MAPPER, SECRET,
+                java.util.List.of("10.0.0.5"), java.time.Clock.systemUTC())).isNotNull();
+        assertThatThrownBy(() -> new HttpAipWorkerClient("http://127.0.0.1:8090", Duration.ofSeconds(1), AipJdbc.MAPPER,
+                "short".getBytes(java.nio.charset.StandardCharsets.UTF_8), java.util.List.of(), java.time.Clock.systemUTC()))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("32");
+        assertThatThrownBy(() -> new HttpAipWorkerClient("http://127.0.0.1:8090", Duration.ofSeconds(1), AipJdbc.MAPPER,
+                null, java.util.List.of(), java.time.Clock.systemUTC())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("미지원 서비스(STT · 드론 · 위험요소)는 워커를 부르지 않고 422 AIP-422-002")
     void unsupportedService() throws Exception {
         JobExecutor ex = executor(WM.baseUrl());
-        assertThatThrownBy(() -> ex.execute(AipServiceCode.STT, UUID.randomUUID(), json("{}"), null, Duration.ofSeconds(1)))
+        assertThatThrownBy(() -> ex.execute(AipServiceCode.STT, UUID.randomUUID(), json("{}"), null, Duration.ofSeconds(1),
+                null))
                 .hasMessageContaining("미지원");
         assertThat(WM.getAllServeEvents()).isEmpty();
     }

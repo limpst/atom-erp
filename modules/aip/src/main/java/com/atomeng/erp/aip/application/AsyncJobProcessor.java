@@ -64,10 +64,12 @@ public class AsyncJobProcessor {
         AipServiceCode code = AipServiceCode.valueOf(AipJdbc.str(j, "service_code"));
         JsonNode params = AipJdbc.tree(j.get("params"));
         JsonNode in = AipJdbc.tree(j.get("input_refs"));
-        UUID subject = in.isArray() && !in.isEmpty() && in.get(0).hasNonNull("attachmentId")
-                ? UUID.fromString(in.get(0).get("attachmentId").asText()) : AipJdbc.uuid(j, "project_id");
+        UUID input = in.isArray() && !in.isEmpty() && in.get(0).hasNonNull("attachmentId")
+                ? UUID.fromString(in.get(0).get("attachmentId").asText()) : null;
+        UUID subject = input != null ? input : AipJdbc.uuid(j, "project_id");
         try {
-            JobExecutor.Execution exec = executor.execute(code, id, params, registry.resolve(code.name(), subject), timeout);
+            JobExecutor.Execution exec = executor.execute(code, id, params, registry.resolve(code.name(), subject), timeout,
+                    input);
             if (jobs.cancelIfRequested(id, worker)) {
                 return Optional.of(id);
             }

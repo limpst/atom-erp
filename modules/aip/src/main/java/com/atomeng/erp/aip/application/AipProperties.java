@@ -15,16 +15,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AipProperties(Worker worker, Scheduler scheduler, Suggestion suggestion, Audit audit) {
 
     public AipProperties {
-        worker = worker == null ? new Worker(null, null, null) : worker;
+        worker = worker == null ? new Worker(null, null, null, null, null) : worker;
         scheduler = scheduler == null ? new Scheduler(null, null, null) : scheduler;
         suggestion = suggestion == null ? new Suggestion(null, null, null) : suggestion;
         audit = audit == null ? new Audit(null) : audit;
     }
 
-    public record Worker(String baseUrl, Duration connectTimeout, Duration defaultTimeout) {
+    /**
+     * @param sharedSecret 워커 요청 HMAC 공유 비밀(보안 검토 AIP-06, 32바이트 이상, 환경변수 ATOM_AIP_WORKER_SECRET) —
+     *                     워커를 켜면(baseUrl) 필수, 없거나 짧으면 기동 실패
+     * @param allowedHosts 루프백 밖에서 허용할 워커 호스트(정확히 일치). 기본 비어 있음 = 루프백만
+     */
+    public record Worker(String baseUrl, Duration connectTimeout, Duration defaultTimeout, String sharedSecret,
+                         java.util.List<String> allowedHosts) {
         public Worker {
             connectTimeout = connectTimeout == null ? Duration.ofSeconds(3) : connectTimeout;
             defaultTimeout = defaultTimeout == null ? Duration.ofMinutes(2) : defaultTimeout;
+            allowedHosts = allowedHosts == null ? java.util.List.of() : java.util.List.copyOf(allowedHosts);
+        }
+
+        @Override
+        public String toString() {   // 비밀은 출력하지 않는다
+            return "Worker[baseUrl=" + baseUrl + ", allowedHosts=" + allowedHosts + ", sharedSecret="
+                    + (sharedSecret == null || sharedSecret.isEmpty() ? "<unset>" : "<set>") + "]";
         }
 
         public boolean enabled() {

@@ -9,6 +9,7 @@ import com.atomeng.erp.aip.api.AipServiceCode;
 import com.atomeng.erp.aip.domain.AipCodes;
 import com.atomeng.erp.aip.domain.AipRules;
 import com.atomeng.erp.aip.domain.JobStatus;
+import com.atomeng.erp.core.api.AttachmentReadApi;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -49,9 +50,11 @@ public class JobService {
     private final ModelRegistryService registry;
     private final InferenceAuditService audit;
     private final SuggestionService suggestions;
+    private final AttachmentReadApi attachments;
 
     public JobService(AipJdbc db, OutboxPublisher outbox, CurrentActor actor, ModelRegistryService registry,
-                      InferenceAuditService audit, SuggestionService suggestions) {
+                      InferenceAuditService audit, SuggestionService suggestions, AttachmentReadApi attachments) {
+        this.attachments = attachments;
         this.db = db;
         this.outbox = outbox;
         this.actor = actor;
@@ -91,6 +94,9 @@ public class JobService {
         if (!c.serviceCode().supported()) {
             throw new DomainException(AipCodes.UNSUPPORTED_SERVICE, "이번 단계 미지원 서비스: " + c.serviceCode());
         }
+        List<InputRef> inputs = verifiedInputs(c);
+        c = new CreateCommand(c.serviceCode(), c.priority(), c.projectId(), inputs, c.params(), c.idempotencyKey(),
+                c.deadline(), c.maxAttempts(), c.requesterModule(), c.mode());
         String hash = inputHash(c.inputs(), c.params());
         if (c.idempotencyKey() != null) {
             Optional<Map<String, Object>> existing = byKey(c.idempotencyKey());
@@ -105,8 +111,8 @@ public class JobService {
         if (priority < 1 || priority > 4) {
             throw new DomainException(AipCodes.INVALID, "priority 는 1–4");
         }
-        JsonNode stored = storeBlobs ? (c.params() == null ? AipJdbc.MAPPER.createObjectNode() : c.params())
-                : stripBlobs(c.params());
+        // 보안 검토 AIP-03: 이미지는 실행 때 서버가 첨부 원본에서 읽으므로 클라이언트 본문(imageB64 · maskB64)은 보관하지 않는다
+        JsonNode stored = stripBlobs(c.params());
         ArrayNode refs = AipJdbc.MAPPER.createArrayNode();
         for (InputRef r : c.inputs() == null ? List.<InputRef>of() : c.inputs()) {
             ObjectNode o = refs.addObject();
@@ -132,6 +138,35 @@ public class JobService {
         event(id, "STATE", Map.of("to", "QUEUED"));
         outbox.publish(new AipEvents.JobQueued(id, c.serviceCode().name(), priority));
         return new Created(db.get("job", id), false);
+    }
+
+    /**
+     * 보안 검토 AIP-03: 입력 첨부는 존재해야 하고, 소유자 해석으로 푼 프로젝트가 Job 의 프로젝트와 같아야 하며,
+     * 신고 sha256 은 기록 해시와 같아야 한다(기록 해시로 정규화). 이미지 서비스는 프로젝트 · 입력 첨부가 필수.
+     */
+    private List<InputRef> verifiedInputs(CreateCommand c) {
+        List<InputRef> in = c.inputs() == null ? List.of() : c.inputs();
+        if (JobExecutor.imageService(c.serviceCode())
+                && (c.projectId() == null || in.isEmpty() || in.get(0).attachmentId() == null)) {
+            throw new DomainException(AipCodes.INVALID, c.serviceCode() + " 는 projectId 와 inputs[0].attachmentId 가 필요합니다");
+        }
+        List<InputRef> out = new ArrayList<>();
+        for (InputRef r : in) {
+            if (r.attachmentId() == null) {
+                out.add(r);
+                continue;
+            }
+            AttachmentReadApi.AttachmentInfo a = attachments.find(r.attachmentId())
+                    .orElseThrow(() -> new DomainException(AipCodes.INVALID, "입력 첨부가 없습니다: " + r.attachmentId()));
+            if (c.projectId() == null || !c.projectId().equals(a.projectId())) {
+                throw new DomainException(AipCodes.INVALID, "입력 첨부가 이 프로젝트의 첨부가 아닙니다");
+            }
+            if (r.sha256() != null && !r.sha256().isBlank() && !r.sha256().equalsIgnoreCase(a.sha256())) {
+                throw new DomainException(AipCodes.INVALID, "입력 첨부 sha256 이 기록과 다릅니다");
+            }
+            out.add(new InputRef(r.attachmentId(), a.sha256()));
+        }
+        return out;
     }
 
     private Created replayOrConflict(Map<String, Object> row, String hash, String requesterModule) {

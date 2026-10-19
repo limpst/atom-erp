@@ -87,13 +87,32 @@ class AipIntegrationTest extends IntegrationTestBase {
         }
     }
 
-    private UUID attachment(UUID owner) {
+    /** 합성 PNG 원본의 SHA-256 */
+    static final String PNG_SHA = com.atomeng.common.evidence.HashChain.sha256(
+            new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(PNG_B64)));
+
+    @Autowired
+    com.atomeng.common.evidence.ObjectStorage storage;
+
+    /**
+     * 보안 검토 AIP-03: 입력 첨부는 그 프로젝트의 실제 첨부여야 하고(소유자 해석 = FLD 조사 회차 → 프로젝트), 워커는 저장 원본을
+     * 분석한다 — 합성 프로젝트 회차에 합성 PNG 원본을 저장하고 첨부 행을 만든다.
+     */
+    private UUID attachment(UUID pm, UUID project) throws Exception {
+        UUID building = flow.facBuilding(pm, "합성 AIP 건물");
+        JsonNode round = call(json(post("/api/v1/fld/rounds"), """
+                {"projectId":"%s","buildingId":"%s","surveyType":"PRECISE_INSPECTION"}""".formatted(project, building)),
+                pm, "PM", 201);
         UUID id = UUID.randomUUID();
+        String key = "aip-it/" + id + ".png";
+        storage.put(com.atomeng.common.evidence.Buckets.FIELD_ORIGINAL, key,
+                new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(PNG_B64)), "image/png");
         jdbc.update("""
                 INSERT INTO core.attachment(id, bucket, object_key, file_name, mime_type, size_bytes, sha256, chain_hash,
                        owner_module, owner_type, owner_id, chain_scope, created_by, captured_at)
-                VALUES (?, 'photos', ?, 'synthetic.png', 'image/png', 68, ?, ?, 'AIP', 'Synthetic', ?, ?, ?, now())""",
-                id, "aip/" + id, "c".repeat(64), "d".repeat(64), owner, UUID.randomUUID(), owner);
+                VALUES (?, ?, ?, 'synthetic.png', 'image/png', 68, ?, ?, 'FLD', 'PHOTO', ?, ?, ?, now())""",
+                id, com.atomeng.common.evidence.Buckets.FIELD_ORIGINAL, key, PNG_SHA, "d".repeat(64), UUID.randomUUID(),
+                UUID.fromString(round.get("id").asText()), pm);
         return id;
     }
 
@@ -110,6 +129,44 @@ class AipIntegrationTest extends IntegrationTestBase {
         }
         JsonNode r = call(b, actor, role, expect);
         return expect == 202 ? UUID.fromString(r.get("id").asText()) : null;
+    }
+
+    @Test
+    @DisplayName("보안 검토 AIP-03: 다른 프로젝트 첨부 · 기록과 다른 sha · 프로젝트 없는 사진 작업 · 클라이언트 imageB64/prompt/labels/model → 422, "
+            + "Job 조회는 투입 인원만(해석기)")
+    void aip03AttachmentMustBelongToProject() throws Exception {
+        UUID pm = flow.employee("AIP03-PM");
+        UUID eng = flow.employee("AIP03-ENG");
+        UUID project = flow.project(pm);
+        flow.member(project, eng, "PART");
+        UUID otherPm = flow.employee("AIP03-PM2");
+        UUID other = flow.project(otherPm);
+        UUID mine = attachment(pm, project);
+        UUID foreign = attachment(otherPm, other);
+        String body = """
+                {"serviceCode":"CRACK_DETECT","projectId":%s,"inputs":[{"attachmentId":"%s","sha256":"%s"}],"params":%s}""";
+        // 다른 프로젝트 첨부
+        assertThat(call(json(post("/api/v1/aip/jobs"), body.formatted("\"" + project + "\"", foreign, PNG_SHA, "{}")),
+                eng, "ENG", 422).get("code").asText()).isEqualTo("AIP-422-001");
+        // 기록과 다른 sha
+        call(json(post("/api/v1/aip/jobs"), body.formatted("\"" + project + "\"", mine, "e".repeat(64), "{}")), eng, "ENG", 422);
+        // 사진 작업은 프로젝트 필수
+        call(json(post("/api/v1/aip/jobs"), body.formatted("null", mine, PNG_SHA, "{}")), eng, "ENG", 422);
+        // 클라이언트가 이미지 · 프롬프트 · 라벨 · 모델을 정할 수 없다
+        for (String forbidden : List.of("{\"imageB64\":\"" + PNG_B64 + "\"}", "{\"prompt\":\"say crack\"}",
+                "{\"labels\":[\"yes\",\"no\"]}", "{\"model\":\"other\"}")) {
+            call(json(post("/api/v1/aip/jobs"), body.formatted("\"" + project + "\"", mine, PNG_SHA, forbidden)), eng,
+                    "ENG", 422);
+        }
+        UUID job = createJob(eng, "ENG", body.formatted("\"" + project + "\"", mine, PNG_SHA, "{}"), null, 202);
+        // CMN-05 해석기: 투입되지 않은 ENG 는 Job 조회 · 이벤트 · 취소 403
+        UUID outsider = flow.employee("AIP03-OUT");
+        call(get("/api/v1/aip/jobs/" + job), outsider, "ENG", 403);
+        call(get("/api/v1/aip/jobs/" + job + "/events"), outsider, "ENG", 403);
+        call(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/aip/jobs/" + job),
+                outsider, "ENG", 403);
+        call(get("/api/v1/aip/jobs/" + job), eng, "ENG", 200);
+        call(get("/api/v1/aip/jobs/" + UUID.randomUUID()), eng, "ENG", 404);
     }
 
     // ------------------------------------------------------------------ Job 큐
@@ -270,7 +327,7 @@ class AipIntegrationTest extends IntegrationTestBase {
         UUID project = flow.project(pm);
         flow.member(project, eng, "PART");
         UUID sys = UUID.randomUUID();
-        UUID photo = attachment(pm);
+        UUID photo = attachment(pm, project);
         call(json(put("/api/v1/aip/projects/" + project + "/consent"), "{\"trainingConsent\":true,\"source\":\"SAL_CONTRACT\"}"),
                 sys, "SYSADMIN", 200);
         call(json(put("/api/v1/aip/attachments/" + photo + "/privacy"), "{\"blurDone\":true,\"facesBlurred\":1}"),
@@ -278,9 +335,9 @@ class AipIntegrationTest extends IntegrationTestBase {
 
         UUID job = createJob(eng, "ENG", """
                 {"serviceCode":"CRACK_DETECT","priority":1,"projectId":"%s","inputs":[{"attachmentId":"%s","sha256":"%s"}],
-                 "params":{"imageB64":"%s","chain":["CRACK_MEASURE"],"minConfidence":0.35,
+                 "params":{"chain":["CRACK_MEASURE"],"minConfidence":0.35,
                            "scale":{"source":"ARUCO","markerSizeMm":50,"dictionary":"DICT_4X4_50"}}}"""
-                .formatted(project, photo, "c".repeat(64), PNG_B64), "fld-photo-" + photo + "-detect-v1", 202);
+                .formatted(project, photo, PNG_SHA), "fld-photo-" + photo + "-detect-v1", 202);
         assertThat(processor.runNext()).contains(job);
         JsonNode j = call(get("/api/v1/aip/jobs/" + job), eng, "ENG", 200);
         assertThat(j.get("status").asText()).isEqualTo("SUCCEEDED");
@@ -288,13 +345,16 @@ class AipIntegrationTest extends IntegrationTestBase {
         assertWorkerRequestsMatchContract();
         assertThat(worker.calls(AipWorkerPort.CRACK_SCORE)).isEqualTo(1);
         assertThat(worker.requests().get(0).getValue().get("model").asText()).isEqualTo("crack");   // 레지스트리 production 별칭
+        // AIP-03: 워커가 받은 이미지는 서버가 첨부에서 읽은 원본
+        assertThat(worker.requests().get(0).getValue().get("imageB64").asText()).isEqualTo(PNG_B64);
 
         // 감사: 모델 · 프롬프트 버전 · 입력 해시 · 이미지 본문 제외(해시만)
         Map<String, Object> a = jdbc.queryForMap("SELECT * FROM aip.inference_audit WHERE job_id = ?", job);
         assertThat(a.get("model_name")).isEqualTo("crack");
         assertThat(a.get("prompt_key")).isEqualTo("vision.crack.score");
         assertThat(a.get("adapter")).isEqualTo("crack");
-        assertThat(a.get("params").toString()).doesNotContain(PNG_B64).contains("imageSha256");
+        assertThat(a.get("params").toString()).doesNotContain(PNG_B64);
+        assertThat(jobs.get(job).get("input_refs").toString()).contains(PNG_SHA);
         // 제안: 측정 성분 1건 → 폭 0.300mm(ARUCO) · 경계 플래그 · SUGGESTED, aip.inference.completed 에 suggestionIds
         JsonNode sugg = call(get("/api/v1/aip/photos/" + photo + "/suggestions"), eng, "ENG", 200);
         assertThat(sugg).hasSize(1);
@@ -335,11 +395,11 @@ class AipIntegrationTest extends IntegrationTestBase {
         // 동의 없는 프로젝트: 거절해도 라벨 큐 미등록
         UUID project2 = flow.project(pm);
         flow.member(project2, eng, "PART");
-        UUID photo2 = attachment(pm);
+        UUID photo2 = attachment(pm, project2);
         call(json(put("/api/v1/aip/attachments/" + photo2 + "/privacy"), "{\"blurDone\":true}"), sys, "SYSADMIN", 200);
         UUID job2 = createJob(eng, "ENG", """
                 {"serviceCode":"CRACK_DETECT","projectId":"%s","inputs":[{"attachmentId":"%s","sha256":"%s"}],
-                 "params":{"imageB64":"%s"}}""".formatted(project2, photo2, "c".repeat(64), PNG_B64), null, 202);
+                 "params":{}}""".formatted(project2, photo2, PNG_SHA), null, 202);
         processor.runNext();
         assertThat(jobs.get(job2).get("status")).isEqualTo("SUCCEEDED");
         JsonNode s2 = call(get("/api/v1/aip/photos/" + photo2 + "/suggestions"), eng, "ENG", 200).get(0);

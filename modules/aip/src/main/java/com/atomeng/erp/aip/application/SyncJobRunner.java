@@ -47,9 +47,15 @@ public class SyncJobRunner implements AipJobApi {
             throw new AipUnavailableException("UNSUPPORTED: 이번 단계 미지원 서비스 " + code, null);
         }
         Duration timeout = req.timeout() == null ? props.worker().defaultTimeout() : req.timeout();
+        // 보안 검토 AIP-03: 이미지 서비스는 payload.attachmentId 를 입력 첨부로 등록해 생성 때 프로젝트 소속을 확인하고,
+        // 실행 때 서버가 그 원본을 읽는다
+        UUID input = req.payload() != null && req.payload().hasNonNull("attachmentId")
+                ? UUID.fromString(req.payload().get("attachmentId").asText()) : null;
+        List<JobService.InputRef> inputs = input == null ? List.of()
+                : List.of(new JobService.InputRef(input, req.payload().path("sha256").asText(null)));
         JobService.Created created;
         try {
-            created = jobs.create(new JobService.CreateCommand(code, null, req.projectId(), List.of(), req.payload(),
+            created = jobs.create(new JobService.CreateCommand(code, null, req.projectId(), inputs, req.payload(),
                     req.idempotencyKey(), timeout.plusSeconds(30), null, req.requesterModule(), "SYNC"), false);
         } catch (DomainException e) {
             throw new AipUnavailableException("AIP Job 생성 거부 " + e.code() + ": " + e.getMessage(), e);
@@ -72,7 +78,7 @@ public class SyncJobRunner implements AipJobApi {
         ModelRegistryService.Route route = registry.resolve(code.name(), req.projectId());
         JobExecutor.Execution exec;
         try {
-            exec = executor.execute(code, id, req.payload(), route, timeout);
+            exec = executor.execute(code, id, req.payload(), route, timeout, input);
         } catch (AipTimeoutException e) {
             jobs.fail(id, worker, "TIMEOUT", e.getMessage(), false);
             throw e;

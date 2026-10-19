@@ -17,7 +17,10 @@ def live():
     c = VLMClient(timeout=120)
     if not c.available("crack"):
         pytest.skip("로컬 vLLM 미기동 또는 crack LoRA 미서빙")
-    return TestClient(create_app(lambda: VLMClient(timeout=120)))
+    from conftest import SECRET, HmacAuth
+    t = TestClient(create_app(lambda: VLMClient(timeout=120), secret=SECRET))
+    t.auth = HmacAuth()
+    return t
 
 
 def test_live_health(live):

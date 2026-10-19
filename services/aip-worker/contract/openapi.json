@@ -1334,10 +1334,18 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "AtomHmac": {
+        "description": "v1=hex(HMAC-SHA256(secret, ts\nnonce\nMETHOD\npath\nhex(sha256(body)))) + X-Atom-Timestamp(유닉스 초, ±300초) + X-Atom-Nonce(hex, 재사용 금지)",
+        "in": "header",
+        "name": "X-Atom-Signature",
+        "type": "apiKey"
+      }
     }
   },
   "info": {
-    "description": "에이톰 ERP AIP 워커 내부 API — ERP aip 모듈 전용(설계 11 B4.4). 합성 데이터로만 시험.",
+    "description": "에이톰 ERP AIP 워커 내부 API — ERP aip 모듈 전용(설계 11 B4.4). 합성 데이터로만 시험. health 를 뺀 모든 요청은 HMAC 공유 비밀 서명(X-Atom-Timestamp · X-Atom-Nonce · X-Atom-Signature)이 필요하다(보안 검토 AIP-06).",
     "title": "atomeng-aip worker",
     "version": "0.1.0"
   },
@@ -1367,6 +1375,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1378,6 +1396,11 @@
             "description": "Unprocessable Entity"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Crack Measure",
         "tags": [
           "vision"
@@ -1408,6 +1431,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1429,6 +1462,11 @@
             "description": "Service Unavailable"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Crack Score",
         "tags": [
           "vision"
@@ -1459,6 +1497,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1480,6 +1528,11 @@
             "description": "Service Unavailable"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Findings Generate",
         "tags": [
           "vision"
@@ -1531,6 +1584,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1542,6 +1605,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Kb Search",
         "tags": [
           "llm"
@@ -1572,6 +1640,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1593,6 +1671,11 @@
             "description": "Service Unavailable"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Report Draft",
         "tags": [
           "llm"
@@ -1623,6 +1706,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1644,6 +1737,11 @@
             "description": "Service Unavailable"
           }
         },
+        "security": [
+          {
+            "AtomHmac": []
+          }
+        ],
         "summary": "Report Review",
         "tags": [
           "llm"

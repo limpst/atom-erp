@@ -4,6 +4,7 @@ import com.atomeng.common.core.error.DomainException;
 import com.atomeng.erp.aip.adapter.out.persistence.AipJdbc;
 import com.atomeng.erp.aip.api.AipServiceCode;
 import com.atomeng.erp.aip.application.port.AipWorkerPort;
+import com.atomeng.erp.aip.application.port.JobImageLoader;
 import com.atomeng.erp.aip.domain.AipCodes;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -27,29 +28,64 @@ public class JobExecutor {
 
     private final AipWorkerPort worker;
     private final AipProperties props;
+    private final JobImageLoader images;
 
-    public JobExecutor(AipWorkerPort worker, AipProperties props) {
+    public JobExecutor(AipWorkerPort worker, AipProperties props, JobImageLoader images) {
         this.worker = worker;
         this.props = props;
+        this.images = images;
     }
 
     public boolean enabled() {
         return worker.enabled();
     }
 
+    /**
+     * @param imageAttachmentId 이미지 서비스(CRACK_DETECT · CRACK_MEASURE)의 입력 첨부. 보안 검토 AIP-03: 워커에 보내는 이미지는
+     *                          언제나 서버가 이 첨부의 저장 원본에서 읽는다(params.imageB64 는 무시 · 제거).
+     */
     public Execution execute(AipServiceCode code, UUID jobId, JsonNode payload, ModelRegistryService.Route route,
-                             Duration timeout) {
+                             Duration timeout, UUID imageAttachmentId) {
         if (!code.supported()) {
             throw new DomainException(AipCodes.UNSUPPORTED_SERVICE, "이번 단계 미지원 서비스: " + code);
         }
         return switch (code) {
-            case CRACK_DETECT -> crackDetect(jobId, payload, route, timeout);
-            case CRACK_MEASURE -> single(AipWorkerPort.CRACK_MEASURE, withJob(payload, jobId, null), timeout, null);
+            case CRACK_DETECT -> crackDetect(jobId, payload, route, timeout, serverImage(code, imageAttachmentId));
+            case CRACK_MEASURE -> single(AipWorkerPort.CRACK_MEASURE,
+                    measureBody(payload, jobId, serverImage(code, imageAttachmentId)), timeout, null);
             case REPORT_DRAFT -> single(AipWorkerPort.REPORT_DRAFT, withJob(payload, jobId, route), timeout, "retrievedChunkIds");
             case REPORT_REVIEW -> single(AipWorkerPort.REPORT_REVIEW, withJob(payload, jobId, route), timeout, null);
             case KB_SEARCH -> single(AipWorkerPort.KB_SEARCH, payload, timeout, null);
             default -> throw new DomainException(AipCodes.UNSUPPORTED_SERVICE, "이번 단계 미지원 서비스: " + code);
         };
+    }
+
+    /** 이미지 서비스는 입력 첨부가 필수 — 원본 바이트를 서버가 읽어 base64 로 만든다 */
+    public static boolean imageService(AipServiceCode code) {
+        return code == AipServiceCode.CRACK_DETECT || code == AipServiceCode.CRACK_MEASURE;
+    }
+
+    private String serverImage(AipServiceCode code, UUID attachmentId) {
+        if (attachmentId == null) {
+            throw new DomainException(AipCodes.INVALID, code + " 는 입력 첨부(inputs[0].attachmentId)가 필요합니다");
+        }
+        return java.util.Base64.getEncoder().encodeToString(images.load(attachmentId));
+    }
+
+    /** 측정 요청 — 워커 계약(MeasureRequest, extra=forbid)의 허용 필드만 옮기고 이미지는 서버 원본 */
+    static final List<String> MEASURE_KEYS = List.of("maskB64", "scale", "boundariesMm", "darkThreshold",
+            "minComponentPx", "pruneSpurPx");
+
+    private static ObjectNode measureBody(JsonNode p, UUID jobId, String imageB64) {
+        ObjectNode m = AipJdbc.MAPPER.createObjectNode();
+        m.put("jobId", jobId.toString());
+        m.put("imageB64", imageB64);
+        for (String k : MEASURE_KEYS) {
+            if (p != null && p.has(k)) {
+                m.set(k, p.get(k));
+            }
+        }
+        return m;
     }
 
     private static ObjectNode withJob(JsonNode payload, UUID jobId, ModelRegistryService.Route route) {
@@ -72,21 +108,14 @@ public class JobExecutor {
                 chunks.isEmpty() ? null : chunks, r.latencyMs());
     }
 
-    private Execution crackDetect(UUID jobId, JsonNode p, ModelRegistryService.Route route, Duration timeout) {
-        if (p == null || !p.hasNonNull("imageB64")) {
-            throw new DomainException(AipCodes.INVALID, "CRACK_DETECT 는 params.imageB64 가 필요합니다(MinIO 입력 로더는 후속)");
-        }
+    private Execution crackDetect(UUID jobId, JsonNode params, ModelRegistryService.Route route, Duration timeout,
+                                  String imageB64) {
+        JsonNode p = params == null ? AipJdbc.MAPPER.createObjectNode() : params;
         long t0 = System.nanoTime();
         ObjectNode score = AipJdbc.MAPPER.createObjectNode();
         score.put("jobId", jobId.toString());
-        score.put("imageB64", p.get("imageB64").asText());
+        score.put("imageB64", imageB64);
         score.put("model", route != null && route.modelName() != null ? route.modelName() : "crack");
-        if (p.hasNonNull("prompt")) {
-            score.put("prompt", p.get("prompt").asText());
-        }
-        if (p.has("labels")) {
-            score.set("labels", p.get("labels"));
-        }
         AipWorkerPort.Response s = worker.post(AipWorkerPort.CRACK_SCORE, score, timeout);
         double pCrack = s.body().path("pCrack").asDouble(0);
         double min = p.path("minConfidence").asDouble(props.suggestion().minConfidence());
@@ -99,23 +128,15 @@ public class JobExecutor {
             if (p.path("finding").asBoolean(true)) {
                 ObjectNode f = AipJdbc.MAPPER.createObjectNode();
                 f.put("jobId", jobId.toString());
-                f.put("imageB64", p.get("imageB64").asText());
-                f.put("model", p.path("findingModel").asText("gemma-4-12b-it"));
+                f.put("imageB64", imageB64);
+                f.put("model", "gemma-4-12b-it");
                 if (p.has("context")) {
                     f.set("context", p.get("context"));
                 }
                 out.set("finding", worker.post(AipWorkerPort.FINDINGS, f, timeout).body());
             }
             if (chainHas(p.path("chain"), "CRACK_MEASURE")) {
-                ObjectNode m = AipJdbc.MAPPER.createObjectNode();
-                m.put("jobId", jobId.toString());
-                m.put("imageB64", p.get("imageB64").asText());
-                for (String k : List.of("maskB64", "scale", "boundariesMm", "darkThreshold", "minComponentPx", "pruneSpurPx")) {
-                    if (p.has(k)) {
-                        m.set(k, p.get(k));
-                    }
-                }
-                out.set("measure", worker.post(AipWorkerPort.CRACK_MEASURE, m, timeout).body());
+                out.set("measure", worker.post(AipWorkerPort.CRACK_MEASURE, measureBody(p, jobId, imageB64), timeout).body());
             }
         }
         JsonNode prov = s.body().path("provenance");

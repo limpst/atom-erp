@@ -52,9 +52,36 @@ def fake_vllm(monkeypatch):
     return srv
 
 
+# 보안 검토 AIP-06: 시험 전용 합성 공유 비밀(32바이트 이상) — 실제 비밀 아님
+SECRET = b"synthetic-test-secret-0123456789abcdef"
+
+
+class HmacAuth(httpx.Auth):
+    """ERP(Java WorkerRequestSigner)와 같은 규칙으로 요청에 서명한다."""
+
+    requires_request_body = True
+
+    def __init__(self, secret: bytes = SECRET):
+        self.secret = secret
+
+    def auth_flow(self, request):
+        import secrets
+        import time
+
+        from atomeng_aip.auth import signature
+        ts, nonce = str(int(time.time())), secrets.token_hex(16)
+        request.headers["X-Atom-Timestamp"] = ts
+        request.headers["X-Atom-Nonce"] = nonce
+        request.headers["X-Atom-Signature"] = "v1=" + signature(self.secret, ts, nonce, request.method,
+                                                                request.url.path, request.content)
+        yield request
+
+
 @pytest.fixture()
 def client(fake_vllm):
     from fastapi.testclient import TestClient
 
     from atomeng_aip.app import create_app
-    return TestClient(create_app())
+    c = TestClient(create_app(secret=SECRET))
+    c.auth = HmacAuth()
+    return c

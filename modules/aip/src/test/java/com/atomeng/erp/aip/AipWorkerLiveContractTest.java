@@ -65,6 +65,9 @@ class AipWorkerLiveContractTest {
                 .directory(OpenApiContract.specPath().getParent().getParent().toFile())
                 .redirectErrorStream(true).redirectOutput(log);
         pb.environment().put("PYTHONIOENCODING", "utf-8");
+        // AIP-06: 시험 전용 합성 공유 비밀 — Java 서명을 실제 Python 검증기가 받아들이는지 확인
+        pb.environment().put("ATOM_AIP_WORKER_SECRET", new String(AipWorkerContractTest.SECRET,
+                java.nio.charset.StandardCharsets.UTF_8));
         proc = pb.start();
         base = "http://127.0.0.1:" + port;
         HttpClient http = HttpClient.newHttpClient();
@@ -94,6 +97,43 @@ class AipWorkerLiveContractTest {
         }
     }
 
+    /** 서버가 첨부에서 읽은 원본이라고 가정하는 합성 띠(폭 7px) PNG */
+    static byte[] BAND;
+
+    static {
+        try {
+            BAND = java.util.Base64.getDecoder().decode(bandPng(7));
+        } catch (Exception e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    @Test
+    @DisplayName("실워커 보안 AIP-06: 서명 없는 요청 · 틀린 서명 · 재전송(같은 nonce)은 401, 올바른 서명은 200")
+    void hmacRejectsUnsignedAndReplay() throws Exception {
+        HttpClient http = HttpClient.newHttpClient();
+        String path = AipWorkerPort.KB_SEARCH;
+        byte[] body = "{\"query\":\"균열\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        HttpResponse<String> unsigned = http.send(HttpRequest.newBuilder(URI.create(base + path))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofByteArray(body)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(unsigned.statusCode()).isEqualTo(401);
+        var signer = new com.atomeng.erp.aip.adapter.out.worker.WorkerRequestSigner(AipWorkerContractTest.SECRET,
+                java.time.Clock.systemUTC());
+        java.util.Map<String, String> h = signer.sign("POST", path, body);
+        HttpRequest.Builder ok = HttpRequest.newBuilder(URI.create(base + path)).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+        h.forEach(ok::header);
+        assertThat(http.send(ok.build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+        assertThat(http.send(ok.build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);   // 재전송
+        java.util.Map<String, String> h2 = signer.sign("POST", path, body);
+        HttpRequest.Builder tampered = HttpRequest.newBuilder(URI.create(base + path))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"query\":\"다른 본문\"}"));
+        h2.forEach(tampered::header);
+        assertThat(http.send(tampered.build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
+    }
+
     static String bandPng(int widthPx) throws Exception {
         BufferedImage img = new BufferedImage(600, 200, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g = img.createGraphics();
@@ -118,12 +158,13 @@ class AipWorkerLiveContractTest {
     @Test
     @DisplayName("실워커 계약: Java → CRACK_MEASURE(합성 7px 띠, MANUAL 스케일) → 0.300mm · 경계 플래그, 응답 스키마 일치")
     void measure() throws Exception {
-        JobExecutor ex = new JobExecutor(new HttpAipWorkerClient(base, Duration.ofSeconds(5), AipJdbc.MAPPER),
-                new AipProperties(null, null, null, null));
+        JobExecutor ex = new JobExecutor(new HttpAipWorkerClient(base, Duration.ofSeconds(5), AipJdbc.MAPPER,
+                AipWorkerContractTest.SECRET, java.util.List.of(), java.time.Clock.systemUTC()),
+                new AipProperties(null, null, null, null), id -> BAND);
         ObjectNode p = AipJdbc.MAPPER.createObjectNode();
-        p.put("imageB64", bandPng(7));
         p.putObject("scale").put("source", "MANUAL").put("mmPerPx", 0.3 / 7).put("mmPerPxUncert", 0.00003);
-        JobExecutor.Execution r = ex.execute(AipServiceCode.CRACK_MEASURE, UUID.randomUUID(), p, null, Duration.ofSeconds(60));
+        JobExecutor.Execution r = ex.execute(AipServiceCode.CRACK_MEASURE, UUID.randomUUID(), p, null, Duration.ofSeconds(60),
+                UUID.randomUUID());
         assertThat(contract.validateResponse(AipWorkerPort.CRACK_MEASURE, "post", "200", r.output())).isEmpty();
         JsonNode c = r.output().path("components").get(0);
         assertThat(c.path("widthMaxMm").asDouble()).isEqualTo(0.3);
@@ -134,10 +175,12 @@ class AipWorkerLiveContractTest {
     @Test
     @DisplayName("실워커 계약: Java → KB_SEARCH(kiwipiepy 키워드 OR) — 권한 범위 밖 청크 제외, 응답 스키마 일치(TC-AIP-018)")
     void kbSearch() throws Exception {
-        JobExecutor ex = new JobExecutor(new HttpAipWorkerClient(base, Duration.ofSeconds(5), AipJdbc.MAPPER),
-                new AipProperties(null, null, null, null));
+        JobExecutor ex = new JobExecutor(new HttpAipWorkerClient(base, Duration.ofSeconds(5), AipJdbc.MAPPER,
+                AipWorkerContractTest.SECRET, java.util.List.of(), java.time.Clock.systemUTC()),
+                new AipProperties(null, null, null, null), id -> BAND);
         JsonNode body = AipJdbc.MAPPER.readTree("{\"query\":\"지하주차장 슬래브 백태를 동반한 균열 소견\",\"scopes\":[\"INTERNAL\"]}");
-        JobExecutor.Execution r = ex.execute(AipServiceCode.KB_SEARCH, UUID.randomUUID(), body, null, Duration.ofSeconds(60));
+        JobExecutor.Execution r = ex.execute(AipServiceCode.KB_SEARCH, UUID.randomUUID(), body, null, Duration.ofSeconds(60),
+                null);
         assertThat(contract.validateResponse(AipWorkerPort.KB_SEARCH, "post", "200", r.output())).isEmpty();
         assertThat(r.output().path("keywords").toString()).contains("백태");
         assertThat(r.output().path("hits").toString()).contains("백태").doesNotContain("권한 범위 밖");

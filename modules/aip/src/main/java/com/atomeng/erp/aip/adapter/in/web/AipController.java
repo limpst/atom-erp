@@ -66,6 +66,9 @@ class AipController {
 
     record ApprovalRequest(@NotBlank String role) {}
 
+    static final List<String> CLIENT_FORBIDDEN_PARAMS = List.of("imageB64", "prompt", "labels", "model", "findingModel");
+    static final int MAX_B64_CHARS = 15 * 1024 * 1024;
+
     private final JobService jobs;
     private final AsyncJobProcessor processor;
     private final SuggestionService suggestions;
@@ -96,6 +99,18 @@ class AipController {
             throw new DomainException(AipCodes.INVALID, "알 수 없는 serviceCode: " + req.serviceCode());
         }
         access.requireProject("aip:inference-job:create", req.projectId());
+        // 보안 검토 AIP-03 · AIP-07: 이미지 본문 · 프롬프트 · 라벨 · 모델은 클라이언트가 정하지 않는다(서버가 첨부 원본 ·
+        // 레지스트리 라우팅으로 정함). maskB64 는 측정 보조 입력이라 허용하되 15MB(base64) 상한
+        if (req.params() != null) {
+            for (String k : CLIENT_FORBIDDEN_PARAMS) {
+                if (req.params().has(k)) {
+                    throw new DomainException(AipCodes.INVALID, "params." + k + " 는 지정할 수 없습니다(서버가 정함)");
+                }
+            }
+            if (req.params().path("maskB64").asText("").length() > MAX_B64_CHARS) {
+                throw new DomainException(AipCodes.INVALID, "params.maskB64 가 상한(15MB)을 넘습니다");
+            }
+        }
         List<JobService.InputRef> inputs = new ArrayList<>();
         if (req.inputs() != null) {
             req.inputs().forEach(i -> inputs.add(new JobService.InputRef(i.attachmentId(), i.sha256())));

@@ -110,6 +110,8 @@ atom:
   aip:
     worker:
       base-url: ${ATOM_AIP_WORKER_URL:}  # Python AIP 워커(services/aip-worker, 예 http://127.0.0.1:8090) — 비우면 꺼짐(동기 DISABLED · 비동기 Job 대기)
+      shared-secret: ${ATOM_AIP_WORKER_SECRET:}   # 워커 요청 HMAC 공유 비밀(32바이트 이상, 워커와 같은 값) — 워커를 켜면 필수(AIP-06)
+      allowed-hosts: []                  # 루프백 밖 워커 호스트(정확히 일치). 비어 있으면 루프백만
       default-timeout: 2m
     scheduler:
       enabled: true                      # 큐 처리(워커 켜졌을 때만) · 리퍼 · 감사 파티션 · 누락 탐지 · 제안 만료

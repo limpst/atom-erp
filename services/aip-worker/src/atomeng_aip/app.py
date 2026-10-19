@@ -1,6 +1,7 @@
 """AIP 워커 HTTP 앱 (FastAPI) — ERP aip 모듈(Java)만 호출하는 내부 API(설계 B4.4 /internal/v1/*).
 
-실행(로컬, 127.0.0.1 만):  uv run uvicorn atomeng_aip.app:app --host 127.0.0.1 --port 8090
+실행(로컬, 127.0.0.1 만):  ATOM_AIP_WORKER_SECRET=<32바이트 이상> uv run uvicorn atomeng_aip.app:app --host 127.0.0.1 --port 8090
+- 보안 검토 AIP-06: /internal/v1/*(health 제외)는 ERP 의 HMAC 서명(auth.py)이 맞아야 처리한다. 비밀이 없으면 전부 401.
 - vLLM 은 요청만 보낸다(기동 · 중지 · 학습 없음). 주소는 ATOM_VLM_BASE_URL(기본 http://127.0.0.1:8080/v1), 로컬 전용.
 - vLLM 이 응답하지 않으면 503 AIP-503-001(problem JSON) — ERP 는 Job 을 FAILED/재시도로 처리하고 ERP 기능은 그대로 동작.
 """
@@ -16,6 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from . import __version__
+from .auth import AuthError, RequestVerifier, secret_from_env
 from .llm import draft as draft_mod
 from .llm import review as review_mod
 from .llm.search import keyword_search, sample_kb
@@ -46,10 +48,29 @@ def _json_llm(client: VLMClient, model: str, name: str) -> Callable[[str, dict[s
     return call
 
 
-def create_app(vlm_factory: VlmFactory = _default_vlm) -> FastAPI:
+OPEN_PATHS = frozenset({"/internal/v1/health"})
+
+
+def create_app(vlm_factory: VlmFactory = _default_vlm, secret: bytes | None = None,
+               verifier: RequestVerifier | None = None) -> FastAPI:
     app = FastAPI(title="atomeng-aip worker", version=__version__,
-                  description="에이톰 ERP AIP 워커 내부 API — ERP aip 모듈 전용(설계 11 B4.4). 합성 데이터로만 시험.")
+                  description="에이톰 ERP AIP 워커 내부 API — ERP aip 모듈 전용(설계 11 B4.4). 합성 데이터로만 시험. "
+                              "health 를 뺀 모든 요청은 HMAC 공유 비밀 서명(X-Atom-Timestamp · X-Atom-Nonce · "
+                              "X-Atom-Signature)이 필요하다(보안 검토 AIP-06).")
     state: dict[str, VLMClient] = {}
+    auth = verifier or RequestVerifier(secret if secret is not None else secret_from_env())
+
+    @app.middleware("http")
+    async def _require_signature(request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/internal/") and path not in OPEN_PATHS:
+            body = await request.body()
+            try:
+                auth.verify(request.method, path, body, request.headers)
+            except AuthError as e:
+                return JSONResponse(status_code=401, content=Problem(code="AIP-401-001", title="워커 인증 실패",
+                                                                     detail=str(e)).model_dump())
+        return await call_next(request)
 
     def vlm() -> VLMClient:
         if "c" not in state:
@@ -139,7 +160,34 @@ def create_app(vlm_factory: VlmFactory = _default_vlm) -> FastAPI:
         return ReviewResponse(jobId=req.jobId, model=req.model, findings=r["findings"],
                               latencyMs=int((time.perf_counter() - t0) * 1000))
 
+    _document_security(app)
     return app
+
+
+def _document_security(app: FastAPI) -> None:
+    """OpenAPI 계약에 서명 요구를 기록한다(health 제외 모든 작업에 AtomHmac + 401 응답)."""
+    base = app.openapi
+
+    def openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        spec = base()
+        spec.setdefault("components", {}).setdefault("securitySchemes", {})["AtomHmac"] = {
+            "type": "apiKey", "in": "header", "name": "X-Atom-Signature",
+            "description": "v1=hex(HMAC-SHA256(secret, ts\nnonce\nMETHOD\npath\nhex(sha256(body)))) "
+                           "+ X-Atom-Timestamp(유닉스 초, ±300초) + X-Atom-Nonce(hex, 재사용 금지)"}
+        for path, ops in spec.get("paths", {}).items():
+            if path in OPEN_PATHS:
+                continue
+            for op in ops.values():
+                op["security"] = [{"AtomHmac": []}]
+                op.setdefault("responses", {})["401"] = {
+                    "description": "서명 누락 · 불일치 · 시각 창 밖 · 재전송",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Problem"}}}}
+        app.openapi_schema = spec
+        return spec
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
 
 app = create_app()

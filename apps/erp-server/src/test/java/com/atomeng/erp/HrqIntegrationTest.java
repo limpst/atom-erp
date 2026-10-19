@@ -214,6 +214,33 @@ class HrqIntegrationTest extends IntegrationTestBase {
     // ------------------------------------------------------------------ 타임시트
 
     @Test
+    @DisplayName("SEC-HRQ-001·002: SELF 범위 ENG 는 남의 타임시트 리비전 403 · 직원 목록은 본인 행만, PM(ALL)은 전체")
+    void selfScopeEngineerCannotReadOthers() throws Exception {
+        UUID emp = employee("SENIOR", false);
+        UUID colleague = employee("JUNIOR", false);
+        UUID prj = project();
+        var saved = saveWeek(emp, "2026-W12", entry(prj, "2026-03-17", 8), true);
+        String tsKey = jdbc.queryForObject("SELECT timesheet_key::text FROM hrq.timesheet_entry WHERE id = ?::uuid",
+                String.class, saved.get(0).get("id").asText());
+
+        mvc.perform(as(get("/api/v1/hrq/timesheets/keys/" + tsKey + "/revisions"), colleague, "ENG"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-002"));
+        mvc.perform(as(get("/api/v1/hrq/timesheets/keys/" + tsKey + "/revisions"), emp, "ENG"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(as(get("/api/v1/hrq/timesheets/keys/" + tsKey + "/revisions"), pm, "PM"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+
+        mvc.perform(as(get("/api/v1/hrq/employees"), colleague, "ENG"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(colleague.toString()));
+        mvc.perform(as(get("/api/v1/hrq/employees"), actor(), "LABELER"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        var all = json(mvc.perform(as(get("/api/v1/hrq/employees"), pm, "PM")).andExpect(status().isOk()).andReturn());
+        assertThat(all.size()).isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
     @DisplayName("TC-HRQ-011: 미마감 월 APPROVED 8h→6h 정정 → 리비전 2, 리비전 1 SUPERSEDED, hrq.timesheet.corrected(delta -2) 1건")
     void tcHrq011_correctOpenMonth() throws Exception {
         UUID emp = employee("SENIOR", false);

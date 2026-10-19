@@ -73,6 +73,26 @@ public class LocationNodeService {
         return rows.isEmpty() ? 0 : nodes.insertAll(rows, actor.actorIdOrSystem());
     }
 
+    /** 그리드 생성 층 범위 (SEC-FAC-001: floorTo=Integer.MAX_VALUE 이면 lvl++ 오버플로로 무한 루프 · OOM) */
+    public static final int MIN_FLOOR = -20;
+    public static final int MAX_FLOOR = 300;
+    /** 한 번의 generate 로 만드는 노드 수 상한 */
+    public static final long MAX_GENERATED_NODES = 200_000;
+
+    static void checkGenerateBounds(int lo, int hi, int xCount, int yCount) {
+        if (lo < MIN_FLOOR || hi > MAX_FLOOR) {
+            throw new DomainException(NODE_INVALID, "층 범위는 %d ~ %d: %d ~ %d".formatted(MIN_FLOOR, MAX_FLOOR, lo, hi));
+        }
+        long floors = (long) hi - lo + 1;
+        long x = xCount;
+        long y = yCount;
+        long perFloor = 2 + x * y + x * (y - 1) + y * (x - 1) + (x - 1) * (y - 1);
+        if (floors * perFloor > MAX_GENERATED_NODES) {
+            throw new DomainException(NODE_INVALID, "한 번에 만들 노드가 너무 많습니다(상한 %d): 층 %d × 그리드 %d×%d"
+                    .formatted(MAX_GENERATED_NODES, floors, xCount, yCount));
+        }
+    }
+
     @Transactional
     public int generate(UUID buildingId, GridTemplate t) {
         ensureBuilding(buildingId);
@@ -85,6 +105,7 @@ public class LocationNodeService {
         List<NewNode> rows = new ArrayList<>();
         int lo = Math.min(t.floorFrom(), t.floorTo());
         int hi = Math.max(t.floorFrom(), t.floorTo());
+        checkGenerateBounds(lo, hi, t.xGrid().size(), t.yGrid().size());
         for (int lvl = lo; lvl <= hi; lvl++) {
             if (lvl == 0) {
                 continue;

@@ -591,7 +591,9 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
             String dump = String.join(" | ", jdbc.queryForList(q, String.class));
             assertThat(dump).as(q).doesNotContain(pan);
             String scrubbed = dump.replaceAll("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "<uuid>")
-                    .replaceAll("[0-9a-f]{32,}", "<hex>");
+                    .replaceAll("[0-9a-f]{32,}", "<hex>")
+                    // 수기 등록 건물의 PNU(19자리 순번)는 카드번호가 아니지만 우연히 Luhn 을 통과할 수 있다 → 제외
+                    .replaceAll("\"pnu\": \"\\d{19}\"", "\"pnu\": \"<pnu>\"");
             assertThat(PanTools.scanPans(scrubbed)).as(q).isEmpty();
         }
 

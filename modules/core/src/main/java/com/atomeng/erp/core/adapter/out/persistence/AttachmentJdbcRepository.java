@@ -37,6 +37,12 @@ public class AttachmentJdbcRepository {
                 createdBy);
     }
 
+    /** 업로드 세션을 만든 사용자 (SEC-CORE-002 :complete 소유자 검사) */
+    public Optional<UUID> uploadCreatedBy(UUID id) {
+        return jdbc.query("SELECT created_by FROM core.attachment_upload WHERE id = ?",
+                (rs, i) -> rs.getObject("created_by", UUID.class), id).stream().findFirst();
+    }
+
     /** 행 잠금으로 같은 업로드의 동시 :complete 직렬화 */
     public Optional<Upload> lockUpload(UUID id) {
         return jdbc.query("SELECT * FROM core.attachment_upload WHERE id = ? FOR UPDATE", (rs, i) -> new Upload(

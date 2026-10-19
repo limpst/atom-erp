@@ -63,6 +63,25 @@ class AuditPiiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("SEC-CORE-001: 개인(INDIVIDUAL) 고객 생성 감사 로그 → 이름 · 주소 원문 없음(가림), 법인 고객은 원문 유지")
+    void individualClientAuditIsMasked() throws Exception {
+        String rawName = "합성개인고객가";
+        String rawAddress = "서울시 합성구 비밀로 77";
+        var r = mvc.perform(as(postJson("/api/v1/core/clients",
+                "{\"name\":\"" + rawName + "\",\"clientType\":\"INDIVIDUAL\",\"address\":\"" + rawAddress + "\"}"),
+                actor(), "SALES")).andExpect(status().isCreated()).andReturn();
+        UUID id = UUID.fromString(json(r).get("id").asText());
+        String after = jdbc.queryForObject("SELECT after_json::text FROM core.audit_log WHERE target_id = ? "
+                + "AND action = 'CREATE'", String.class, id);
+        assertThat(after).doesNotContain(rawName).doesNotContain(rawAddress).contains("합*****가");
+
+        String corpName = "합성법인고객-" + UUID.randomUUID();
+        UUID corp = createClient(actor(), corpName);
+        assertThat(jdbc.queryForObject("SELECT after_json::text FROM core.audit_log WHERE target_id = ? "
+                + "AND action = 'CREATE'", String.class, corp)).contains(corpName);
+    }
+
+    @Test
     @DisplayName("TC-CORE-010 보조: 권한 없는 역할(PM)·AUDITOR 비교 — 거부 시 VIEW_PII 미기록, AUDITOR 조회는 기록")
     void deniedViewIsNotAudited() throws Exception {
         UUID emp = employee("합성직원라마", false);

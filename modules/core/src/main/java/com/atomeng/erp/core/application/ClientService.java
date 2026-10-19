@@ -3,6 +3,8 @@ package com.atomeng.erp.core.application;
 import com.atomeng.common.audit.AuditLog;
 import com.atomeng.common.core.error.CoreErrors;
 import com.atomeng.common.core.error.DomainException;
+import com.atomeng.common.core.pii.Pii;
+import com.atomeng.common.core.pii.PiiMasking;
 import com.atomeng.common.web.http.IfMatch;
 import com.atomeng.erp.core.adapter.out.persistence.ClientRepository;
 import com.atomeng.erp.core.adapter.out.persistence.DocNumberGenerator;
@@ -61,10 +63,12 @@ public class ClientService {
     private static Map<String, Object> snapshot(Client c) {
         var m = new java.util.LinkedHashMap<String, Object>();
         m.put("clientNo", c.getClientNo());
-        m.put("name", c.getName());
+        // SEC-CORE-001: 개인 고객(INDIVIDUAL)은 이름 · 등록번호 · 주소가 개인정보 → 감사 로그에는 가린 값만 (설계 14-1)
+        boolean individual = c.getClientType() == ClientType.INDIVIDUAL;
+        m.put("name", individual ? PiiMasking.mask(Pii.Kind.NAME, c.getName()) : c.getName());
         m.put("clientType", c.getClientType().name());
-        m.put("bizRegNo", c.getBizRegNo());
-        m.put("address", c.getAddress());
+        m.put("bizRegNo", individual ? PiiMasking.mask(Pii.Kind.RRN, c.getBizRegNo()) : c.getBizRegNo());
+        m.put("address", individual ? PiiMasking.mask(Pii.Kind.GENERIC, c.getAddress()) : c.getAddress());
         return m;
     }
 }

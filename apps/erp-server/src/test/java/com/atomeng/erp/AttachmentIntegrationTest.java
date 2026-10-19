@@ -87,6 +87,29 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("SEC-CORE-002: 다른 사용자가 만든 업로드 세션 :complete → 403 CORE-403-001, 세션은 PENDING 유지 · 첨부 미생성")
+    void completeOnlyByUploader() throws Exception {
+        UUID owner = actor();
+        UUID other = actor();
+        UUID scope = UUID.randomUUID();
+        byte[] photo = syntheticPhoto(7);
+        var p = presign(owner, scope, "own.png", sha(photo), Instant.parse("2026-10-19T02:00:00Z"));
+        clientPut(p, photo);
+        String uploadId = p.get("uploadId").asText();
+
+        mvc.perform(fieldApp(postJson("/api/v1/core/attachments/uploads/" + uploadId + ":complete", "{}"), other))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CORE-403-001"));
+        assertThat(jdbc.queryForObject("SELECT status FROM core.attachment_upload WHERE id = ?::uuid", String.class,
+                uploadId)).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.attachment WHERE chain_scope = ?", Integer.class,
+                scope)).isZero();
+        // 본인은 확정 가능
+        mvc.perform(fieldApp(postJson("/api/v1/core/attachments/uploads/" + uploadId + ":complete", "{}"), owner))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     @DisplayName("TC-CORE-006: 해시 위조 업로드 → 422 CORE-422-010, temp 객체 삭제, 첨부 미생성")
     void tcCore006_forgedHashRejected() throws Exception {
         UUID eng = actor();

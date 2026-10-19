@@ -102,6 +102,11 @@ public class AttachmentService implements AttachmentIngestApi {
         if (u == null) {
             throw new DomainException(CoreErrors.NOT_FOUND, "업로드 세션 없음: " + uploadId);
         }
+        // SEC-CORE-002: 다른 사용자가 만든 업로드 세션을 확정(체인 편입)할 수 없다 — 세션 id 를 알아도 남의 증거를 확정 · 소진 불가
+        UUID by = actor.actorIdOrSystem();
+        if (!repo.uploadCreatedBy(uploadId).map(by::equals).orElse(false)) {
+            throw new DomainException(CoreErrors.PERMISSION_DENIED, "업로드를 시작한 사용자만 확정할 수 있습니다");
+        }
         if (!"PENDING".equals(u.status())) {
             throw new DomainException(CoreErrors.UPLOAD_NOT_PENDING, "이미 처리된 업로드입니다(" + u.status() + ")");
         }
@@ -137,7 +142,6 @@ public class AttachmentService implements AttachmentIngestApi {
             repo.lockChain(u.chainScope());
             String prev = repo.tailHash(u.chainScope()).orElse(null);
             String chainHash = HashChain.link(prev, actual, u.capturedAt(), u.ownerId());
-            UUID by = actor.actorIdOrSystem();
             repo.insertAttachment(attachmentId, Buckets.FIELD_ORIGINAL, objectKey, u, actual, prev, chainHash, by);
             repo.markUpload(uploadId, "COMPLETED", null, attachmentId, clock.instant());
             outbox.publish(new AttachmentStoredEvent(attachmentId, Buckets.FIELD_ORIGINAL, objectKey, u.mimeType(),

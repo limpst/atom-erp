@@ -192,6 +192,31 @@ class FacAclMergeNodeIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("SEC-FAC-001: 그리드 생성 층 범위 Integer.MAX_VALUE · 과다 노드 → 422 FAC-422-003(무한 루프 · OOM 방지), 노드 0건")
+    void generateRejectsUnboundedFloorRange() throws Exception {
+        String id = createManual("합성 보안 건물");
+        Integer before = jdbc.queryForObject("SELECT count(*) FROM fac.location_node WHERE building_id = ?::uuid",
+                Integer.class, id);
+        mvc.perform(as(postJson("/api/v1/fac/buildings/" + id + "/nodes:generate",
+                        "{\"floorFrom\":1,\"floorTo\":2147483647,\"xGrid\":[\"X1\",\"X2\"],\"yGrid\":[\"Y1\",\"Y2\"]}"),
+                        pm, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("FAC-422-003"));
+        mvc.perform(as(postJson("/api/v1/fac/buildings/" + id + "/nodes:generate",
+                        "{\"floorFrom\":-2147483648,\"floorTo\":1,\"xGrid\":[\"X1\",\"X2\"],\"yGrid\":[\"Y1\",\"Y2\"]}"),
+                        pm, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("FAC-422-003"));
+        // 범위 안이지만 300층 × 60×60 그리드 ≈ 430만 노드 → 상한 초과
+        String grid60 = java.util.stream.IntStream.rangeClosed(1, 60).mapToObj(i -> "\"X" + i + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        mvc.perform(as(postJson("/api/v1/fac/buildings/" + id + "/nodes:generate",
+                        "{\"floorFrom\":1,\"floorTo\":300,\"xGrid\":[" + grid60 + "],\"yGrid\":[" + grid60 + "]}"),
+                        pm, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("FAC-422-003"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fac.location_node WHERE building_id = ?::uuid",
+                Integer.class, id)).isEqualTo(before);
+    }
+
+    @Test
     @DisplayName("TC-FAC-008: 결함이 참조하는 member 삭제 → 422 FAC-422-002(대체 필요), replacedById 지정 시 논리삭제 + 참조 이관")
     void tcFac008_memberWithDefectNeedsReplacement() throws Exception {
         String id = createManual("합성 결함 건물");

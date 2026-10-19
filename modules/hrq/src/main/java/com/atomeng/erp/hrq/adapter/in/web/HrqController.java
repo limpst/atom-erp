@@ -102,6 +102,20 @@ class HrqController {
         }
     }
 
+    /** hrq:employee:read 가 ALL 범위인 역할 (V0010 시드) */
+    private static final Role[] EMPLOYEE_READ_ALL = {Role.EXEC, Role.PM, Role.QA, Role.ADMIN, Role.SYSADMIN,
+            Role.AUDITOR};
+
+    private static boolean hasAny(Role... roles) {
+        var p = AtomAuthentication.currentPrincipal().orElseThrow();
+        for (Role r : roles) {
+            if (p.has(r)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean isAdmin() {
         return AtomAuthentication.currentPrincipal().map(p -> p.has(Role.ADMIN)).orElse(false);
     }
@@ -118,7 +132,13 @@ class HrqController {
     @GetMapping("/employees")
     @RequirePermission("hrq:employee:read")
     public List<HrqJdbc.EmployeeRow> list(@RequestParam(required = false) String field) {
-        return jdbc.employees(field);
+        var rows = jdbc.employees(field);
+        if (hasAny(EMPLOYEE_READ_ALL)) {
+            return rows;
+        }
+        // SEC-HRQ-002: SELF 범위(ENG · LABELER)는 본인 행만 — 전 직원 명부 · 퇴사 예정일 노출 방지
+        UUID me = actor.actorIdOrSystem();
+        return rows.stream().filter(e -> me.equals(e.id())).toList();
     }
 
     @GetMapping("/employees/{id}")
@@ -235,7 +255,12 @@ class HrqController {
     @GetMapping("/timesheets/keys/{timesheetKey}/revisions")
     @RequirePermission("hrq:timesheet:read")
     public List<HrqJdbc.TimesheetRow> revisions(@PathVariable UUID timesheetKey) {
-        return jdbc.revisions(timesheetKey);
+        var rows = jdbc.revisions(timesheetKey);
+        // SEC-HRQ-001: SELF 범위(ENG · LABELER)는 본인 타임시트 이력만 (week 조회와 같은 규칙)
+        if (!rows.isEmpty()) {
+            requireSelfOr(rows.get(0).employeeId(), Role.EXEC, Role.PM, Role.ADMIN);
+        }
+        return rows;
     }
 
     // ------------------------------------------------------------ 월 마감

@@ -39,10 +39,13 @@ public class ProjectService implements ProjectCommandApi {
     private final AuditLog audit;
     private final Clock clock;
     private final ProjectMemberJdbc members;
+    private final com.atomeng.common.identity.authz.PermissionRegistry registry;
 
     public ProjectService(ProjectRepository projects, ClientRepository clients, DocNumberGenerator numbers,
-                          OutboxPublisher outbox, AuditLog audit, Clock clock, ProjectMemberJdbc members) {
+                          OutboxPublisher outbox, AuditLog audit, Clock clock, ProjectMemberJdbc members,
+                          com.atomeng.common.identity.authz.PermissionRegistry registry) {
         this.members = members;
+        this.registry = registry;
         this.projects = projects;
         this.clients = clients;
         this.numbers = numbers;
@@ -118,6 +121,28 @@ public class ProjectService implements ProjectCommandApi {
                 Map.of("employeeId", m.employeeId().toString(), "roleInProject", m.roleInProject(),
                         "fromDate", m.fromDate().toString(), "toDate", m.toDate().toString()));
         return id;
+    }
+
+    /**
+     * 프로젝트 목록 — core:project:read 범위대로 거른다(컨트롤러는 scopeCheckedInService).
+     * ALL 전체 · PROJECT 오늘 기준 투입된 프로젝트(GET /{id} 의 isMember 규칙과 같음) · CLIENT 자기 고객사 · SELF 없음.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<Project> listVisible(com.atomeng.erp.core.domain.model.ProjectStatus status) {
+        var p = com.atomeng.common.identity.AtomAuthentication.currentPrincipal()
+                .orElseThrow(() -> new DomainException(CoreErrors.UNAUTHENTICATED, "인증이 필요합니다"));
+        var scope = registry.scopeFor(p.roles(), "core:project:read")
+                .orElseThrow(() -> new DomainException(CoreErrors.PERMISSION_DENIED, "권한 없음: core:project:read"));
+        java.util.List<Project> rows = switch (scope) {
+            case ALL -> projects.findAllByOrderByCreatedAtDesc();
+            case PROJECT -> p.employeeId() == null ? java.util.List.of()
+                    : projects.findAllByIdInOrderByCreatedAtDesc(
+                            members.activeProjectIds(p.employeeId(), LocalDate.now(clock.withZone(SEOUL))));
+            case CLIENT -> p.clientOrgId() == null ? java.util.List.of()
+                    : projects.findAllByClientIdOrderByCreatedAtDesc(p.clientOrgId());
+            case SELF -> java.util.List.of();
+        };
+        return status == null ? rows : rows.stream().filter(x -> x.getStatus() == status).toList();
     }
 
     @Transactional(readOnly = true)

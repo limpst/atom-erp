@@ -173,6 +173,13 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 # 요청 예: -H 'X-Actor-Id: <uuid>' -H 'X-Roles: SALES' -H 'Idempotency-Key: <uuid>'
 ```
 
+웹 프론트엔드(React · 첫 단계)와 내장 DB 개발 서버:
+
+```bash
+./gradlew :apps:erp-server:devServer      # 내장 PostgreSQL + local-noauth + 합성 시드 → http://127.0.0.1:8081 (운영 금지)
+cd apps/erp-web && npm install && npm run dev   # http://127.0.0.1:5173 — 자세한 내용은 apps/erp-web/README.md
+```
+
 ## 2-1. 마이그레이션 규칙 (Flyway)
 
 2026-10-19 에 모든 마이그레이션을 **전역 단조 번호 하나**로 다시 매겼습니다(배포 전이라 허용 — 이 커밋이 첫 기준선).

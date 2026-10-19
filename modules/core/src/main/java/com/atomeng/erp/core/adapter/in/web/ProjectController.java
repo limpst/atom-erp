@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -63,6 +64,13 @@ class ProjectController {
                 req.startDate(), req.endDate(), req.contractAmount()));
         return ResponseEntity.created(URI.create("/api/v1/core/projects/" + p.getId()))
                 .eTag(IfMatch.etagOf(p.getVersion())).body(ProjectResponse.of(p));
+    }
+
+    /** 목록 — 범위는 서비스가 거른다(ALL 전체 · PROJECT 투입 중 · CLIENT 자기 고객사). 웹 프로젝트 화면용 */
+    @GetMapping
+    @RequirePermission(value = "core:project:read", scopeCheckedInService = true)
+    public List<ProjectResponse> list(@RequestParam(required = false) ProjectStatus status) {
+        return service.listVisible(status).stream().map(ProjectResponse::of).toList();
     }
 
     /** ENG·PM 은 투입된 프로젝트만(◐), QA·EXEC·AUDITOR 등은 전체(●) — TC-CORE-001 */

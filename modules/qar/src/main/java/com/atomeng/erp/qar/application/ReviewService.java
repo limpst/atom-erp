@@ -84,6 +84,13 @@ public class ReviewService {
         return QarJdbc.uuid(sup.round(roundId), "review_id");
     }
 
+    /** 보고서의 검토(보고서당 1건) — 없으면 빈 목록. 범위 검사는 get 과 같다(reviewFor). 웹 보고서 화면용 */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> findByReport(UUID reportId) {
+        List<UUID> ids = qar.jdbc().queryForList("SELECT id FROM qar.review WHERE report_id = ?", UUID.class, reportId);
+        return ids.stream().map(this::get).toList();
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> get(UUID reviewId) {
         sup.reviewFor(reviewId, "qar:review:read", false);

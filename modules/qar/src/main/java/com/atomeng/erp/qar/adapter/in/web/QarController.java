@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -97,6 +98,13 @@ class QarController {
         Map<String, Object> v = reviews.create(r.revisionId());
         return ResponseEntity.created(URI.create("/api/v1/qar/reviews/" + v.get("id")))
                 .eTag(IfMatch.etagOf(((Number) v.get("version")).longValue())).body(v);
+    }
+
+    /** 보고서로 검토 찾기(보고서당 1건) — 범위는 서비스(get 과 같은 검사) */
+    @GetMapping("/reviews")
+    @RequirePermission(value = "qar:review:read", scopeCheckedInService = true)
+    public List<Map<String, Object>> byReport(@RequestParam UUID reportId) {
+        return reviews.findByReport(reportId);
     }
 
     @GetMapping("/reviews/{id}")

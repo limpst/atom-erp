@@ -43,6 +43,14 @@ public class ProjectMemberJdbc {
                  WHERE m.project_id = ? ORDER BY m.role_in_project, m.from_date, m.id""", projectId);
     }
 
+    /** 기준일에 투입 중인 프로젝트 ID — JdbcProjectScopeResolver.isMember 와 같은 조건(목록 범위 필터) */
+    public List<UUID> activeProjectIds(UUID employeeId, java.time.LocalDate on) {
+        return jdbc.queryForList("""
+                SELECT DISTINCT project_id FROM core.project_member
+                 WHERE employee_id = ? AND ? BETWEEN from_date AND to_date""", UUID.class, employeeId,
+                Date.valueOf(on));
+    }
+
     /** 직원 대장 행 보장(HRQ 수동 등록 = 더존 연동 전 직원 대장). 이미 있으면 그대로 둔다 → 새로 만들었는가 */
     public boolean ensureEmployee(UUID id, String empNo, String name, java.time.LocalDate hireDate, UUID by) {
         return jdbc.update("""

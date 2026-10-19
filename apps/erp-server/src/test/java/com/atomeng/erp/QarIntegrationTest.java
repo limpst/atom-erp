@@ -226,6 +226,15 @@ class QarIntegrationTest extends IntegrationTestBase {
         assertThat(created.get("workflow").asText()).isEqualTo("WF_PSD_STANDARD v1");
         UUID round1 = roundId(created);
         call(json(post("/api/v1/qar/reviews"), "{\"revisionId\":\"" + p.rev() + "\"}"), pm, "PM", 409);
+        // 보고서로 검토 찾기(웹 화면) — 작성 PM · QA(ALL) 조회, 투입 밖 ENG 는 403
+        JsonNode found = call(get("/api/v1/qar/reviews").param("reportId", p.report().toString()), pm, "PM", 200);
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).get("id").asText()).isEqualTo(id.toString());
+        assertThat(call(get("/api/v1/qar/reviews").param("reportId", p.report().toString()), qa1, "QA", 200))
+                .hasSize(1);
+        call(get("/api/v1/qar/reviews").param("reportId", p.report().toString()), UUID.randomUUID(), "ENG", 403);
+        assertThat(call(get("/api/v1/qar/reviews").param("reportId", UUID.randomUUID().toString()), pm, "PM", 200))
+                .isEmpty();
 
         // 앵커 프록시: ETag = revisionId:pdfSha256, If-None-Match → 304
         MvcResult a = mvc.perform(as(get("/api/v1/qar/rounds/" + round1 + "/anchors"), pm, "PM"))

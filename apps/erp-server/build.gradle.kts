@@ -57,3 +57,31 @@ tasks.named<Test>("test") {
         outputs.upToDateWhen { false }
     }
 }
+
+// 웹 개발 · E2E 용 로컬 백엔드: 내장 PostgreSQL + local-noauth + 합성 시드 (src/test/java/com/atomeng/devserver).
+// 실행: ./gradlew :apps:erp-server:devServer  → http://127.0.0.1:8081 (ATOM_DEV_PORT 로 변경). 운영 금지.
+tasks.register<JavaExec>("devServer") {
+    group = "application"
+    description = "내장 PostgreSQL 로 ERP 서버를 로컬(127.0.0.1)에서 실행하고 합성 데이터를 넣는다(웹 개발 · E2E)."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.atomeng.devserver.DevServer")
+    workingDir = projectDir
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8")
+}
+
+// devServer 를 Gradle 없이 직접 띄우기 위한 java @argfile (웹 E2E 가 프로세스를 직접 종료할 수 있게).
+// 생성: ./gradlew :apps:erp-server:devServerArgs → build/dev-server.args, 실행: java @build/dev-server.args
+tasks.register("devServerArgs") {
+    group = "application"
+    description = "devServer 실행용 java @argfile(클래스패스 · 메인 클래스)을 build/dev-server.args 에 쓴다."
+    val cp = sourceSets["test"].runtimeClasspath
+    dependsOn(tasks.named("testClasses"))
+    inputs.files(cp)   // 모듈 jar 를 먼저 다시 만든다(런타임 클래스패스 빌드 의존)
+    val out = layout.buildDirectory.file("dev-server.args")
+    outputs.file(out)
+    doLast {
+        val path = cp.files.joinToString(File.pathSeparator) { it.absolutePath.replace("\\", "/") }
+        out.get().asFile.writeText(
+            "-Dfile.encoding=UTF-8\n-Dstdout.encoding=UTF-8\n-cp \"$path\"\ncom.atomeng.devserver.DevServer\n")
+    }
+}

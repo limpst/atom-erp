@@ -64,6 +64,13 @@ class ClientController {
                 .body(ClientResponse.of(c));
     }
 
+    /** 목록(웹 고객 선택용) — core:client:read 는 보유 역할 모두 ALL 범위 */
+    @GetMapping
+    @RequirePermission("core:client:read")
+    public java.util.List<ClientResponse> list() {
+        return service.list().stream().map(ClientResponse::of).toList();
+    }
+
     @GetMapping("/{id}")
     @RequirePermission("core:client:read")
     public ResponseEntity<ClientResponse> get(@PathVariable UUID id) {

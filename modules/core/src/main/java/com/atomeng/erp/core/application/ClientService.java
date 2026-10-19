@@ -43,6 +43,11 @@ public class ClientService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.List<Client> list() {
+        return clients.findAll(org.springframework.data.domain.Sort.by("clientNo"));
+    }
+
+    @Transactional(readOnly = true)
     public Client get(UUID id) {
         return clients.findById(id)
                 .orElseThrow(() -> new DomainException(CoreErrors.NOT_FOUND, "고객을 찾을 수 없습니다: " + id));

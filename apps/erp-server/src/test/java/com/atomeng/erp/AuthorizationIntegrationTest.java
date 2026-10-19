@@ -66,6 +66,26 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("프로젝트 목록(웹): ENG 는 투입 중인 프로젝트만, ALL 범위(EXEC)는 전체, 투입 없는 PM 은 빈 목록")
+    void projectListIsScoped() throws Exception {
+        var mine = json(mvc.perform(as(get("/api/v1/core/projects"), engineer, "ENG"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(mine.findValuesAsText("id")).containsExactly(assignedProject.toString());
+        var all = json(mvc.perform(as(get("/api/v1/core/projects"), actor(), "EXEC"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(all.findValuesAsText("id")).contains(assignedProject.toString(), otherProject.toString());
+        mvc.perform(as(get("/api/v1/core/projects"), actor(), "PM"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(as(get("/api/v1/core/projects"), actor(), "LABELER"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-001"));
+        // 고객 목록(웹 선택용): core:client:read 보유 역할만
+        var clients = json(mvc.perform(as(get("/api/v1/core/clients"), actor(), "SALES"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(clients.findValuesAsText("id")).contains(clientOrg.toString());
+        mvc.perform(as(get("/api/v1/core/clients"), engineer, "ENG")).andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("투입 기간이 끝난 ENG 는 같은 프로젝트라도 403 CORE-403-002")
     void expiredAssignmentIsOutOfScope() throws Exception {
         jdbc.update("UPDATE core.project_member SET from_date = ?, to_date = ? WHERE employee_id = ?",

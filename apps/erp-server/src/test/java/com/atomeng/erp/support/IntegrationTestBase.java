@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
         "atom.eqp.calibration-scan.enabled=false",
         "atom.sal.collect.enabled=false",
         "atom.qar.worker.enabled=false",
+        "atom.dem.log-lock.enabled=false",
         "spring.jpa.open-in-view=false"
 })
 public abstract class IntegrationTestBase {

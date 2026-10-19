@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar
+    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors,messages/dem-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -105,6 +105,10 @@ atom:
     worker:
       enabled: true                      # AI 작업 처리 · 타임아웃 스캔
       poll-interval: 5s
+  dem:
+    log-lock:
+      enabled: true
+      cron: "0 0 0 * * *"        # BR-DEM-006 매일 00:00 KST 전일 이전 감리일지 자동 잠금
   outbox:
     relay:
       enabled: true
@@ -122,7 +126,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":modules:sal"))
     implementation(project(":modules:rpt"))
     implementation(project(":modules:qar"))
+    implementation(project(":modules:dem"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))

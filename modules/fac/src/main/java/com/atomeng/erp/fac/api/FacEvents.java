@@ -66,4 +66,17 @@ public final class FacEvents {
         @Override public String aggregateType() { return "Building"; }
         @Override public UUID aggregateId() { return buildingId; }
     }
+
+    /**
+     * fac.building.demolished — DEM 해체 완료(dem.demolition.completed) 반영으로 시설물 멸실 처리.
+     * 진행 중 점검 도래(inspection_due)는 CANCELLED, 이후 주기 계산 대상 아님. 소비: SAL, CST, PTL
+     */
+    public record BuildingDemolished(UUID buildingId, String previousStatus, LocalDate demolishedOn, UUID projectId,
+                                     int cancelledDues) implements DomainEvent {
+        public static final String TYPE = "fac.building.demolished";
+
+        @Override public String eventType() { return TYPE; }
+        @Override public String aggregateType() { return "Building"; }
+        @Override public UUID aggregateId() { return buildingId; }
+    }
 }

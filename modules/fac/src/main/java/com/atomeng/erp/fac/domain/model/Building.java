@@ -162,6 +162,16 @@ public class Building extends BaseEntity {
         transition(EnumSet.of(BuildingStatus.ACTIVE, BuildingStatus.CLASSIFIED), BuildingStatus.DEMOLISHED);
     }
 
+    /**
+     * DEM 해체 완료 신고(dem.demolition.completed) 반영 — 물리적 멸실은 사실이므로 병합 · 이미 멸실 외 모든 상태에서 허용
+     * (사람이 시작하는 {@link #markDemolished()} 는 A6.1 대로 ACTIVE · CLASSIFIED 만).
+     */
+    public void recordDemolition() {
+        transition(EnumSet.of(BuildingStatus.DRAFT, BuildingStatus.VERIFIED, BuildingStatus.CLASSIFIED,
+                BuildingStatus.ACTIVE, BuildingStatus.RECLASSIFY_REQUIRED, BuildingStatus.INACTIVE),
+                BuildingStatus.DEMOLISHED);
+    }
+
     /** BR-FAC-011 */
     public void flagUseRestriction() {
         useRestrictionFlag = true;

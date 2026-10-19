@@ -39,6 +39,11 @@ public class BudgetDraftService {
     static final Map<String, String> ELEMENT = Map.of("TRAVEL", "TRAVEL", "LODGING", "LODGING", "VEHICLE", "VEHICLE",
             "EQUIPMENT_DEPRECIATION", "EQUIP_USE", "EQUIP_USE", "EQUIP_USE", "MATERIAL_TEST", "MATERIAL_TEST",
             "PRINTING", "PRINTING", "DRONE", "DRONE", "SUBCONTRACT", "SUBCONTRACT");
+    /**
+     * 공종 → 진척 마일스톤 이벤트. 현장조사(FIELD) WBS 는 FLD 조사 완료({@code fld.survey.completed})로 진척 100% 가 된다
+     * ({@code FldSurveyMilestoneListener}). 예전에는 초안이 milestone_event 를 비워 계약으로 생긴 프로젝트의 진척(EV)이 0 이었다.
+     */
+    static final Map<String, String> MILESTONE = Map.of("FIELD", "fld.survey.completed");
     static final Map<String, String> WORK_NAME = Map.of("DATA", "자료수집·분석", "FIELD", "현장조사", "TEST", "재료시험",
             "ANALYSIS", "구조해석", "REPORT", "보고서 작성");
 
@@ -87,9 +92,10 @@ public class BudgetDraftService {
             assigned = assigned.add(weight);
             UUID id = UuidV7.next();
             jdbc.update("""
-                    INSERT INTO cst.wbs_node(id, project_id, code, name, weight_pct, sort_order) VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (project_id, code) DO NOTHING""", id, e.projectId(), "%02d-%s".formatted((i + 1) * 10, wi),
-                    WORK_NAME.getOrDefault(wi, wi), weight.max(BigDecimal.ZERO), (i + 1) * 10);
+                    INSERT INTO cst.wbs_node(id, project_id, code, name, weight_pct, milestone_event, sort_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (project_id, code) DO NOTHING""", id, e.projectId(),
+                    "%02d-%s".formatted((i + 1) * 10, wi), WORK_NAME.getOrDefault(wi, wi), weight.max(BigDecimal.ZERO),
+                    MILESTONE.get(wi), (i + 1) * 10);
             wbs.put(wi, wbsId(e.projectId(), "%02d-%s".formatted((i + 1) * 10, wi)));
         }
         if (hasExpense || items.isEmpty()) {

@@ -66,6 +66,11 @@ public class Project extends BaseEntity {
         }
     }
 
+    /** 책임기술자(RESP) 투입 → 프로젝트 PM 기록 */
+    public void assignPm(UUID employeeId) {
+        this.pmId = employeeId;
+    }
+
     public static Project create(String projectNo, String name, String serviceType, UUID clientId,
                                  LocalDate startDate, LocalDate endDate, BigDecimal contractAmount) {
         if (startDate != null && endDate != null && endDate.isBefore(startDate)) {

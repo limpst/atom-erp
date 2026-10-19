@@ -6,10 +6,12 @@ import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.events.OutboxPublisher;
 import com.atomeng.erp.core.adapter.out.persistence.ClientRepository;
 import com.atomeng.erp.core.adapter.out.persistence.DocNumberGenerator;
+import com.atomeng.erp.core.adapter.out.persistence.ProjectMemberJdbc;
 import com.atomeng.erp.core.adapter.out.persistence.ProjectRepository;
 import com.atomeng.erp.core.api.ProjectCommandApi;
 import com.atomeng.erp.core.api.ProjectCreatedEvent;
 import com.atomeng.erp.core.domain.model.Project;
+import com.atomeng.erp.core.domain.model.ProjectMember;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -36,9 +38,11 @@ public class ProjectService implements ProjectCommandApi {
     private final OutboxPublisher outbox;
     private final AuditLog audit;
     private final Clock clock;
+    private final ProjectMemberJdbc members;
 
     public ProjectService(ProjectRepository projects, ClientRepository clients, DocNumberGenerator numbers,
-                          OutboxPublisher outbox, AuditLog audit, Clock clock) {
+                          OutboxPublisher outbox, AuditLog audit, Clock clock, ProjectMemberJdbc members) {
+        this.members = members;
         this.projects = projects;
         this.clients = clients;
         this.numbers = numbers;
@@ -91,5 +95,34 @@ public class ProjectService implements ProjectCommandApi {
     public Project get(UUID id) {
         return projects.findById(id)
                 .orElseThrow(() -> new DomainException(CoreErrors.NOT_FOUND, "프로젝트를 찾을 수 없습니다: " + id));
+    }
+
+    /**
+     * 프로젝트 투입 지정(책임 · 참여 · QA · 지원). 계약 서명으로 생긴 프로젝트는 투입자가 0명이라 PROJECT 범위 역할(PM · ENG)이
+     * 아무 작업도 못 하므로, 임원 · 경영지원(ALL) 이 책임기술자를 지정하고 이후 책임기술자(PROJECT)가 참여자를 지정한다.
+     * RESP 투입은 core.project.pm_id 에도 기록. 같은 (직원, 역할) 재지정은 기간 갱신. 감사 로그.
+     */
+    @Transactional
+    public UUID assignMember(ProjectMember m) {
+        Project p = get(m.projectId());
+        if (!members.activeEmployee(m.employeeId())) {
+            throw new DomainException(CoreErrors.VALIDATION_FAILED, "재직 중인 직원이 아닙니다: " + m.employeeId(),
+                    java.util.List.of(Map.of("field", "employeeId", "reason", "NOT_FOUND")));
+        }
+        UUID id = members.upsert(m);
+        if (m.isResponsible()) {
+            p.assignPm(m.employeeId());
+            projects.saveAndFlush(p);
+        }
+        audit.append("CORE", AuditLog.Action.UPDATE, "ProjectMember", m.projectId(), null,
+                Map.of("employeeId", m.employeeId().toString(), "roleInProject", m.roleInProject(),
+                        "fromDate", m.fromDate().toString(), "toDate", m.toDate().toString()));
+        return id;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<Map<String, Object>> members(UUID projectId) {
+        get(projectId);
+        return members.members(projectId);
     }
 }

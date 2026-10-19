@@ -4,6 +4,7 @@ import com.atomeng.common.audit.AuditLog;
 import com.atomeng.common.core.actor.CurrentActor;
 import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.events.OutboxPublisher;
+import com.atomeng.erp.core.api.EmployeeDirectoryApi;
 import com.atomeng.erp.hrq.adapter.out.persistence.HrqJdbc;
 import com.atomeng.erp.hrq.adapter.out.persistence.HrqJdbc.EmployeeRow;
 import com.atomeng.erp.hrq.api.HrqEvents;
@@ -28,18 +29,25 @@ public class EmployeeService {
     private final OutboxPublisher outbox;
     private final AuditLog audit;
     private final CurrentActor actor;
+    private final EmployeeDirectoryApi directory;
 
-    public EmployeeService(HrqJdbc jdbc, OutboxPublisher outbox, AuditLog audit, CurrentActor actor) {
+    public EmployeeService(HrqJdbc jdbc, OutboxPublisher outbox, AuditLog audit, CurrentActor actor,
+                           EmployeeDirectoryApi directory) {
+        this.directory = directory;
         this.jdbc = jdbc;
         this.outbox = outbox;
         this.audit = audit;
         this.actor = actor;
     }
 
-    /** 기술자 등록(core.employee 와 1:1). 더존 동기화(Step 2) 전까지 수동 등록 */
+    /**
+     * 기술자 등록(core.employee 와 1:1). 더존 동기화(Step 2) 전까지 수동 등록이 직원 대장 입력을 겸한다 —
+     * core 직원 행이 없으면 core::api {@link EmployeeDirectoryApi} 로 같은 트랜잭션에서 만든다(없으면 FK 위반으로 등록 불가였음).
+     */
     @Transactional
     public EmployeeRow register(Register r) {
         UUID by = actor.actorIdOrSystem();
+        directory.ensureEmployee(new EmployeeDirectoryApi.EmployeeRecord(r.id(), r.empNo(), r.name(), r.hiredOn()));
         jdbc.insertEmployee(new EmployeeRow(r.id(), r.empNo(), r.name(), r.field(), r.employmentType(), "ACTIVE",
                 r.registeredField(), r.hiredOn(), null, null, 0), by);
         if (r.initialGrade() != null) {

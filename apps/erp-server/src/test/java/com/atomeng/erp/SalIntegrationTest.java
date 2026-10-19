@@ -404,6 +404,9 @@ class SalIntegrationTest extends IntegrationTestBase {
                 "90-EXPENSE");
         assertThat(jdbc.queryForObject("SELECT sum(weight_pct) FROM cst.wbs_node WHERE project_id = ?", BigDecimal.class,
                 projectId)).isEqualByComparingTo("100");
+        // 현장조사 WBS 는 FLD 조사 완료로 진척 100%(마일스톤) — 골든 패스 시험에서 드러난 누락 회귀
+        assertThat(jdbc.queryForList("SELECT code FROM cst.wbs_node WHERE project_id = ? AND milestone_event = "
+                + "'fld.survey.completed'", String.class, projectId)).containsExactly("20-FIELD");
 
         // 중복 수신 ① 같은 eventId 재전달(published_at 초기화) ② 새 eventId 같은 payload → 여전히 1건
         jdbc.update("UPDATE core.outbox_event SET published_at = NULL WHERE event_type = 'sal.contract.signed'");

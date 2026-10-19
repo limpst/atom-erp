@@ -25,7 +25,8 @@
   19. **열 번째 업무 모듈 PTL(고객 포털, 첫 단계)**: 건물주·관리주체(고객사)가 **자기 건물 목록·안전등급·다음 법정점검 날짜**를 보고, **납품된 보고서**를 내려받고, 견적·긴급점검을 요청하는 창구입니다. 가장 중요한 약속은 "**다른 회사 자료는 절대 못 본다**"입니다. 그래서 모든 포털 자료에 고객사 번호를 붙이고, 데이터베이스가 스스로 "이 줄은 지금 로그인한 고객사 것만 보여줘"라는 규칙(행 수준 보안, RLS)을 지키게 했습니다. 다른 회사 보고서 번호를 직접 넣어도 "없음(404)"만 나오고, 그 시도는 기록에 남습니다. 보고서를 내려받을 때마다 PDF 각 쪽과 파일 정보에 **고객사 번호·시각·다운로드 번호**를 찍어(워터마크) 유출되면 누가 언제 받은 파일인지 바로 찾을 수 있습니다. 정정본이 나오면 옛 보고서에 "대체됨" 안내가 붙고 내려받기는 막힙니다. 견적 요청은 영업(SAL)에 자동으로 리드로 넘어갑니다.
   20. **열한 번째 모듈 AIP(AI 플랫폼, 첫 단계)**: 회사 GPU 서버의 AI(균열 판독 · 소견 초안 · 보고서 검토)를 ERP 가 **줄(큐)을 세워 순서대로** 맡기고, 누가 무엇을 맡겼는지 · 어떤 모델과 프롬프트로 · 어떤 입력에 · 무슨 답이 나왔는지를 **월별 서랍(파티션)에 지울 수 없게** 남깁니다(감사). 급한 일(P1)이 먼저 처리되고, AI 서버가 멈추면 일은 '대기'로 남아 **ERP 다른 기능은 그대로** 돌아갑니다. 일하던 AI 프로그램이 갑자기 죽어도 정해진 시간(임대)이 지나면 다른 프로그램이 이어받고, 결과는 **딱 한 번만** 저장됩니다. 3번 실패하면 '포기(DEAD)'로 표시합니다. 균열 사진에 마커(ArUco, 한 변 50mm 인쇄 표지)가 있으면 **사진 1칸(px)이 몇 mm 인지** 계산해 균열 폭을 mm 로 재고, 마커가 없거나 벽에서 들떠 있으면(오차 2px 초과) **폭 숫자를 만들지 않고 '현장 측정 필요'만** 붙입니다. 균열 중심선 길이는 '가로 · 세로 이웃 1, 대각선 이웃 √2 를 더해 2 로 나누기', 10칸보다 짧은 잔가지는 잘라냅니다 — 이 계산은 **파이썬 워커와 자바가 같은 답**을 내는지 합성 정답(골든)으로 시험합니다. AI 결과는 언제나 **'제안'** 이라 기술자가 수락 · 수정 · 거절해야 하고, 고객이 학습 활용에 동의했고 얼굴 · 번호판을 가렸을 때만 라벨링 줄에 올리며, 검수 승인까지 끝나 **데이터셋에 담기는 순간에만 '학습에 써도 됨'** 이 됩니다. 새 모델은 그림자(shadow) → 일부 사용자(canary 10%) → 전체(production) 순서로만 올라가고, QA · 임원 승인이 없으면 못 올라갑니다. 보고서 엔진(RPT)의 AI 소견 초안과 검토(QAR)의 AI 검토는 이 모듈을 **바로 불러(동기 호출)** 씁니다. 실제 AI 일은 새 파이썬 서비스 `services/aip-worker`(FastAPI)가 하며 기본값은 **꺼짐**입니다.
   21. **열두 번째 모듈 FLD(현장조사 앱의 서버 쪽, 첫 단계)**: 기술자가 태블릿으로 **통신이 안 되는 지하에서도** 결함(균열 · 박락 …)을 도면 위에 기록하면, 나중에 연결될 때 서버로 **한꺼번에 보내는(동기화)** 약속을 서버에 만들었습니다(앱 화면은 이 PC 에 Flutter 가 없어 다음 단계). 모든 변경은 **지울 수 없는 일기장(이벤트 저장소)** 에 한 줄씩 쌓이고, 지금 모습(결함 현황표)은 그 일기장을 처음부터 다시 읽어 언제든 똑같이 만들 수 있습니다(시험: 지우고 다시 만들어도 지문이 같음). 같은 묶음을 세 번 보내도 **작업 번호(clientOpId)** 로 한 번만 저장하고, 두 기기가 같은 균열 폭을 서로 다르게(0.25 / 0.30) 고치면 **나중에 온 쪽을 "충돌"로 따로 보관**해 사람이 "서버 값 · 내 값 · 합친 값" 중 하나를 고르게 합니다. 메모처럼 측정값이 아닌 칸은 **더 늦게 쓴 시각(HLC 시계)** 이 이깁니다. 측정값에는 **장비 번호**가 꼭 있어야 하고, 장비 모듈(EQP)에 물어 **교정이 지난 장비로 잰 값은 "잠정"으로만 남겨 보고서에 못 들어가게** 막습니다. 큰 사진은 **조각(청크)으로 이어 올리고**, 끊기면 "어디까지 받았나요?"(HEAD) 물어 이어서 보내며, 다 받으면 지문(SHA-256)을 다시 계산해 **1바이트라도 바뀌었으면 거부하고 다시 올리라고** 알려 줍니다. 통과한 사진은 공통 첨부(지울 수 없는 칸 + 사진 사슬)로 넘어갑니다. 구역을 잠그려면 미완성 결함 · 미해결 충돌 · 미결 AI 제안 · 거부된 사진이 **0건**이어야 하고, 모든 구역이 잠기면 "현장조사 완료" 소식이 **딱 한 번** 나가 보고서(RPT) · 원가(CST)가 받습니다. 보고서 스냅샷은 이제 요청 본문 대신 **FLD 에서 결함을 직접 읽고**, 검토(QAR)는 FLD 사진으로 사진 규칙을 검사하며, AI 폭이 사람 측정의 2배 이상 다르면 QAR 에 알립니다.
-- 모든 기능은 자동 시험 **806개**(805개 통과, 1개는 PostGIS 서버가 있을 때만 실행)와 AIP 파이썬 워커 시험 **41개**(로컬 vLLM 이 꺼져 있으면 실서버 시험 3개는 건너뜀)로 확인했습니다. 공공 API 는 WireMock 가짜 서버(합성 응답)로 시험합니다. 시험 데이터는 전부 **가짜(합성) 데이터**입니다.
+  22. **전체 업무 흐름 시험(골든 패스, 6장)**: 영업 계약 → 건물 등록 → 사람 · 장비 투입 → 현장조사 → 보고서 → 품질 검토 → 고객 포털 → 법인카드 정산까지 **한 회사의 일 하나를 처음부터 끝까지** HTTP 로만 따라가고, 마지막에 원가 장부(인건비 + 장비 + 카드 경비)가 **원 단위까지 맞는지**, 기록 사슬(해시 체인)이 안 끊겼는지, 카드번호가 어디에도 안 남았는지, 배달 안 된 소식이 없는지 확인합니다. 이 시험으로 **모듈 사이 이음새 5곳**(직원 대장 · 프로젝트 투입 · 예산 결재 · 현장조사 진척 · 수익성 조회)이 빠져 있던 것을 찾아 고쳤습니다.
+- 모든 기능은 자동 시험 **822개**(821개 통과, 1개는 PostGIS 서버가 있을 때만 실행)와 AIP 파이썬 워커 시험 **41개**(로컬 vLLM 이 꺼져 있으면 실서버 시험 3개는 건너뜀)로 확인했습니다. 공공 API 는 WireMock 가짜 서버(합성 응답)로 시험합니다. 시험 데이터는 전부 **가짜(합성) 데이터**입니다.
 
 > 설계 근거: Notion「00. 공통 아키텍처 · 설계 표준 v0.3」, 「00-IMPL. 공통 플랫폼 구현 보고서」, 「에이톰 플랫폼 모듈 라이브러리(ATOM-LIB-001)」.
 
@@ -60,9 +61,9 @@ flowchart BT
     CV["common-evidence<br>ObjectStorage 포트 · 로컬FS(WORM 모사) · HashChain · 썸네일"]
   end
   subgraph MODS["업무 모듈 com.atomeng.erp.{mod}"]
-    CORE["core<br>V0001__core_schema.sql · Client · Project<br>api: ProjectCreatedEvent"]
+    CORE["core<br>V0001__core_schema.sql · Client · Project · 투입 지정<br>api: ProjectCreatedEvent · ProjectCommandApi · EmployeeDirectoryApi"]
     FAC["fac 시설물 마스터<br>V0005 스키마 · 주기 엔진 · 도래 스캔<br>api: FacEvents"]
-    CST["cst 원가·수익성<br>V0026 원장(append-only·파티션) · EVM<br>api: CstEvents · 구독 스텁"]
+    CST["cst 원가·수익성<br>V0026 원장(append-only·파티션) · EVM · 예산 결재 · 수익성<br>api: CstEvents · 구독 스텁"]
     FCD["fcd 법인카드 · 부정사용 탐지<br>V12_0_x · 수집 · 중복 제거 · 룰셋 YAML · L4 · 케이스 · 정산<br>api: FcdEvents"]
     EQP["eqp 장비 관리<br>V4_0_x · 검교정 판정 · 예약 EXCLUDE · QR HMAC · 반출/반납 · 드론<br>api: EqpEvents · CalibrationValidityPort"]
     SAL["sal 수주·영업<br>V9_0_x · 대가 엔진(골든 22) · 견적 불변 · 할인 승인 · 계약→프로젝트 · 공고 수집<br>api: SalEvents"]
@@ -503,7 +504,116 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 28. **FLD**: 마이그레이션 `V5_001`~`V5_014` 14개 대신 `V5_0_0`·`V5_0_1`(+ EQP `V4_0_2` 측정 추적, RPT `V6_0_3`, QAR `V7_0_2`) — 이미 V13 까지 적용된 DB 에서는 out-of-order 가 필요했던 문제는 2026-10-19 전역 재번호(2-1 절)로 해소. **PostGIS 가 없어** defect_current.geom_sheet(geometry) · GIST 공간 질의를 빼고 정규화 좌표(jsonb)만. 이벤트 저장소 불변은 설계의 `RULE DO INSTEAD NOTHING`(조용히 0건) 대신 **예외 트리거**(05-IMPL Step 2 함정 반영), DB 권한 분리(erp_app GRANT)는 운영 계정 분리 후. **tusd · MinIO post-finish 훅 대신 ERP 엔드포인트가 tus 1.0 core 의미를 직접 구현**(청크는 temp-upload 객체, 완료 시 core 첨부 파이프라인), 원본 보관 · 해시 체인은 설계의 fld.evidence_link 대신 **core.attachment 체인(chain_scope = 회차)** 재사용 — TSA 일일 앵커 · 입회자 서명 · 독립 검증기(Step 15)는 후속. 측정값 서버 재검증 실패는 TC-FLD-014 대로 **잠정 저장 + 확정 차단**(이벤트는 남기되 attrs · 보고서 미반영, 응답 blockedReason)이며 알림 채널은 미연동. 충돌 해결 결과는 op 로 다시 push 하는 대신 해결 API 가 서버에서 새 이벤트를 만든다(앱은 응답 · pull 로 반영). 결함 계보 · 이전 회차 매칭(Hungarian) · 승계 상태 · 재료시험 DSL · 패키지 manifest · 중복 결함 병합(DefectMerged)은 이번 범위 밖이라 잠금 검증에서 "미확인 이전 결함" 항목을 빼고 대신 미결 AI 제안 · 거부 사진을 넣었다. 이벤트 이름 `fld.ai-suggestion.discrepancy` 는 과거형이 아니어서 이름 규칙(EventNames)에 설계 정식명으로 등록. `fld.defect.changed` 는 시트 단위 30초 디바운스 대신 push 배치 1건. RPT 스냅샷은 결함만 fld::api 에서 읽고 동 · 부재 그룹(부재 수)은 FAC/HRQ 공개 API 전까지 요청 본문, 도면 좌표(polyline)는 FAC 시트 크기 포트가 없어 비움(망도 WARNING). AI 제안 첨부 콜백은 mTLS 서비스 계정 대신 ADMIN · SYSADMIN 권한.
 
-## 6. 다음 단계
+## 6. 전체 업무 흐름 시험 (골든 패스)
+
+> **쉬운 말로**: 일 하나가 회사 안을 처음부터 끝까지 지나가는 길을 **한 번에** 따라가 보는 시험입니다. 영업이 계약을 따 오면
+> → 건물을 등록하고 → 사람을 붙이고 → 장비를 빌려 → 현장에서 균열을 재고 사진을 올리고 → 보고서를 만들어 → 품질 검토를 받아
+> 발행하고 → 고객이 포털에서 내려받고 → 법인카드 경비까지 정산한 뒤, **원가 장부의 숫자가 원 단위까지 맞는지** 확인합니다.
+> 모든 단계는 사람이 누르는 것과 같은 **HTTP API** 로만 하고, 모듈 사이 소식은 진짜 **우편함 배달부(Outbox Relay)** 가 나릅니다.
+
+- 시험: `apps/erp-server/src/test/java/com/atomeng/erp/GoldenPathScenarioTest.java` (`./gradlew :apps:erp-server:test --tests '*GoldenPathScenarioTest*'`)
+- DB 직접 쓰기 0건(시작 때 outbox 비우기만 — 공유 DB 의 다른 시험 이벤트와 섞이지 않게). 공공 API 는 WireMock 합성 응답, 모든 사람 · 금액 · 카드번호는 합성값.
+- 금액 기대값은 시험이 **API 로 읽은 단가 · 시간 · 공급가로 따로 계산**한 BigDecimal 과 비교한다(인건비 = 단가 × 시간 ÷ 8 원 단위 HALF_UP).
+- 실행 시간: 시나리오 1건 단독 실행 약 7초 · 전체 빌드 중(컨텍스트 재사용) 약 2.4초(스프링 기동 제외, 단계별 소요는 시험 출력 `[골든 패스] 단계별 소요`). 전체 `./gradlew build` 약 2분 47초.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor S as 영업(SALES)
+  actor X as 임원(EXEC)
+  actor P as 책임기술자(PM)
+  actor E as 참여기술자(ENG)
+  actor Q as 품질검토(QA)
+  actor C as 고객(CUSTOMER)
+  actor F as 재무 · 감사(FIN · AUDITOR)
+  participant SAL
+  participant CORE
+  participant FAC
+  participant HRQ
+  participant EQP
+  participant FLD
+  participant RPT
+  participant QAR
+  participant PTL
+  participant FCD
+  participant CST
+  participant R as Outbox Relay
+
+  Note over HRQ,CORE: 0. 직원 수동 등록(HRQ) → core 직원 대장 행 보장(core::api EmployeeDirectoryApi)
+  S->>SAL: 기회 → QUALIFYING → PROPOSING
+  S->>SAL: 대가 산정 · 견적(할인 3% ≤ 한도 5%) → :issue ISSUED → :send → :accept
+  SAL-->>R: sal.estimate.issued
+  S->>SAL: 계약 등록
+  X->>SAL: :approve (If-Match) → PENDING
+  SAL-->>R: sal.contract.ready-to-sign
+  S->>SAL: :sign (If-Match)
+  SAL->>CORE: ProjectCommandApi.createFromContract (같은 트랜잭션)
+  SAL-->>R: sal.contract.signed
+  R->>CST: 실행예산 Rev.0 DRAFT · WBS(20-FIELD 마일스톤 = fld.survey.completed)
+  X->>CST: budget-revisions/{id}:approve → APPROVED(Baseline)
+  P->>FAC: register-lookup → 건물 등록(주소 · 대장 WireMock, 소유 고객사) → 분류 → 점검 도래 계산 · 위치 노드 생성
+  X->>CORE: projects/{id}/members 책임기술자(RESP)
+  P->>CORE: projects/{id}/members 참여기술자(PART)
+  E->>HRQ: 자격 등록 → (ADMIN 승인)
+  E->>HRQ: 주간 타임시트 제출(8h · 8h)
+  P->>HRQ: 승인
+  HRQ-->>R: hrq.timesheet.confirmed
+  R->>CST: 인건비 TIMESHEET 2행
+  P->>HRQ: :correct 8h → 6h (Idempotency-Key)
+  HRQ-->>R: hrq.timesheet.corrected
+  R->>CST: REVERSAL −8h + TIMESHEET 6h
+  P->>EQP: 검교정 장비 예약 · 승인
+  E->>EQP: QR 반출 → 반납
+  EQP-->>R: eqp.equipment.returned
+  R->>CST: EQUIP_USE = 일수 × EQUIP_DAILY
+  P->>FLD: 조사 회차 · 구역 2개(ENG 배정)
+  E->>FLD: sync/push 결함 3 · 측정(폭 = 장비 id, eqp::api 검교정 재검증)
+  E->>FLD: 사진 tus 청크 3개 → SHA-256 검증 → core 첨부(WORM · 회차 해시 체인)
+  P->>FLD: 구역 잠금 ×2
+  FLD-->>R: fld.survey.completed
+  R->>CST: 20-FIELD 진척 100%(EV)
+  P->>RPT: 보고서 → 스냅샷(fld::api FldSurveyQuery) → compose(등급) → 확정 → HWPX 렌더 → 검토 요청
+  P->>QAR: 검토 생성 → 자동검사(BLOCKING 0) → 자체 체크리스트 → 제출
+  Q->>QAR: AI 작업 실행 · 수동 배정 · QA 체크리스트 · PASS
+  P->>QAR: 승인
+  QAR-->>R: qar.review.approved
+  R->>RPT: IN_REVIEW → APPROVED
+  P->>RPT: 발행(PDF · HWPX WORM)
+  RPT-->>R: rpt.report.published
+  R->>FAC: 등급 이력 · 도래 재계산
+  FAC-->>R: fac.grade.recorded
+  P->>RPT: 납품 확인
+  RPT-->>R: rpt.report.delivered
+  R->>PTL: 공개본 · 알림(견적 · 납품 · 등급)
+  C->>PTL: 보고서 목록 · 워터마크 다운로드(다른 고객사 → 404)
+  F->>FCD: 카드 등록 · 명세서 CSV(점심 1 + 쪼개기 2) → 확정 · L1 채점
+  F->>FCD: 검토 큐 → 케이스 1(쪼개기 묶음) → 소명 요청
+  E->>FCD: 소명 → (감사 LEGIT 판정) → 정산 라인 → 상신
+  F->>FCD: 결재 → 전표
+  FCD-->>R: fcd.expense.posted ×3
+  R->>CST: EXPENSE(공급가) → 더존 스텁
+  CST-->>R: cst.voucher.synced
+  R->>FCD: 라인 SYNCED · 정산서 POSTED
+  X->>CST: profitability · evm → AC = 인건비 + 장비 + 카드 경비(원 단위 일치)
+```
+
+**마지막 확인(10단계)**: 수익성 API 의 AC · 원가요소별(LABOR · EQUIP_USE) · 원천별(EXPENSE) · 인·일(1.75) · 이익 = 계약금액 − AC, EVM 의 AC · BAC · EV(현장조사 WBS 예산 × 100%) · CV 를 BigDecimal 로 정확 비교 /
+감사 로그 해시 체인 `core.audit_verify_chain()` · FLD 회차 증거 체인 검증 / FCD · core 감사 · outbox · CST 원장 · 전표 동기화 행 전체에 Luhn 통과 카드번호 0건 /
+미전달 outbox 0 · DLQ(`outbox_dead`) 0 · 이벤트를 낸 모듈 9개 이상 / Spring Modulith `verify()` 모듈 경계 위반 0.
+
+**이 시험이 찾아 고친 연결 누락** (각각 단위 · 회귀 시험 포함)
+
+| # | 모듈 | 문제(시험 전) | 고친 것 | 시험 |
+|---|---|---|---|---|
+| 1 | HRQ · CORE | `core.employee` 를 만드는 공개 경로가 없어 HRQ 수동 등록(`POST /hrq/employees`)이 FK 위반 — 시험들은 SQL 로 직원 행을 미리 넣고 있었음 | core::api **`EmployeeDirectoryApi.ensureEmployee`**(같은 트랜잭션, 없을 때만 INSERT + 감사) → HRQ 등록이 먼저 호출. hrq → core::api 의존 추가 | `EmployeeServiceTest`(호출 순서) |
+| 2 | CORE | 계약 서명으로 생긴 프로젝트는 투입자 0명 → PROJECT 범위 역할(PM · ENG)이 FLD · RPT · QAR 를 전혀 못 씀, `pm_id` 도 비어 있음. 투입 API 없음 | **`POST /api/v1/core/projects/{id}/members`**(`core:project-member:assign` — EXEC · ADMIN 전체, PM 자기 프로젝트, `V0035`) · `GET …/members`, RESP 투입 → `pm_id`, 응답에 `pmId` | `ProjectMemberTest`(역할 · 기간 검증) + 골든 패스(비투입 PM 403) |
+| 3 | CST | 실행예산 Rev.0 DRAFT 를 결재할 API 가 없어 Baseline(APPROVED)이 안 생김 → EVM 404 · 수익성 읽기 모델 제외 | **`GET /api/v1/cst/projects/{id}/budget-revisions`**(WBS 별 예산 · 마일스톤) · **`POST …/budget-revisions/{revId}:approve`**(EXEC `cst:budget:approve`, If-Match, 이전 APPROVED → SUPERSEDED, 감사), 판정은 순수 도메인 `BudgetApproval` | `BudgetGlueTest` |
+| 4 | CST | 예산 초안이 WBS `milestone_event` 를 비워 `fld.survey.completed` 구독이 계약 프로젝트에 진척을 못 남김(EV 항상 0) | `BudgetDraftService` 가 `20-FIELD` 에 `fld.survey.completed` 기록 | `BudgetGlueTest` · `SalIntegrationTest`(TC-CST-01) |
+| 5 | CST | 수익성 읽기 모델 `mv_project_profitability` 는 갱신 배치가 없어 HTTP 로 볼 수 없음 | **`GET /api/v1/cst/projects/{id}/profitability`**(원장 기준 실시간, 실단가 권한 없으면 표준단가 기준) | 골든 패스 |
+
+- 고치지 않고 남긴 관찰: HRQ 타임시트 승인 권한이 `hrq:timesheet:approve` **ALL**(시드 설계) 이라 투입되지 않은 PM · 본인 승인도 막지 않는다 — 정책 결정 필요(03 설계 A2 확인 후 PROJECT 범위 + 본인 승인 금지 검토).
+
+## 7. 다음 단계
 
 - Step 2: docker compose(PostGIS·Keycloak·Redis·MinIO) → PostGIS 프로필 테스트 상시화, Redis 멱등 잠금
 - Step 4 마무리: ProjectScope Redis 캐시 + member-changed 무효화, Keycloak 실제 import 검증

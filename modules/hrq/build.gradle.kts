@@ -7,12 +7,13 @@ dependencies {
     implementation(project(":common:common-identity"))
     implementation(project(":common:common-events"))
     implementation(project(":common:common-audit"))
+    // core::api(EmployeeDirectoryApi) 공개 타입만 사용 — 내부 패키지 참조는 ModularityTests 가 차단
+    implementation(project(":modules:core"))
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.modulith:spring-modulith-api")
 
     testImplementation(project(":common:common-testing"))
-    testImplementation(project(":modules:core"))
     testImplementation("org.flywaydb:flyway-core")
     testImplementation("org.flywaydb:flyway-database-postgresql")
 }

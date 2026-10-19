@@ -6,6 +6,8 @@ import com.atomeng.common.identity.authz.PermissionRegistry;
 import com.atomeng.common.identity.authz.RequirePermission;
 import com.atomeng.erp.cst.adapter.out.persistence.CstJdbc;
 import com.atomeng.erp.cst.adapter.out.persistence.CstJdbc.LedgerRow;
+import com.atomeng.common.web.http.IfMatch;
+import com.atomeng.erp.cst.application.BudgetService;
 import com.atomeng.erp.cst.application.CstErrors;
 import com.atomeng.erp.cst.application.EvmService;
 import com.atomeng.erp.cst.application.PeriodService;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -61,9 +64,11 @@ class CstController {
     private final CstJdbc jdbc;
     private final PermissionRegistry registry;
     private final Clock clock;
+    private final BudgetService budgets;
 
     CstController(RateService rates, EvmService evm, PeriodService periods, CstJdbc jdbc, PermissionRegistry registry,
-                  Clock clock) {
+                  Clock clock, BudgetService budgets) {
+        this.budgets = budgets;
         this.rates = rates;
         this.evm = evm;
         this.periods = periods;
@@ -140,6 +145,29 @@ class CstController {
             }
             return out;
         }).toList();
+    }
+
+    // ------------------------------------------------------------------ 실행예산 · 수익성
+
+    @GetMapping("/projects/{projectId}/budget-revisions")
+    @RequirePermission(value = "cst:budget:read", projectIdParam = "projectId")
+    public List<Map<String, Object>> budgetRevisions(@PathVariable UUID projectId) {
+        return budgets.revisions(projectId);
+    }
+
+    /** 실행예산 결재(EXEC) — DRAFT → APPROVED(Baseline). If-Match 필수 */
+    @PostMapping("/projects/{projectId}/budget-revisions/{revisionId}:approve")
+    @RequirePermission(value = "cst:budget:approve", projectIdParam = "projectId")
+    public Map<String, Object> approveBudget(@PathVariable UUID projectId, @PathVariable UUID revisionId,
+                                             @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return budgets.approve(projectId, revisionId, IfMatch.require(ifMatch));
+    }
+
+    /** 수익성(원장 기준 실시간) — 실단가 권한이 없으면 표준단가 기준 */
+    @GetMapping("/projects/{projectId}/profitability")
+    @RequirePermission(value = "cst:evm:read", projectIdParam = "projectId")
+    public Map<String, Object> profitability(@PathVariable UUID projectId) {
+        return budgets.profitability(projectId, realCostVisible());
     }
 
     // ------------------------------------------------------------------ EVM · 진척

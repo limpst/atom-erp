@@ -29,7 +29,7 @@ export const NAV: NavGroup[] = [
     id: 'G1',
     label: 'G1 현장·비전 AI',
     items: [
-      { label: '현장조사', module: 'FLD' },
+      { label: '현장조사 (관리)', module: 'FLD', path: '/fld', roles: ['PM', 'ENG', 'QA', 'EXEC', 'AUDITOR', 'ADMIN'] },
       { label: 'AI Job · 모델', module: 'AIP' },
     ],
   },
@@ -37,7 +37,8 @@ export const NAV: NavGroup[] = [
     id: 'G2',
     label: 'G2 진단 보고·표준',
     items: [
-      { label: '시설물', module: 'FAC' },
+      { label: '시설물', module: 'FAC', path: '/fac/buildings' },
+      { label: '점검 도래', module: 'FAC', path: '/fac/dues', roles: ['EXEC', 'SALES', 'PM'] },
       { label: '보고서 · QAR 검토', module: 'RPT·QAR', path: '/reports' },
     ],
   },
@@ -54,7 +55,7 @@ export const NAV: NavGroup[] = [
     label: 'G4 영업·견적·고객',
     items: [
       { label: '영업기회 · 견적', module: 'SAL', path: '/sal/estimates' },
-      { label: '고객 포털', module: 'PTL' },
+      { label: '고객 포털(고객 전용 /portal)', module: 'PTL' },
     ],
   },
   {
@@ -62,12 +63,13 @@ export const NAV: NavGroup[] = [
     label: 'G5 인력·자원',
     items: [
       { label: '타임시트', module: 'HRQ', path: '/hrq/timesheets' },
-      { label: '장비', module: 'EQP' },
+      { label: '장비 · 교정', module: 'EQP', path: '/eqp/equipment' },
+      { label: '장비 예약 · 반출', module: 'EQP', path: '/eqp/reservations', roles: ['PM', 'ENG', 'ADMIN', 'EXEC'] },
     ],
   },
   {
     id: 'G6',
     label: 'G6 감리·해체',
-    items: [{ label: '해체 · 감리', module: 'DEM' }],
+    items: [{ label: '해체 · 감리', module: 'DEM', path: '/dem', roles: ['EXEC', 'SALES', 'PM', 'ENG', 'QA', 'ADMIN'] }],
   },
 ];

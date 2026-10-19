@@ -89,6 +89,20 @@ class FldController {
         return ResponseEntity.created(URI.create("/api/v1/fld/rounds/" + v.get("id"))).body(v);
     }
 
+    /** 웹 관리 화면: 프로젝트의 회차 목록 */
+    @GetMapping("/rounds")
+    @RequirePermission(value = "fld:round:read", scopeCheckedInService = true)
+    public java.util.List<Map<String, Object>> rounds(@RequestParam UUID projectId) {
+        return survey.rounds(projectId);
+    }
+
+    /** 웹 관리 화면: 회차 사진 검증 상태 목록 */
+    @GetMapping("/rounds/{id}/photos")
+    @RequirePermission(value = "fld:round:read", scopeCheckedInService = true)
+    public java.util.List<Map<String, Object>> photos(@PathVariable UUID id) {
+        return survey.photos(id);
+    }
+
     @GetMapping("/rounds/{id}")
     @RequirePermission(value = "fld:round:read", scopeCheckedInService = true)
     public Map<String, Object> round(@PathVariable UUID id) {

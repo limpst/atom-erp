@@ -111,3 +111,38 @@ table.simple td.num, table.simple th.num { text-align: right; font-variant-numer
   .sidebar { display: none; }
   .grid2, .grid3 { grid-template-columns: 1fr; }
 }
+
+/* 2차 화면 공통: 모달 · 배너 · 트리 · 달력 · 포털 */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(8, 12, 20, 0.55); display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; z-index: 50; }
+.modal { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 20px; width: min(640px, calc(100vw - 32px)); max-height: 84vh; overflow: auto; }
+.banner { border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.banner.warn { border-color: var(--warn); color: var(--warn); }
+.banner.danger { border-color: var(--danger); color: var(--danger); }
+.banner.info { border-color: var(--primary); color: var(--primary); }
+.banner.ok { border-color: var(--ok); color: var(--ok); }
+.tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.tree li { padding: 3px 0; border-bottom: 1px dashed var(--border); display: flex; gap: 8px; align-items: center; }
+.tree .path { color: var(--text-2); font-family: ui-monospace, monospace; font-size: 11px; margin-left: auto; }
+.cal { display: grid; grid-template-columns: 270px repeat(var(--days), minmax(22px, 1fr)); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; font-size: 12px; }
+.cal > div { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 3px 4px; min-height: 26px; }
+.cal .head { background: var(--surface-2); color: var(--text-2); text-align: center; font-size: 11px; }
+.cal .head.today { color: var(--primary); font-weight: 700; }
+.cal .eq { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 6px; align-items: center; }
+.cal .eq .badge { font-size: 11px; padding: 0 6px; }
+.cal .cell.res-REQUESTED { background: color-mix(in srgb, var(--warn) 30%, transparent); }
+.cal .cell.res-CONFIRMED { background: color-mix(in srgb, var(--primary) 35%, transparent); }
+.cal .cell.res-IN_USE, .cal .cell.res-OVERDUE { background: color-mix(in srgb, var(--danger) 35%, transparent); }
+.cal .cell.sel { outline: 2px solid var(--ok); outline-offset: -2px; }
+.legend { display: flex; gap: 12px; font-size: 12px; color: var(--text-2); margin-top: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+.list-plain { list-style: none; padding: 0; margin: 0; }
+.list-plain li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.portal { min-height: 100%; display: flex; flex-direction: column; }
+.portal .topbar .brand { font-weight: 700; }
+.portal nav.ptabs { display: flex; gap: 4px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.portal nav.ptabs a { padding: 10px 14px; text-decoration: none; color: var(--text-2); border-bottom: 2px solid transparent; }
+.portal nav.ptabs a.active { color: var(--primary); border-bottom-color: var(--primary); }
+.portal main { padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; }
+.wizard-steps { display: flex; gap: 6px; margin-bottom: 12px; }
+.ag-cell .badge { line-height: 18px; vertical-align: middle; white-space: nowrap; }
+.ag-cell button { padding: 2px 10px; line-height: 1.4; vertical-align: middle; }

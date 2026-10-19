@@ -130,6 +130,48 @@ public class SurveyService {
         return roundView(roundId);
     }
 
+    /** 웹 관리 화면: 프로젝트의 회차 목록(최신 회차 먼저) — 단건과 같은 범위 검사 */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> rounds(UUID projectId) {
+        access.requireProject("fld:round:read", projectId);
+        return fld.jdbc().queryForList("SELECT id FROM fld.survey_round WHERE project_id = ? ORDER BY round_no DESC",
+                UUID.class, projectId).stream().map(this::roundView).toList();
+    }
+
+    /** 웹 관리 화면: 회차 사진의 검증 상태(기기 해시 · 서버 해시 · 거부 사유) */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> photos(UUID roundId) {
+        Round r = fld.round(roundId);
+        access.requireProject("fld:round:read", r.projectId());
+        return fld.jdbc().queryForList("""
+                SELECT p.id, p.defect_id, d.code AS defect_code, p.kind, p.upload_state, p.device_sha256,
+                       p.server_sha256, p.attachment_id, p.reject_reason, p.reject_count, p.size_bytes, p.taken_at,
+                       p.verified_at, p.invalidated, p.created_at
+                  FROM fld.photo p LEFT JOIN fld.defect_current d ON d.id = p.defect_id
+                 WHERE p.round_id = ? ORDER BY p.created_at, p.id""", roundId).stream().map(row -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("photoId", row.get("id"));
+            m.put("defectId", row.get("defect_id"));
+            m.put("defectCode", row.get("defect_code"));
+            m.put("kind", row.get("kind"));
+            m.put("uploadState", row.get("upload_state"));
+            m.put("deviceSha256", row.get("device_sha256"));
+            m.put("serverSha256", row.get("server_sha256"));
+            m.put("attachmentId", row.get("attachment_id"));
+            m.put("rejectReason", row.get("reject_reason"));
+            m.put("rejectCount", row.get("reject_count"));
+            m.put("sizeBytes", row.get("size_bytes"));
+            m.put("takenAt", str(row.get("taken_at")));
+            m.put("verifiedAt", str(row.get("verified_at")));
+            m.put("invalidated", row.get("invalidated"));
+            return m;
+        }).toList();
+    }
+
+    private static String str(Object ts) {
+        return ts instanceof java.sql.Timestamp t ? t.toInstant().toString() : ts == null ? null : ts.toString();
+    }
+
     private Map<String, Object> roundView(UUID id) {
         Round r = fld.round(id);
         Map<String, Object> m = new LinkedHashMap<>();

@@ -33,9 +33,11 @@ final class DevSeed {
     private final HttpClient http = HttpClient.newHttpClient();
     private final ObjectMapper om = new ObjectMapper();
     private final LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    private final java.nio.file.Path evidenceRoot;
 
-    DevSeed(String base) {
+    DevSeed(String base, java.nio.file.Path evidenceRoot) {
         this.base = base;
+        this.evidenceRoot = evidenceRoot;
     }
 
     void run() throws Exception {
@@ -66,8 +68,8 @@ final class DevSeed {
         UUID client = id(call("POST", "/api/v1/core/clients",
                 map("name", "(합성) 한빛자산관리", "clientType", "PRIVATE", "address", "서울시 합성구 예시로 1"),
                 SALES, "SALES", null));
-        call("POST", "/api/v1/core/clients", map("name", "(합성) 푸른시설공단", "clientType", "PUBLIC"), SALES, "SALES",
-                null);
+        UUID clientB = id(call("POST", "/api/v1/core/clients", map("name", "(합성) 푸른시설공단", "clientType", "PUBLIC"),
+                SALES, "SALES", null));
         JsonNode opp = call("POST", "/api/v1/sal/opportunities", map("source", "INQUIRY", "clientId", client,
                 "serviceType", "PRECISE_DIAG", "title", "(합성) 한빛타워 정밀안전진단", "ownerId", SALES,
                 "expectedAmount", 60000000, "probability", 70), SALES, "SALES", null);
@@ -176,6 +178,8 @@ final class DevSeed {
             call("POST", "/api/v1/fcd/cases/" + queue.get("casesOpened").get(0).asText() + ":request-explanation",
                     map(), FIN, "FIN", null);
         }
+        // 6~10. 두 번째 화면 묶음(FAC · EQP · FLD · DEM · PTL) — 모두 API
+        new DevSeedRound2(this, today, evidenceRoot).run(client, clientB, project);
         log("완료 — 프로젝트 " + signed.get("projectNo").asText() + " (" + project + ")");
     }
 
@@ -226,11 +230,11 @@ final class DevSeed {
         return sum % 10 == 0;
     }
 
-    private static String etag(JsonNode n) {
+    static String etag(JsonNode n) {
         return "\"v" + n.get("version").asLong() + "\"";
     }
 
-    private static UUID id(JsonNode n) {
+    static UUID id(JsonNode n) {
         return UUID.fromString(n.get("id").asText());
     }
 
@@ -242,13 +246,20 @@ final class DevSeed {
         return m;
     }
 
-    private JsonNode call(String method, String path, Object body, UUID actor, String roles, String ifMatch)
+    JsonNode call(String method, String path, Object body, UUID actor, String roles, String ifMatch)
             throws Exception {
+        return parse(method, path, send(method, path, body, actor, roles, ifMatch, Map.of()));
+    }
+
+    /** 응답 그대로(상태 · 헤더 확인용) — extra 헤더(X-Client-Org-Id 등) 지정 가능 */
+    HttpResponse<String> send(String method, String path, Object body, UUID actor, String roles, String ifMatch,
+                              Map<String, String> extra) throws Exception {
         var b = HttpRequest.newBuilder(URI.create(base + path)).header("X-Actor-Id", actor.toString())
                 .header("X-Roles", roles).header("Accept", "application/json");
         if (ifMatch != null) {
             b.header("If-Match", ifMatch);
         }
+        extra.forEach(b::header);
         if (body == null) {
             b.method(method, HttpRequest.BodyPublishers.noBody());
         } else {
@@ -258,7 +269,31 @@ final class DevSeed {
             }
             b.method(method, HttpRequest.BodyPublishers.ofString(om.writeValueAsString(body)));
         }
-        return parse(method, path, http.send(b.build(), HttpResponse.BodyHandlers.ofString()));
+        return http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** 원시 바이트 PATCH(FLD tus 업로드) */
+    HttpResponse<String> patchBytes(String path, byte[] bytes, Map<String, String> headers, UUID actor, String roles)
+            throws Exception {
+        var b = HttpRequest.newBuilder(URI.create(base + path)).header("X-Actor-Id", actor.toString())
+                .header("X-Roles", roles).header("Accept", "application/json")
+                .header("Content-Type", "application/offset+octet-stream");
+        headers.forEach(b::header);
+        return http.send(b.method("PATCH", HttpRequest.BodyPublishers.ofByteArray(bytes)).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** GET 응답의 ETag */
+    String etagOf(String path, UUID actor, String roles) throws Exception {
+        var r = send("GET", path, null, actor, roles, null, Map.of());
+        if (r.statusCode() >= 300) {
+            throw new IllegalStateException("GET " + path + " → " + r.statusCode() + " " + r.body());
+        }
+        return r.headers().firstValue("ETag").orElseThrow();
+    }
+
+    JsonNode tree(String body) throws Exception {
+        return body == null || body.isBlank() ? om.createObjectNode() : om.readTree(body);
     }
 
     private JsonNode multipart(String path, String filename, byte[] content, UUID actor, String roles)
@@ -275,14 +310,14 @@ final class DevSeed {
         return parse("POST", path, http.send(req, HttpResponse.BodyHandlers.ofString()));
     }
 
-    private JsonNode parse(String method, String path, HttpResponse<String> r) throws Exception {
+    JsonNode parse(String method, String path, HttpResponse<String> r) throws Exception {
         if (r.statusCode() >= 300) {
             throw new IllegalStateException(method + " " + path + " → " + r.statusCode() + " " + r.body());
         }
         return r.body() == null || r.body().isBlank() ? om.createObjectNode() : om.readTree(r.body());
     }
 
-    private static void log(String s) {
+    static void log(String s) {
         System.out.println("[dev-seed] " + s);
     }
 }

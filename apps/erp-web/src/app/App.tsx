@@ -14,6 +14,15 @@ import { ReportDetailPage } from '@/features/rpt/ReportDetailPage';
 import { SalesGroupPage } from '@/features/admin/SalesGroupPage';
 import { ReviewerProfilesPage } from '@/features/admin/ReviewerProfilesPage';
 import { LaborRatesPage } from '@/features/admin/LaborRatesPage';
+import { BuildingsPage } from '@/features/fac/BuildingsPage';
+import { BuildingDetailPage } from '@/features/fac/BuildingDetailPage';
+import { DuesPage } from '@/features/fac/DuesPage';
+import { EquipmentPage } from '@/features/eqp/EquipmentPage';
+import { ReservationsPage } from '@/features/eqp/ReservationsPage';
+import { DemPage } from '@/features/dem/DemPage';
+import { FldAdminPage } from '@/features/fld/FldAdminPage';
+import { PortalLayout } from '@/features/ptl/PortalLayout';
+import { PortalHomePage, PortalNotificationsPage, PortalReportsPage, PortalRequestsPage } from '@/features/ptl/PortalPages';
 
 function Themed() {
   const { theme } = useThemeContext();
@@ -44,7 +53,20 @@ function Themed() {
           <Route path="admin/sales-group" element={<SalesGroupPage />} />
           <Route path="admin/qa-reviewers" element={<ReviewerProfilesPage />} />
           <Route path="admin/labor-rates" element={<LaborRatesPage />} />
+          <Route path="fac/buildings" element={<BuildingsPage />} />
+          <Route path="fac/buildings/:id" element={<BuildingDetailPage />} />
+          <Route path="fac/dues" element={<DuesPage />} />
+          <Route path="eqp/equipment" element={<EquipmentPage />} />
+          <Route path="eqp/reservations" element={<ReservationsPage />} />
+          <Route path="dem" element={<DemPage />} />
+          <Route path="fld" element={<FldAdminPage />} />
           <Route path="*" element={<div className="empty">페이지를 찾을 수 없습니다</div>} />
+        </Route>
+        <Route path="portal" element={<PortalLayout />}>
+          <Route index element={<PortalHomePage />} />
+          <Route path="reports" element={<PortalReportsPage />} />
+          <Route path="requests" element={<PortalRequestsPage />} />
+          <Route path="notifications" element={<PortalNotificationsPage />} />
         </Route>
       </Routes>
       <Toaster richColors closeButton position="top-right" theme={theme} />

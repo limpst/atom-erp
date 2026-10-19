@@ -83,3 +83,38 @@ export function fmtDateTime(v?: string | null) {
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? v : d.toLocaleString('ko-KR', { hour12: false });
 }
+
+/** 모달 대화상자(포커스 · Esc 닫기). role=dialog + aria-label 로 시험에서 찾는다 */
+export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      >
+        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>{title}</h3>
+          <button onClick={onClose} aria-label="닫기">✕</button>
+        </div>
+        {children}
+        {footer && <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+/** 상태 칩 목록(필터 겸용) */
+export function Banner({ tone, children, testId }: { tone: 'warn' | 'danger' | 'info' | 'ok'; children: ReactNode; testId?: string }) {
+  return (
+    <div className={`banner ${tone}`} role="status" data-testid={testId}>
+      {children}
+    </div>
+  );
+}
+
+export function fmtDate(v?: string | null) {
+  return v ? v.slice(0, 10) : '—';
+}

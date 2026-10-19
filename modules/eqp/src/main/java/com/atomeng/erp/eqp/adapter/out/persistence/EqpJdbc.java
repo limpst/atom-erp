@@ -107,6 +107,31 @@ public class EqpJdbc {
                         <= ?::date + ?::int))""";
     }
 
+    /** 웹 교정 현황: 장비별 현재 유효 교정(최신 비FAIL, calibrated_on <= today)의 차기 교정일. 폐기 장비 제외 */
+    public record CalibrationStatusRow(UUID equipmentId, String code, String typeCode, String typeName, String status,
+                                       boolean calibrationRequired, LocalDate nextDueOn, boolean failedAfter) {}
+
+    public List<CalibrationStatusRow> calibrationStatus(LocalDate today) {
+        return jdbc.query("""
+                SELECT e.id, e.code, t.code AS type_code, t.name AS type_name, e.status, t.calibration_required,
+                       c.next_due_on, c.calibrated_on,
+                       EXISTS (SELECT 1 FROM eqp.calibration f WHERE f.equipment_id = e.id AND f.result = 'FAIL'
+                                  AND f.calibrated_on >= coalesce(c.calibrated_on, DATE '1900-01-01')
+                                  AND f.calibrated_on <= ?::date) AS failed_after
+                  FROM eqp.equipment e JOIN eqp.equipment_type t ON t.id = e.type_id
+                  LEFT JOIN LATERAL (SELECT next_due_on, calibrated_on FROM eqp.calibration x
+                                      WHERE x.equipment_id = e.id AND x.result <> 'FAIL' AND x.calibrated_on <= ?::date
+                                      ORDER BY x.calibrated_on DESC, x.next_due_on DESC LIMIT 1) c ON true
+                 WHERE e.status <> 'DISPOSED'
+                 ORDER BY c.next_due_on NULLS FIRST, e.code""", (rs, i) -> {
+            Date due = rs.getDate("next_due_on");
+            return new CalibrationStatusRow(rs.getObject("id", UUID.class), rs.getString("code"),
+                    rs.getString("type_code"), rs.getString("type_name"), rs.getString("status"),
+                    rs.getBoolean("calibration_required"), due == null ? null : due.toLocalDate(),
+                    rs.getBoolean("failed_after"));
+        }, d(today), d(today));
+    }
+
     public byte[] qrSecret(UUID id) {
         return jdbc.queryForObject("SELECT qr_secret FROM eqp.equipment WHERE id = ?", byte[].class, id);
     }

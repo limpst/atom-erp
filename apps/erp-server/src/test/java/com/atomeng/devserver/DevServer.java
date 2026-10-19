@@ -15,7 +15,8 @@ import org.springframework.context.ConfigurableApplicationContext;
  * <p>실행: {@code ./gradlew :apps:erp-server:devServer} (기본 127.0.0.1:8081). 운영 금지 — 테스트 소스셋에만 있고
  * 패키지가 com.atomeng.erp 밖이라 통합 테스트 컴포넌트 스캔에도 잡히지 않는다. DB 는 실행마다 새로 만든다.
  *
- * <p>환경변수: ATOM_DEV_PORT(기본 8081) · ATOM_DEV_SEED(기본 true).
+ * <p>환경변수: ATOM_DEV_PORT(기본 8081) · ATOM_DEV_SEED(기본 true) · ATOM_DEV_WIREMOCK(기본 true — 공공 API 대역
+ * {@link DevPublicApiStub}. false 면 공공 API 미설정 → 등록 마법사는 수기 입력 모드).
  */
 public final class DevServer {
 
@@ -37,9 +38,19 @@ public final class DevServer {
         props.put("spring.datasource.password", EmbeddedPg.password());
         props.put("atom.evidence.local-root", evidence.toString());
         props.put("atom.sal.collect.enabled", "false");
-        // 공공 API 는 호출하지 않는다(키 없음 → 수동 입력 경로)
-        props.put("atom.fac.external.juso.base-url", "http://127.0.0.1:9/juso");
-        props.put("atom.fac.external.building-register.base-url", "http://127.0.0.1:9/hub");
+        // 실제 공공 API 는 호출하지 않는다. 기본은 로컬 WireMock 대역(합성 응답, "합성로 1234" 형식 주소만 응답),
+        // ATOM_DEV_WIREMOCK=false 면 닿지 않는 주소 + 키 없음 → 수기 입력 경로
+        boolean wiremock = !"false".equalsIgnoreCase(System.getenv().getOrDefault("ATOM_DEV_WIREMOCK", "true"));
+        if (wiremock) {
+            String stub = DevPublicApiStub.start();
+            props.put("atom.fac.external.juso.base-url", stub + "/juso");
+            props.put("atom.fac.external.juso.confm-key", "synthetic-dev-key");
+            props.put("atom.fac.external.building-register.base-url", stub + "/hub");
+            props.put("atom.fac.external.building-register.service-key", "synthetic-dev-key");
+        } else {
+            props.put("atom.fac.external.juso.base-url", "http://127.0.0.1:9/juso");
+            props.put("atom.fac.external.building-register.base-url", "http://127.0.0.1:9/hub");
+        }
 
         // 시스템 속성은 application.yml 보다 우선한다(기본 속성은 yml 에 덮인다)
         props.forEach((k, val) -> System.setProperty(k, String.valueOf(val)));
@@ -48,7 +59,7 @@ public final class DevServer {
 
         if (seed) {
             try {
-                new DevSeed("http://127.0.0.1:" + port)
+                new DevSeed("http://127.0.0.1:" + port, evidence)
                         .run();
             } catch (Exception e) {
                 System.err.println("[dev-seed] 실패: " + e);

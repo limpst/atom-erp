@@ -70,7 +70,7 @@ test('CST 표준 노임 단가 설정(ADMIN 초안 → EXEC 승인) → 타임�
   // 프로젝트 원가 원장: 새 단가로 계산된 TIMESHEET 행
   await page.goto('/projects');
   await expect(async () => {
-    await page.getByRole('gridcell', { name: /PRJ-2026-/ }).first().click();
+    await page.getByRole('gridcell', { name: /한빛타워 정밀안전진단/ }).first().click();
     await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/, { timeout: 2_000 });
   }).toPass({ timeout: 20_000 });
   const ledger = page.getByTestId('ledger-grid');

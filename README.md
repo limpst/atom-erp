@@ -173,7 +173,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 # 요청 예: -H 'X-Actor-Id: <uuid>' -H 'X-Roles: SALES' -H 'Idempotency-Key: <uuid>'
 ```
 
-웹 프론트엔드(React · 첫 단계)와 내장 DB 개발 서버:
+웹 프론트엔드(React · 1 · 2차 화면, 고객 포털 `/portal`)와 내장 DB 개발 서버:
 
 ```bash
 ./gradlew :apps:erp-server:devServer      # 내장 PostgreSQL + local-noauth + 합성 시드 → http://127.0.0.1:8081 (운영 금지)
@@ -482,6 +482,32 @@ dev 시드(`DevSeed`)는 이제 **직접 SQL 없이** 아래 API 로만 만듭�
 | CST 기준 요율(`cst.rate_table`, 표준 노임 단가 등) | `GET/POST /api/v1/cst/rates` · `GET/PATCH /rates/{id}` · `POST /rates/{id}:approve` · `:reject` · `:retire`(모두 If-Match) | `V0038`: 설계 08 A2 "노임단가 · 제경비율 · 환율 기준 관리 — ADMIN 관리 · EXEC 승인" → **ADMIN 초안(DRAFT) → EXEC 승인(`cst:rate:approve`), 등록 · 마지막 수정자 ≠ 승인자(403 `CST-403-001`)**. 원장 · 예산은 APPROVED 행만. 기간 겹침 EXCLUDE 는 APPROVED 행에만, 키당 초안 1개(409 `CST-409-006`), 무기한 초안 승인 때 직전 무기한 행 자동 마감, 남은 겹침 409 `CST-409-007`, DRAFT 만 수정(409 `CST-409-005`), 종료는 오늘 이후로만(소급 금지). 기존 행은 APPROVED 로 간주. **요율 값은 마이그레이션에 넣지 않음** — dev 시드만 ⚠️ 예시 합성 값 |
 
 시험: `AdminMasterDataIntegrationTest`(권한 · If-Match 428/412 · 문제 코드 · 감사 건수 · 할인 그룹 해석 · 4-eyes · 승인 전 원장 미사용 · 겹침 · 반려 · 소급 종료 금지), `CstIntegrationTest` · `GoldenPathScenarioTest` 는 요율을 등록 → EXEC 승인으로, 골든 패스는 QA 검토자를 API 로 등록.
+
+## 4-14. 웹 2차 화면용 읽기 API · dev 시드 확장 (FAC · EQP · DEM · PTL · FLD)
+
+웹 2차 화면(apps/erp-web)에 필요한데 없던 **목록 조회만** 추가했습니다(쓰기 API · 마이그레이션 · 권한 시드 변경 없음 — 단건 조회와 같은 권한 · 범위).
+
+| API | 권한 | 내용 |
+|---|---|---|
+| `GET /api/v1/fac/dues?withinDays=&limit=` | `fac:due:read` | 전 시설물의 활성 점검 도래(종료 · 병합 · 해체 제외) + 시설물명 · 주소 · `daysLeft`(도래일 − 오늘 Asia/Seoul, 음수 = 경과). withinDays 는 경과분 포함 |
+| `GET /api/v1/eqp/calibration-status?withinDays=&dueSoonDays=60` | `eqp:calibration:read` | 장비별 현재 유효 교정(최신 비FAIL)의 차기 교정일 · `daysLeft` · `calStatus`(VALID · DUE_SOON · EXPIRED · FAILED · NONE · NOT_REQUIRED, 경계는 `CalibrationValidityService` 와 같음). withinDays = 교정 만료 목록 |
+| `GET /api/v1/dem/projects` | `dem:project:read` | DEM 프로젝트 목록(단건 뷰와 같은 모양) |
+| `GET /api/v1/dem/work-packages/{wp}/daily-logs` | `dem:supervision-log:read`(서비스 범위 검사) | 감리일지 요약(잠금 여부 · 잠금 시각 · 내용 해시 · 정정 건수). PROJECT 범위 = 투입 인원 또는 패키지 감리원 |
+| `GET /api/v1/dem/work-packages/{wp}/documents` · `…/transmittals` | `dem:revision:read` | 도서(리비전 · 미결 의견 수) · 트랜스미털(포함 리비전) |
+| `GET /api/v1/fld/rounds?projectId=` · `GET /api/v1/fld/rounds/{id}/photos` | `fld:round:read`(서비스 범위 검사) | 회차 목록(구역 포함) · 사진 검증 상태(기기 · 서버 해시, 거부 사유) |
+
+dev 서버(`DevServer`)는 기본으로 **공공 API 대역(WireMock, 127.0.0.1 임의 포트)**을 띄웁니다(`DevPublicApiStub`, `ATOM_DEV_WIREMOCK=false` 면 끔 → 수기 입력 경로).
+"합성로 1000~1999" = 표제부 1건(자동 입력 · VERIFIED), "합성로 2000~2999" = 2개 동(동 선택 필요), 그 밖 = 주소 없음 → 수기 입력. 실존 주소 · 실제 공공 API 호출 없음.
+
+dev 시드(`DevSeed` → `DevSeedRound2`)는 **API 로만**(직접 SQL 없음) 아래를 만듭니다. 첨부(DEM 도면 PDF)는 presign → 로컬 저장소 임시 키에 파일 쓰기(서명 URL PUT 대역) → `:complete`.
+
+- FAC: 한빛타워(주소 조회 · 2종 · 층 · 그리드 부재 노드) · 별관(수기 · 3종) · 별관 중복 등록(사유 남긴 강제 등록 → 병합 연습) · 푸른아파트(B 고객)
+- EQP: 교정 유효 · 20일 남음 · 만료 · 교정 불필요(반출 중) · 이력 없음 5대, 예약 2건(확정 · 승인 대기)
+- FLD: 한빛타워 1회차 — 구역 3(1개 잠금), 결함 4, 사진 3(검증 완료 · 업로드 대기 · 해시 불일치 거부), 두 기기 동기화 충돌 2건
+- DEM: 푸른아파트 해체공사 감리(B 고객) — 책임 · 보조 감리원(보조는 자격 20일 뒤 만료 = 임박 경고), 만료 자격 직원(지정 시 422), 감리일지 3(2개 잠금), 도서 2 · 트랜스미털 1 · 검토의견 2(미결 1 → 시공용 발행 차단)
+- RPT · QAR → PTL: A 고객 보고서 1판 납품 → 정정 2판 발행(1판 대체) → 2판 납품, B 고객 보고서 1건 납품, A 고객 서비스 요청 1건
+
+시험: `WebListQueryIntegrationTest`(도래 daysLeft · withinDays · 403, 교정 상태 판정 · 만료 목록, DEM 목록 · 일지 범위 403 · 404, FLD 회차 범위 403 · 사진 404).
 
 ## 5. 설계와 다른 점 (의도적 편차)
 

@@ -38,6 +38,10 @@ public class FacJdbc implements RuleSource {
 
     public record Classification(SitbeopClass sitbeopClass, boolean bmaTarget) {}
 
+    /** 도래 목록(웹 점검 도래 화면) — 시설물 이름 · 주소를 함께 */
+    public record DueListRow(UUID id, UUID buildingId, String buildingName, String dongName, String roadAddress,
+                             String inspectionType, LocalDate baseDate, LocalDate dueDate, String status) {}
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper om;
 
@@ -167,6 +171,25 @@ public class FacJdbc implements RuleSource {
     public List<DueRow> allActiveDues() {
         return jdbc.query("SELECT * FROM fac.inspection_due WHERE " + ACTIVE
                 + " AND status NOT IN ('CONTRACTED') ORDER BY due_date", this::due);
+    }
+
+    /** 활성 도래(종료 · 계약 제외 안 함) — dueBefore 이전(포함) 도래만, 삭제 · 병합된 시설물 제외. 도래일 오름차순 */
+    public List<DueListRow> dueList(LocalDate dueBefore, int limit) {
+        return jdbc.query("""
+                SELECT d.id, d.building_id, b.name, b.dong_name, b.road_address, d.inspection_type, d.base_date,
+                       d.due_date, d.status
+                  FROM fac.inspection_due d JOIN fac.building b ON b.id = d.building_id
+                 WHERE d.status NOT IN ('DONE','LOST','CANCELLED') AND b.deleted_at IS NULL
+                   AND b.status NOT IN ('MERGED','DEMOLISHED')
+                   AND (CAST(? AS date) IS NULL OR d.due_date <= CAST(? AS date))
+                 ORDER BY d.due_date, b.name, d.id LIMIT ?""", (rs, i) -> {
+            Date base = rs.getDate("base_date");
+            return new DueListRow(rs.getObject("id", UUID.class), rs.getObject("building_id", UUID.class),
+                    rs.getString("name"), rs.getString("dong_name"), rs.getString("road_address"),
+                    rs.getString("inspection_type"), base == null ? null : base.toLocalDate(),
+                    rs.getDate("due_date").toLocalDate(), rs.getString("status"));
+        }, dueBefore == null ? null : Date.valueOf(dueBefore), dueBefore == null ? null : Date.valueOf(dueBefore),
+                limit);
     }
 
     public void closeDue(UUID dueId, DueStatus status) {

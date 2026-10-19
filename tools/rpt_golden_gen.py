@@ -18,7 +18,7 @@ Java GradeEngine 과 **독립적으로** 같은 규칙(설계 B7.1 + 아래 확�
 실행:  python tools/rpt_golden_gen.py
   → modules/rpt/src/test/resources/golden/rules/BLD_RC-*.json   (규칙 픽스처 = 시드 원문)
   → modules/rpt/src/test/resources/golden/cases/GOLD-xx.json    (합성 사례 12건)
-  → modules/rpt/src/main/resources/db/migration/rpt/V6_0_2__rpt_rule_seed.sql (규칙 시드 — 픽스처와 같은 본문)
+  → modules/rpt/src/main/resources/db/migration/rpt/V0021__rpt_rule_seed.sql (규칙 시드 — 픽스처와 같은 본문)
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ getcontext().prec = 60
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "modules/rpt/src/test/resources/golden"
-SEED = ROOT / "modules/rpt/src/main/resources/db/migration/rpt/V6_0_2__rpt_rule_seed.sql"
+SEED = ROOT / "modules/rpt/src/main/resources/db/migration/rpt/V0021__rpt_rule_seed.sql"
 
 RATINGS = ["a", "b", "c", "d", "e"]
 GRADES = ["A", "B", "C", "D", "E"]
@@ -310,7 +310,7 @@ def sql_str(s: str) -> str:
 
 def seed_sql(rule_sets: list[dict]) -> str:
     out = ["-- =====================================================================",
-           "-- V6_0_2 — RPT 상태평가 · 안전등급 규칙 시드 (tools/rpt_golden_gen.py 생성 — 손으로 고치지 말 것)",
+           "-- V0021 — RPT 상태평가 · 안전등급 규칙 시드 (tools/rpt_golden_gen.py 생성 — 손으로 고치지 말 것)",
            "--   본문 = 골든 픽스처 golden/rules/BLD_RC-*.json (통합 시험이 DB 조립 결과와 픽스처를 대조)",
            "--   ⚠️ 예시 값(approved_by NULL) — 세부지침 상태평가 기준표로 교체. 법령 최신본 확인 필요",
            "-- ====================================================================="]

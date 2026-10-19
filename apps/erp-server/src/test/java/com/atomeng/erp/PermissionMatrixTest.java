@@ -38,7 +38,7 @@ import org.springframework.http.MediaType;
  * 00-IMPL Step 4 권한 매트릭스 테스트 — 설계 00 v0.3 §8.2 표(12역할 × 11모듈 = 132셀) 전수.
  *
  * <p>① 셀 단위(132건): 표 원문 셀을 이 클래스의 독립 해석기로 풀어 기대 권한·범위 집합을 만들고,
- * DB(core.role_permission, 생성기 tools/gen_role_permission_seed.py 로 만든 V1_2 시드)를 읽은
+ * DB(core.role_permission, 생성기 tools/gen_role_permission_seed.py 로 만든 V0002 시드)를 읽은
  * PermissionRegistry 결과와 <b>정확히 일치</b>하는지 검사한다.
  * ② HTTP 단위: @RequirePermission 이 붙은 프로브 엔드포인트로 대표 시나리오(행 수준 권한 포함)를 검증한다.
  */

@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * V1__core.sql 마이그레이션 통합 테스트 (00-IMPL Step 3 CoreMigrationTest) — 내장 PostgreSQL 16.
+ * V0001__core_schema.sql 마이그레이션 통합 테스트 (00-IMPL Step 3 CoreMigrationTest) — 내장 PostgreSQL 16.
  * 합성 데이터만 사용.
  */
 class CoreMigrationTest {
@@ -50,7 +50,7 @@ class CoreMigrationTest {
     }
 
     @Test
-    @DisplayName("Step3: V1 마이그레이션 적용·검증 성공, core 테이블 전부 생성")
+    @DisplayName("Step3: core 마이그레이션(V0001~V0003) 적용·검증 성공, core 테이블 전부 생성")
     void step3_allMigrationsApplyAndValidate() throws Exception {
         assertThat(flyway().validateWithResult().validationSuccessful).isTrue();
         Set<String> tables = new HashSet<>();

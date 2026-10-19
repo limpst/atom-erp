@@ -40,7 +40,7 @@ class IngestTest {
     static final Charset CP949 = Charset.forName("x-windows-949");
     static final UUID CARD_A = UUID.nameUUIDFromBytes("card-a".getBytes(StandardCharsets.UTF_8));
 
-    /** 기본 프로파일 3종(V12_0_1 시드와 같은 값) */
+    /** 기본 프로파일 3종(V0034 시드와 같은 값) */
     static List<MappingProfile> profiles() {
         return List.of(
                 new MappingProfile("P-ACARD-APPROVAL-CSV-1", "ACARD", "CSV", "APPROVAL", "(가상)에이카드",

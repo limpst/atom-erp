@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /api/v1/qar (설계 07 B4). 권한: 8.2 표 qar:review:read + 세부 권한(V7_0_1) author · answer · thread · remark ·
+ * /api/v1/qar (설계 07 B4). 권한: 8.2 표 qar:review:read + 세부 권한(V0024) author · answer · thread · remark ·
  * decision · approval · waiver · assignment · suggestion · ai-job. 프로젝트 범위(◐)는 서비스가 검토 → 프로젝트로 확인.
  * 상태 전이 명령은 검토 ETag "v{n}" 를 If-Match 로 받는다(불일치 409 QAR_VERSION, TC-QAR-012).
  */

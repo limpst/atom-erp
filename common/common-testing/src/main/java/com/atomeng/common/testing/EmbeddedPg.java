@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 테스트 JVM 당 1개의 내장 PostgreSQL 16 인스턴스 (Docker/Testcontainers 대체).
  *
- * <p>제약: zonky 바이너리에는 PostGIS·pgvector가 없다. 그래서 V1__core.sql 은 확장 없이 동작하도록
+ * <p>제약: zonky 바이너리에는 PostGIS·pgvector가 없다. 그래서 V0001__core_schema.sql 은 확장 없이 동작하도록
  * 작성했고, PostGIS 의존 DDL은 {@code db/migration-ext} 위치(프로필 {@code postgis})로 분리했다.
  */
 public final class EmbeddedPg {

@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * /api/v1/sal (설계 01 B4). 상태를 바꾸는 단건 액션(:move · :approve-discount · 계약 :approve · :sign)은 ETag/If-Match(412).
- * 권한: 8.2 표의 sal:opportunity 셀 + 모듈 세부 권한(V9_0_1) — 견적은 sal:quote:*, 할인 승인은 sal:discount:approve(EXEC 전용),
+ * 권한: 8.2 표의 sal:opportunity 셀 + 모듈 세부 권한(V0016) — 견적은 sal:quote:*, 할인 승인은 sal:discount:approve(EXEC 전용),
  * 계약 등록 · 결재 · 서명 기록은 sal:agreement:* (8.2 표의 estimate · contract 리소스와 겹치지 않게 분리, README 편차 참조).
  */
 @RestController

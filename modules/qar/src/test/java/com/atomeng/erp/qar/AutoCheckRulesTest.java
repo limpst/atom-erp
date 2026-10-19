@@ -42,7 +42,7 @@ class AutoCheckRulesTest {
         }
     }
 
-    /** V7_0_1 2026.1 세트와 같은 규칙 정의 */
+    /** V0024 2026.1 세트와 같은 규칙 정의 */
     static List<RuleDef> defs2026() {
         Map<String, String[]> m = new java.util.LinkedHashMap<>();
         m.put("AC-NUM-001", new String[] {"BLOCKING", "{\"countTolerance\":0,\"lengthToleranceM\":0.01,\"widthToleranceMm\":0.0}"});

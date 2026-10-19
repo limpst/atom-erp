@@ -4,7 +4,7 @@
 
 - 이 저장소는 회사 ERP(회사 일을 한곳에서 관리하는 프로그램)의 **바닥 공사**입니다. 집으로 치면 기초·배관·전기 배선을 먼저 깐 상태예요.
 - 지금 들어 있는 것은 다섯 가지입니다.
-  1. **데이터 창고 설계도**(`V1__core.sql`): 고객·프로젝트·직원 표와, 기록을 지울 수 없게 막는 장치.
+  1. **데이터 창고 설계도**(`V0001__core_schema.sql`): 고객·프로젝트·직원 표와, 기록을 지울 수 없게 막는 장치.
   2. **우편함(Outbox)**: "프로젝트가 생겼어요" 같은 소식을 업무 저장과 **같이** 저장했다가, 배달부(Relay)가 나중에 확실히 전달합니다. 배달이 실패하면 10초→20초→40초→80초 기다렸다 다시 시도하고, 5번 실패하면 "반송함"(DLQ)에 넣습니다.
   3. **중복 클릭 방지**(Idempotency-Key): 현장 태블릿이 같은 요청을 여러 번 보내도 한 번만 처리하고, 두 번째부터는 "이미 처리했어요"(`Idempotent-Replayed: true`)라고 같은 답을 돌려줍니다.
   4. **출입증 검사**(역할·권한): 12가지 역할(임원, 영업, 기술자, 재무, 감사 등)마다 할 수 있는 일을 정하고, 기술자는 **자기가 투입된 프로젝트만** 볼 수 있습니다.
@@ -60,16 +60,16 @@ flowchart BT
     CV["common-evidence<br>ObjectStorage 포트 · 로컬FS(WORM 모사) · HashChain · 썸네일"]
   end
   subgraph MODS["업무 모듈 com.atomeng.erp.{mod}"]
-    CORE["core<br>V1__core.sql · Client · Project<br>api: ProjectCreatedEvent"]
-    FAC["fac 시설물 마스터<br>V2_0_0 스키마 · 주기 엔진 · 도래 스캔<br>api: FacEvents"]
-    CST["cst 원가·수익성<br>V8_0_0 원장(append-only·파티션) · EVM<br>api: CstEvents · 구독 스텁"]
+    CORE["core<br>V0001__core_schema.sql · Client · Project<br>api: ProjectCreatedEvent"]
+    FAC["fac 시설물 마스터<br>V0005 스키마 · 주기 엔진 · 도래 스캔<br>api: FacEvents"]
+    CST["cst 원가·수익성<br>V0026 원장(append-only·파티션) · EVM<br>api: CstEvents · 구독 스텁"]
     FCD["fcd 법인카드 · 부정사용 탐지<br>V12_0_x · 수집 · 중복 제거 · 룰셋 YAML · L4 · 케이스 · 정산<br>api: FcdEvents"]
     EQP["eqp 장비 관리<br>V4_0_x · 검교정 판정 · 예약 EXCLUDE · QR HMAC · 반출/반납 · 드론<br>api: EqpEvents · CalibrationValidityPort"]
     SAL["sal 수주·영업<br>V9_0_x · 대가 엔진(골든 22) · 견적 불변 · 할인 승인 · 계약→프로젝트 · 공고 수집<br>api: SalEvents"]
     RPT["rpt 보고서 엔진<br>V6_0_x · 스냅샷 · 등급 엔진(골든 12) · HWPX · DXF R12 · PDF 포트 · 발행 불변 · 납품 확인<br>api: RptEvents · RptRevisionQuery"]
     QAR["qar 품질·검토<br>V7_0_x · 전이 표 · AUTO-CHECK 15종 · 앵커 코멘트 · CitationGuard · AI 작업<br>api: QarEvents"]
     DEM["dem 해체공사·구조감리<br>V10_0_x · 감리자 지정(HRQ 자격·한도·EXCLUDE) · 감리일지(clientOpId·잠금) · 증거 사진 · 리비전 발행 불변 · BR-DEM-009 · 인접 비교<br>api: DemEvents"]
-    PTL["ptl 고객 포털<br>V13_0_0 · 고객사 RLS(SET LOCAL ROLE) · 납품 보고서 · 워터마크 다운로드 · 서비스 요청 · 알림함<br>api: PtlEvents"]
+    PTL["ptl 고객 포털<br>V0030 · 고객사 RLS(SET LOCAL ROLE) · 납품 보고서 · 워터마크 다운로드 · 서비스 요청 · 알림함<br>api: PtlEvents"]
     AIP["aip AI 플랫폼<br>V11_0_x · Job 큐(우선순위 · 마감 · 재시도 · lease) · 레지스트리(shadow/canary/production) · 감사 월 파티션 · 제안/피드백 · 균열 측정 도메인<br>api: AipJobApi · AipEvents"]
     WORKER["services/aip-worker (Python · FastAPI)<br>atomeng_aip · atomeng_common.vlm → 로컬 vLLM :8080"]
     FLD["fld 현장조사(서버)<br>V5_0_x · 이벤트 소싱(defect_event → defect_current) · 동기화 push/pull/충돌 · 이어 올리기(SHA-256) · 구역 잠금<br>api: FldEvents · FldSurveyQuery"]
@@ -118,8 +118,8 @@ flowchart BT
 atom-erp/
 ├─ common/common-{core,web,identity,events,audit,testing}
 ├─ modules/core/                 # com.atomeng.erp.core
-│  └─ src/main/resources/db/migration/core/V1__core.sql
-│     └─ db/migration-ext/V1_1__core_postgis_ext.sql   (프로필 postgis)
+│  └─ src/main/resources/db/migration/core/V0001__core_schema.sql
+│     └─ db/migration-ext/V0004__core_postgis_ext.sql   (프로필 postgis)
 └─ apps/erp-server/              # com.atomeng.erp.ErpServerApplication
 ```
 
@@ -172,11 +172,57 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 # 요청 예: -H 'X-Actor-Id: <uuid>' -H 'X-Roles: SALES' -H 'Idempotency-Key: <uuid>'
 ```
 
+## 2-1. 마이그레이션 규칙 (Flyway)
+
+2026-10-19 에 모든 마이그레이션을 **전역 단조 번호 하나**로 다시 매겼습니다(배포 전이라 허용 — 이 커밋이 첫 기준선).
+예전 방식(모듈별 버전 대역 V1·V2_0_x … V13_0_0)은 나중에 앞쪽 대역에 추가한 파일(V4_0_2 · V5_0_x · V6_0_3 · V7_0_2 등)이
+이미 V13 까지 적용된 DB 에서 건너뛰어지거나 out-of-order 를 켜야만 적용되는 문제가 있었습니다.
+
+**규칙**
+
+1. 파일 이름 `V<4자리 전역 번호>__<모듈>_<설명>.sql` (예: `V0035__fac_add_building_note.sql`). 파일은 자기 모듈 폴더
+   `modules/<모듈>/src/main/resources/db/migration/<모듈>/`(PostGIS 등 확장 의존이면 `db/migration-ext/`)에 둡니다.
+2. 새 마이그레이션은 **어느 모듈이든 저장소 전체의 다음 번호**를 씁니다(모듈 대역 없음). 번호는 모듈 · ext 를 통틀어 유일.
+3. **기준선** `db/migration-baseline.txt` 에 있는 파일은 지우거나 이름 · 내용을 바꾸지 않습니다(sha256 고정). 고칠 것이 있으면 새 번호로 추가.
+4. 기준선에 없는 새 파일의 번호는 **기준선 최대 번호보다 커야** 합니다. 브랜치 둘이 같은 번호를 잡으면 나중에 합치는 쪽이 다음 번호로 바꿉니다.
+5. Flyway `out-of-order: false`(기본 · postgis 프로필 모두), `validate-on-migrate: true`. 낮은 번호가 뒤늦게 들어오면 건너뛰지 않고 기동이 실패합니다.
+6. PostGIS 프로필(`db/migration-ext`)은 **설치 시점에 결정**합니다. ext 파일도 전역 번호를 쓰고 모듈 기본 파일 바로 뒤에 둡니다
+   (V0004 core · V0008 fac · V0011 hrq). 기본 프로필로 설치한 DB 에 나중에 postgis 를 켜는 것은 지원하지 않습니다(검증 실패로 막힘).
+7. 릴리스(배포) 직전 새 마이그레이션을 기준선에 올립니다:
+   `./gradlew :apps:erp-server:test --tests '*MigrationBaselineTest*' -PupdateMigrationBaseline` → `db/migration-baseline.txt` 를 함께 커밋.
+8. 모듈 의존 순서(최초 재번호): core → fac → hrq → eqp → sal → fld → rpt → qar → cst → dem → ptl → aip → fcd.
+   하드 FK 는 cst · dem · fld → `fac.building`/`fac.location_node`, 모두 → `core.*` 뿐이고 나머지 모듈 간 참조는 논리 참조(이벤트 · `::api`)입니다.
+
+**시험** (`apps/erp-server/src/test/java/com/atomeng/erp/migration/`)
+
+| 시험 | 내용 |
+|---|---|
+| `MigrationBaselineTest` (DB 없음) | 이름 규칙 · 접두 = 폴더 모듈 · 번호 유일 · 기준선 파일 존재/내용 불변 · 새 번호 > 기준선 최대 · 최초 재번호의 모듈 순서 · application.yml out-of-order 금지 |
+| `MigrationUpgradePathTest` (내장 PG) | ① 기준선 스냅숏 목록까지 적용한 DB → 이후 마이그레이션 적용 → 새 설치와 스키마 동일 ② 시험 전용 탐침 `V9001` 을 "새 마이그레이션"으로 더해 같은 비교 ③ 한 번호씩 올린 DB = 새 설치 ④ 기준선보다 낮은 `V0001.5` 뒤늦은 추가 → `FlywayValidateException`, DB 변경 없음. 비교 항목: 테이블/뷰 · 컬럼 · 제약 · 인덱스 · 트리거 · RLS 정책/플래그 · 함수 본문 · 뷰 정의 · 시퀀스 · 파티션 · 권한 · 시드 행 수 · Flyway 이력(버전 · 스크립트 · 체크섬) |
+
+**이전 번호 → 새 번호** (설계 문서 · 아래 5장 편차 메모에 나오는 옛 번호 찾기용)
+
+| 모듈 | 옛 번호 → 새 번호 |
+|---|---|
+| core | V1 → V0001 (`core_schema`), V1_2 → V0002, V1_3 → V0003, ext V1_1 → V0004 |
+| fac | V2_0_0 → V0005, V2_0_1 → V0006, V2_0_2 → V0007, ext V2_99 → V0008 |
+| hrq | V3_0_0 → V0009, V3_0_1 → V0010, ext V3_99 → V0011 |
+| eqp | V4_0_0 → V0012, V4_0_1 → V0013, V4_0_2 → V0014 |
+| sal | V9_0_0 → V0015, V9_0_1 → V0016 |
+| fld | V5_0_0 → V0017, V5_0_1 → V0018 |
+| rpt | V6_0_0 → V0019, V6_0_1 → V0020, V6_0_2 → V0021, V6_0_3 → V0022 |
+| qar | V7_0_0 → V0023, V7_0_1 → V0024, V7_0_2 → V0025 |
+| cst | V8_0_0 → V0026, V8_0_1 → V0027 |
+| dem | V10_0_0 → V0028, V10_0_1 → V0029 |
+| ptl | V13_0_0 → V0030 |
+| aip | V11_0_0 → V0031, V11_0_1 → V0032 |
+| fcd | V12_0_0 → V0033, V12_0_1 → V0034 |
+
 ## 3. 구현 내용 ↔ 설계 대응
 
 | 설계 | 구현 위치 | 핵심 |
 |---|---|---|
-| 7.2 core 스키마·공통 6컬럼 | `V1__core.sql`, `BaseEntity` | client·employee·project·project_member·code·attachment·hash_anchor·audit_log(월 파티션)·doc_sequence |
+| 7.2 core 스키마·공통 6컬럼 | `V0001__core_schema.sql`, `BaseEntity` | client·employee·project·project_member·code·attachment·hash_anchor·audit_log(월 파티션)·doc_sequence |
 | UUID v7 | `UuidV7`(Java), `core.uuid_generate_v7()`(SQL) | 같은 ms 단조 증가, 시계 역행 보호 |
 | 10.2/10.3 Outbox | `OutboxPublisher`(MANDATORY), `OutboxRelay` | `FOR UPDATE SKIP LOCKED`, 이벤트 1건=트랜잭션 1개, 백오프 5·2ⁿ초(10/20/40/80), 5회째 `outbox_dead`, `requeueDead()` |
 | 컨슈머 멱등 | `ProcessedEvents`, `@IdempotentListener` | `INSERT … ON CONFLICT DO NOTHING`, 실패 시 함께 롤백 |
@@ -186,7 +232,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 | 9.2 오류 모델 | `GlobalProblemHandler`, `ProblemFactory` | 모든 오류 problem+json + `code` + `traceId`, ko/en title |
 | 9.1 동시성 | `IfMatch`, JPA `@Version` | ETag `"v{n}"`, If-Match 불일치·경합 → 412 CORE-412-001 |
 | NFR-CORE-07 감사 | `AuditLog`, `core.audit_append()` | 해시 체인 + append-only 트리거 + `audit_verify_chain()` |
-| 8.2 권한 매트릭스 | `permission-matrix-8.2.csv` → `tools/gen_role_permission_seed.py` → `V1_2__core_role_permission_matrix.sql` | 132셀·154권한, Java 독립 해석기로 셀별 정확 일치 검사 |
+| 8.2 권한 매트릭스 | `permission-matrix-8.2.csv` → `tools/gen_role_permission_seed.py` → `V0002__core_role_permission_matrix.sql` | 132셀·154권한, Java 독립 해석기로 셀별 정확 일치 검사 |
 | 8.1 Keycloak | `deploy/keycloak/atom-internal-realm.json`, `atom-portal-realm.json` | 역할 11+1, 클라이언트 5, 매퍼 roles·eid·cid, PKCE, 조건부 OTP 흐름, 사용자·비밀값 없음 |
 | Step 6 감사 | `@Audited` + `AuditAspect`, `@Pii` + `PiiMasking`, `AuditPartitionMaintenance` | VIEW_PII 동기 기록(fail-closed), 감사 JSON 마스킹, 월 파티션 사전 생성 |
 | 11장 첨부 | `ObjectStorage`/`LocalFsObjectStorage`, `AttachmentService`, `ThumbnailGenerator` | presign→PUT→:complete, 해시 재계산(CORE-422-010), WORM 복사, 체인 잠금·연결·검증, outbox→썸네일 |
@@ -213,10 +259,10 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/fac/.../db/migration/fac/V2_0_0__fac_schema.sql` — site·building(정본)·parcel·location_node(ltree)·drawing(+version)·분류 규칙/분류·grade_history·inspection_cycle_rule(EXCLUDE)·inspection_due·due_notification·repair_history·repair_target(대리키) = 14개 |
+| 스키마 | `modules/fac/.../db/migration/fac/V0005__fac_schema.sql` — site·building(정본)·parcel·location_node(ltree)·drawing(+version)·분류 규칙/분류·grade_history·inspection_cycle_rule(EXCLUDE)·inspection_due·due_notification·repair_history·repair_target(대리키) = 14개 |
 | 불변 | `fac.forbid_grade_mutation()` 트리거 — UPDATE/DELETE/TRUNCATE 모두 `restrict_violation(23001)` |
-| PostGIS | `db/migration-ext/V2_99__fac_postgis_ext.sql`(site.boundary, building.location) — 프로필 postgis, out-of-order |
-| 규칙 | `V2_0_1__fac_cycle_rule_seed.sql` — 시특법 정기·정밀점검·정밀진단, 건축물관리법 점검 **⚠️ 예시 값**(approved_by NULL) |
+| PostGIS | `db/migration-ext/V0008__fac_postgis_ext.sql`(site.boundary, building.location) — 프로필 postgis(설치 시점 결정, out-of-order 없음) |
+| 규칙 | `V0006__fac_cycle_rule_seed.sql` — 시특법 정기·정밀점검·정밀진단, 건축물관리법 점검 **⚠️ 예시 값**(approved_by NULL) |
 | 엔진 | `InspectionCycleEngine`(순수 도메인): 기준일 시점 유효 규칙, 등급 일치 우선, 상위 점검 갈음, 최초 점검(사용승인일), calc_trace |
 | API | `/api/v1/fac/buildings` POST(멱등)·GET 목록/단건(ETag)·PATCH(If-Match)·DELETE(논리) · `PUT /{id}/classification` · `GET /{id}/grades` · `GET /{id}/dues` |
 | 이벤트 | 발행 `fac.building.registered`, `fac.grade.recorded`, `fac.grade.critical-detected`, `fac.inspection.due-approaching`, `fac.inspection.overdue` (core outbox) · 구독 `rpt.report.published` (스텁 계약) |
@@ -229,8 +275,8 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `V3_0_0__hrq_schema.sql` — employee(core.employee 1:1)·employee_termination·grade_history(EXCLUDE)·credential·training·registration/role_requirement/concurrency 규칙(EXCLUDE)·allocation·timesheet_entry(리비전·`ux_ts_revision`·`ux_ts_current`·append-only 트리거)·month_close(char(6))·notification_log |
-| 규칙 시드 | `V3_0_1` 등록요건·책임자격·동시수행·교육주기 **⚠️ 예시**(approved_by NULL) + HRQ 세부 권한 |
+| 스키마 | `V0009__hrq_schema.sql` — employee(core.employee 1:1)·employee_termination·grade_history(EXCLUDE)·credential·training·registration/role_requirement/concurrency 규칙(EXCLUDE)·allocation·timesheet_entry(리비전·`ux_ts_revision`·`ux_ts_current`·append-only 트리거)·month_close(char(6))·notification_log |
+| 규칙 시드 | `V0010` 등록요건·책임자격·동시수행·교육주기 **⚠️ 예시**(approved_by NULL) + HRQ 세부 권한 |
 | 등록요건 | `ComplianceEngine`(순수, 높은 요건부터·낮은 적격 등급부터 소모, count_upward/count_leave), `GET /compliance`, `GET /compliance:forecast`(변화점 기반 최초 미달일) |
 | 자격·등급 | 등록(PENDING)·승인/반려, 만료 스캔(06:00, 멱등 알림 기록), 등급 변경(이력 종료+신규), 퇴사 예정/확정 |
 | 타임시트 | 주간 저장·제출, PM 승인, `POST /timesheets/{id}:correct`(Idempotency-Key 필수, 새 리비전), 월 마감·재오픈 |
@@ -241,7 +287,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/cst/.../db/migration/cst/V8_0_0__cst_schema.sql` — rate_table(EXCLUDE)·employee_cost_rate·project_facility(→`fac.building`)·wbs_node·budget_revision(APPROVED 1개)·budget_line·accounting_period(char(6))·**cost_ledger_entry**(월 LIST 파티션, append-only 트리거 `CST-409-001`, 마감 월 INSERT 차단 `CST-409-002`, `UNIQUE NULLS NOT DISTINCT (source_type, source_id, period_ym, reversal_of)`, `reversal_of`)·manday_reconciliation·progress_record·evm_snapshot·voucher_sync·`mv_project_profitability` · `V8_0_1` CST 세부 권한 |
+| 스키마 | `modules/cst/.../db/migration/cst/V0026__cst_schema.sql` — rate_table(EXCLUDE)·employee_cost_rate·project_facility(→`fac.building`)·wbs_node·budget_revision(APPROVED 1개)·budget_line·accounting_period(char(6))·**cost_ledger_entry**(월 LIST 파티션, append-only 트리거 `CST-409-001`, 마감 월 INSERT 차단 `CST-409-002`, `UNIQUE NULLS NOT DISTINCT (source_type, source_id, period_ym, reversal_of)`, `reversal_of`)·manday_reconciliation·progress_record·evm_snapshot·voucher_sync·`mv_project_profitability` · `V0027` CST 세부 권한 |
 | 금액 | numeric 만(부동소수 컬럼 0개 검사), Java `BigDecimal`/`Money`(KRW scale 0·외화 scale 2, HALF_UP 1회 반올림) |
 | 인건비 전기 | `hrq.timesheet.confirmed` 가 **유일한 원천** — 라인마다 TIMESHEET 1행, 근무일 등급(`hrq::api HrqQueryApi.gradeOf`) × 근무일 표준단가 + 근무월 실단가(없으면 표준, `REAL_RATE_FALLBACK`) |
 | 정정 | `hrq.timesheet.corrected` → 직전 리비전 REVERSAL(음수, `reversal_of`) + 새 리비전 TIMESHEET, 한 트랜잭션, 업무 멱등키 `timesheetKey:newRevision`(core.processed_event), 귀속월 CLOSED 면 다음 OPEN 월, 원 행 미도착이면 `CST-409-003` 예외 → outbox 재시도(10·20·40·80초) |
@@ -257,7 +303,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/fcd/.../db/migration/fcd/V12_0_0__fcd_schema.sql` — card(HMAC 토큰 · 앞6 · 뒤4 · 마스킹 생성 컬럼, **PAN 컬럼 없음**) · card_assignment(기간 중복 금지 트리거) · employee_status(퇴사 읽기 모델) · merchant · import_profile · import_batch(SHA 부분 유일 인덱스 BR-FCD-004) · import_row_error · import_staging · **txn**(승인 · 매입 · 청구 상태, 자연키, removed_at) · txn_source(채널 · 종류 · 원문 해시 멱등, detached) · dedup_candidate · rule_set(YAML 원문 · sha256 · 4-eyes CHECK) · **risk_score**(append-only 트리거, 특징 스냅샷) · review_run · fcd_case · case_txn · case_event(append-only) · explanation · evidence · feedback · expense_report · expense_line / `V12_0_1` 세부 권한 54개 · 매핑 프로파일 4종(합성 양식) |
+| 스키마 | `modules/fcd/.../db/migration/fcd/V0033__fcd_schema.sql` — card(HMAC 토큰 · 앞6 · 뒤4 · 마스킹 생성 컬럼, **PAN 컬럼 없음**) · card_assignment(기간 중복 금지 트리거) · employee_status(퇴사 읽기 모델) · merchant · import_profile · import_batch(SHA 부분 유일 인덱스 BR-FCD-004) · import_row_error · import_staging · **txn**(승인 · 매입 · 청구 상태, 자연키, removed_at) · txn_source(채널 · 종류 · 원문 해시 멱등, detached) · dedup_candidate · rule_set(YAML 원문 · sha256 · 4-eyes CHECK) · **risk_score**(append-only 트리거, 특징 스냅샷) · review_run · fcd_case · case_txn · case_event(append-only) · explanation · evidence · feedback · expense_report · expense_line / `V0034` 세부 권한 54개 · 매핑 프로파일 4종(합성 양식) |
 | 수집 | `domain/ingest`: 매직넘버 형식 판별 → 인코딩(BOM → UTF-8 엄격 → CP949, 64KB 경계 보정) → 구분자 판별 → RFC4180 파서(따옴표 안 줄바꿈) / **XLSX 는 POI XSSF SAX 스트리밍**(표시형식 `0000…` 승인번호 선행 0 복원, 날짜 셀) · XLS(BIFF8, HSSF) · HTML-as-XLS → 헤더 30행 자동 탐지(2단 병합 헤더 결합) → 프로파일 Jaccard ≥ 0.8 자동 선택(아니면 NEEDS_MAPPING) → 행 검증(오류 리포트 BOM CSV) → 표준 레코드. 원문은 PAN 마스킹 후에만 저장 |
 | 중복 제거 | `DedupEngine`(순수): 원문 해시 → 승인번호(±1일 · 금액/환율 2%, 같은 분이면 NATURAL_KEY) → 퍼지 S=Σw·s/Σw(시간 .35 · 금액 .35 · 가맹점 Jaro-Winkler .20 · 승인번호 .10) ≥ 0.92 자동 · 0.75–0.92 확인 큐 · 같은 채널 · 종류 원천은 거래당 1개 / 취소 · 중복 취소 · 고아 취소(재매칭) / `TxnDerivation` 재도출(매입 원화 우선, 정밀도 · 채널 우선) — 미리보기(드라이런)와 커밋이 같은 코드, 커밋 시 재판정 · advisory lock |
 | 롤백 | BR-FCD-005: 영향 미리보기(DELETE_TXN · DETACH_SOURCE · KEEP_POSTED · KEEP_RESOLVED_CASE · DROP_ORPHAN) → 사유 필수 실행, 전표 반영 건 유지 → PARTIALLY_ROLLED_BACK, 감사 로그(해시 체인) · `fcd.import.rollback-completed` |
@@ -277,7 +323,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/eqp/.../db/migration/eqp/V4_0_0__eqp_schema.sql` — equipment_type · calibration_rule(btree_gist EXCLUDE) · code_sequence(채번 카운터) · equipment(유형+시리얼 UNIQUE, qr_secret, 삭제 금지 트리거) · equipment_status_history · calibration(append-only, next_due_on = valid_until) · calibration_override(최대 7일 CHECK) · **reservation(daterange + `no_double_booking` EXCLUDE, 활성 상태만)** · checkout(clientOpId UNIQUE, `ux_active_checkout` 부분 유니크) · fault · notification_log(멱등키) · drone_profile · flight_approval · flight_log = 14개. `V4_0_1` 유형 11종 · 규칙(**⚠️ 예시 값**) · 세부 권한 31건 |
+| 스키마 | `modules/eqp/.../db/migration/eqp/V0012__eqp_schema.sql` — equipment_type · calibration_rule(btree_gist EXCLUDE) · code_sequence(채번 카운터) · equipment(유형+시리얼 UNIQUE, qr_secret, 삭제 금지 트리거) · equipment_status_history · calibration(append-only, next_due_on = valid_until) · calibration_override(최대 7일 CHECK) · **reservation(daterange + `no_double_booking` EXCLUDE, 활성 상태만)** · checkout(clientOpId UNIQUE, `ux_active_checkout` 부분 유니크) · fault · notification_log(멱등키) · drone_profile · flight_approval · flight_log = 14개. `V0013` 유형 11종 · 규칙(**⚠️ 예시 값**) · 세부 권한 31건 |
 | 확장 | 내장 PG 에 **btree_gist 는 있음**(fac · hrq · cst 와 같이 EXCLUDE 사용) · PostGIS 없음 → 위치는 위경도 숫자, 비행 구역 · 경로는 jsonb 좌표 + Java `Geo.pointInPolygon` |
 | 판정 | `CalibrationValidityService`(= `eqp::api CalibrationValidityPort`) 단일 진입점 — 폐기 · 분실 · 고장 · 수리 → `EQP_NOT_USABLE`, 키트 자식 재귀(`EQP_KIT_CHILD_INVALID`), 교정 비대상, 측정일 포함 PASS/LIMITED 교정 + 이후 FAIL 검사, 프로젝트 한정 · 전역 QA Override, 그 외 `EQP_CAL_EXPIRED`. 예약(시작 · 종료일) · 반출(반출일 KST) 모두 이 판정만 사용 |
 | 상태 | `EquipmentStatus` 전이표(설계 A6.1 100조합 테스트) + `equipment_status_history`. 교정 PASS → AVAILABLE(경로 전이), FAIL → BROKEN, 스캔 만료 → CAL_DUE |
@@ -295,7 +341,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/sal/.../db/migration/sal/V9_0_0__sal_schema.sql` — bid_notice(ux (source,bid_no,bid_seq), tsvector) · bid_filter · bid_result · **collect_log**(BR-SAL-013) · opportunity(ux_opp_due · ux_opp_portal · ck_lost_reason · ck_opp_owner) · stage_history · activity · sales_group_member(SALES_LEAD) · **fee_rule_set · qual_criteria**(유효기간, ACTIVE 겹침 EXCLUDE) · qual_simulation · bid_decision · **estimate**(ux (estimate_no, version_no), ck_discount 0.5 미만) · estimate_line · **불변 트리거** `sal.estimate_immutable_guard()`(ISSUED 이후 · EXEC 승인 이후 금액 · 요율 · 스냅샷 · 라인 변경/삭제/TRUNCATE → `SAL-409-010`) · contract(ck_negotiated · ck_fx · ck_project_when_signed) · contract_change · payment_term · **performance_record**(cert_no UNIQUE, joint_share 0–100) = 18개 / `V9_0_1` 예시 규칙(2025.1 · 2026.1 · 적격심사 1종, ⚠️ 예시 · verified_by NULL) + 세부 권한 43건 |
+| 스키마 | `modules/sal/.../db/migration/sal/V0015__sal_schema.sql` — bid_notice(ux (source,bid_no,bid_seq), tsvector) · bid_filter · bid_result · **collect_log**(BR-SAL-013) · opportunity(ux_opp_due · ux_opp_portal · ck_lost_reason · ck_opp_owner) · stage_history · activity · sales_group_member(SALES_LEAD) · **fee_rule_set · qual_criteria**(유효기간, ACTIVE 겹침 EXCLUDE) · qual_simulation · bid_decision · **estimate**(ux (estimate_no, version_no), ck_discount 0.5 미만) · estimate_line · **불변 트리거** `sal.estimate_immutable_guard()`(ISSUED 이후 · EXEC 승인 이후 금액 · 요율 · 스냅샷 · 라인 변경/삭제/TRUNCATE → `SAL-409-010`) · contract(ck_negotiated · ck_fx · ck_project_when_signed) · contract_change · payment_term · **performance_record**(cert_no UNIQUE, joint_share 0–100) = 18개 / `V0016` 예시 규칙(2025.1 · 2026.1 · 적격심사 1종, ⚠️ 예시 · verified_by NULL) + 세부 권한 43건 |
 | 대가 엔진 | `FeeEngine`(순수 도메인, BigDecimal): 면적 구간 [from,to) 밖 → `SAL-422-005`(보간 금지) · 보정계수(화이트리스트 변수 한 단 조건, SpEL 없음) 곱 · 공종 override · 등급 인·일 HALF_UP 2자리 · 라인 절사(FLOOR_1/FLOOR_10/HALF_UP_1) · 제경비 · 기술료(규칙 min–max 밖 `SAL-422-002`) · 합계 절사(FLOOR_1000 등) · VAT. 기준일 ACTIVE 규칙만(`SAL-422-004`), 규칙 의미 검증(gradeMix 합 1 · 구간 연속). jsonb 키 순서 대신 공종 · 등급 표준 순서로 라인 고정 |
 | 골든 | `tools/sal_golden_gen.py` 가 **Python Decimal 독립 구현**으로 합성 사례 22건(`golden/estimates/G-01~22.json`, 규칙 4종) 생성 → `FeeEngineGoldenTest` 원 단위 · 라인 단위 일치. 시드 규칙 본문 = 픽스처 JSON(통합 시험 대조) |
 | 견적 | 기회당 견적번호 1개 · 버전 증가 · 이전 열린 버전 SUPERSEDED · 규칙/시설물/근거 스냅샷(BR-SAL-002) · 제안가 = 합계 × (1−할인) 천 원 절사. `:issue` 때 발행자 역할 + 그룹 한도(`atom.sal.discount-limits` SALES 0.05 · SALES_LEAD 0.10 · EXEC 0.49) 초과면 **PENDING_APPROVAL**(발송 `SAL-422-007`), `POST /estimates/{id}:approve-discount`(**EXEC 전용 `sal:discount:approve` · If-Match**) APPROVE → approved_by → `:issue` ISSUED · REJECT → DRAFT, EXEC 한도 초과 `SAL-422-006`. `:send`(기회 → NEGOTIATING) · `:accept`(→ WON) · `:reject` |
@@ -312,7 +358,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/rpt/.../db/migration/rpt/V6_0_0__rpt_schema.sql` — template · template_version · report · **report_revision**(A6 상태 · 본문 해시 · 발행 정보 · superseded_by) · **snapshot**(정규 JSON · SHA-256 · 고정 rule 버전, append-only) · validation_issue · **section · block**(블록 id = 앵커 기준, 잠금 블록) · **block_edit**(편집 이력, append-only) · grade_result(ck_override) · member_rating(근거 jsonb) · **rule_set · rule_item**(유효기간, DEPLOYED 겹침 금지 트리거) · drawing_sheet · render_job · **revision_anchor**(anchors.json) · **delivery_confirmation**(append-only) = 17개 / `V6_0_1` 공통 HWPX 템플릿 1종 + 세부 권한 / `V6_0_2` rule 시드(생성기 출력, ⚠️ 예시) |
+| 스키마 | `modules/rpt/.../db/migration/rpt/V0019__rpt_schema.sql` — template · template_version · report · **report_revision**(A6 상태 · 본문 해시 · 발행 정보 · superseded_by) · **snapshot**(정규 JSON · SHA-256 · 고정 rule 버전, append-only) · validation_issue · **section · block**(블록 id = 앵커 기준, 잠금 블록) · **block_edit**(편집 이력, append-only) · grade_result(ck_override) · member_rating(근거 jsonb) · **rule_set · rule_item**(유효기간, DEPLOYED 겹침 금지 트리거) · drawing_sheet · render_job · **revision_anchor**(anchors.json) · **delivery_confirmation**(append-only) = 17개 / `V0020` 공통 HWPX 템플릿 1종 + 세부 권한 / `V0021` rule 시드(생성기 출력, ⚠️ 예시) |
 | 불변 | `rpt.revision_guard()` — PUBLISHED · DELIVERED · SUPERSEDED 리비전의 해시 · 파일 키 · 스냅샷 · 발행 정보 변경, DELETE, TRUNCATE 거부(`RPT-409-010`). 허용 전이는 PUBLISHED → DELIVERED/SUPERSEDED · DELIVERED → SUPERSEDED 와 그 표시 컬럼만. `rpt.revision_child_guard()` — 발행 리비전의 섹션 · 블록 · 등급 · 부재평가 · 망도 · 렌더 · 앵커 · 검증 행 INSERT/UPDATE/DELETE 거부. 발행 파일은 `reports`(WORM) 버킷 |
 | 등급 엔진 | `GradeEngine`(순수 도메인, BigDecimal): 지표 crack_width_mm(최대폭) · spall_m2_per_member · rebar_exposure_ratio → 구간 등급 → 분포 보정(결함 부재 비율) → 부재 = 최악 지표 → 층(존재 부재 가중치 재정규화, 6자리) → 동(AVG / AVG_WORST_BLEND) → 시설물(연면적 가중, 3자리) → GRADE_BAND → 하한 규칙(주요부재 e → 최소 D). 근거(evidence: 지표 · 값 · 단위 · 등급 · 구간 상한 · 결함번호) 포함, 결과 정규 JSON SHA-256 |
 | rule table | `RuleTables`(구간 오름차순 · else 마지막 · 단위 필수 · 단조성 · 가중치 양수 검증), `RuleTableService`: 점검일 기준 DEPLOYED 버전을 종류별(COND_RATING · GRADE_WEIGHT · GRADE_BAND)로 찾아 스냅샷에 `BLD_RC@2026.1` 로 고정, compose 는 고정 버전으로 다시 읽음(BR-RPT-002). 시드 2025.1(2025-01-01~) · 2026.1(2026-01-01~) **⚠️ 예시**. `GET /api/v1/rpt/rule-sets?asOf=` |
@@ -333,7 +379,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/qar/.../db/migration/qar/V7_0_0__qar_schema.sql` — workflow_def · workflow_step_def · review(보고서당 1) · **review_round**(자체검토부터 존재, 제출 때 revision · rev_no · snapshot_ver · pdf_sha256 · content_hash · **rule_versions** 고정 CHECK, ai_status · ai_skip_reason · opened_by_cmd) · review_assignment(단계별 활성 1 부분 유니크) · reviewer_profile · checklist_template(유형별 유효기간 EXCLUDE) · checklist_item · checklist_response · **autocheck_rule_set**(DEPLOYED 유효기간 겹침 EXCLUDE) · autocheck_rule_def · autocheck_run · **autocheck_result** · **waiver** · **ai_review_job**(QUEUED/RUNNING/DONE/TIMEOUT/FAILED · deadline_at) · ai_finding(guard_passed · guard_reason) · review_comment · **comment_reply** = 18개. 가드 트리거: `qar.fn_waiver_only_warning`(WARNING 외 waiver → `QAR_WAIVER_NOT_ALLOWED`) · `qar.fn_append_only`(comment_reply · autocheck_result · autocheck_run UPDATE/DELETE/TRUNCATE → `QAR_APPEND_ONLY`). `V7_0_1` 워크플로우 2종 · 규칙 세트 2025.1/2026.1 × 15종 · 공통 체크리스트 10문항(**⚠️ 예시**) · 세부 권한 22건 |
+| 스키마 | `modules/qar/.../db/migration/qar/V0023__qar_schema.sql` — workflow_def · workflow_step_def · review(보고서당 1) · **review_round**(자체검토부터 존재, 제출 때 revision · rev_no · snapshot_ver · pdf_sha256 · content_hash · **rule_versions** 고정 CHECK, ai_status · ai_skip_reason · opened_by_cmd) · review_assignment(단계별 활성 1 부분 유니크) · reviewer_profile · checklist_template(유형별 유효기간 EXCLUDE) · checklist_item · checklist_response · **autocheck_rule_set**(DEPLOYED 유효기간 겹침 EXCLUDE) · autocheck_rule_def · autocheck_run · **autocheck_result** · **waiver** · **ai_review_job**(QUEUED/RUNNING/DONE/TIMEOUT/FAILED · deadline_at) · ai_finding(guard_passed · guard_reason) · review_comment · **comment_reply** = 18개. 가드 트리거: `qar.fn_waiver_only_warning`(WARNING 외 waiver → `QAR_WAIVER_NOT_ALLOWED`) · `qar.fn_append_only`(comment_reply · autocheck_result · autocheck_run UPDATE/DELETE/TRUNCATE → `QAR_APPEND_ONLY`). `V0024` 워크플로우 2종 · 규칙 세트 2025.1/2026.1 × 15종 · 공통 체크리스트 10문항(**⚠️ 예시**) · 세부 권한 22건 |
 | 워크플로우 | `TransitionTable`(순수 표, 7 상태 × 9 명령 중 허용 10건 — **AI_START**(SUBMITTED → AI_REVIEWING) · **REOPEN_FOR_CORRECTION**(APPROVED → SELF_CHECK, BR-QAR-010) 포함) + `WorkflowEngine`: 검토 행 `FOR UPDATE` → If-Match version(불일치 409 `QAR-409-004` QAR_VERSION) → 표에 없으면 409 `QAR-409-001` → **가드 전부 평가**(409 `QAR-409-002` + violations[code · message · refs]) → 효과 → audit_log + outbox(한 트랜잭션). 가드 13종(RPT IN_REVIEW · 최신 렌더 · AUTO-CHECK 최신/규칙 세트 · BLOCKING 0 · 체크리스트 SELF/QA · 미해결 CRITICAL/MAJOR 0 · QA 담당자 · 승인자 SoD · 자격(포트) · 제출 후 본문 불변 · 반려 요약(없으면 미해결 코멘트로 자동 생성) · 반려 후 본문 변경 · 정정본 존재). 제출 효과로 AI_START(AUTO) 연쇄, 재제출 시 새 라운드 + 미해결 코멘트 이월 + 4라운드 진입 `qar.review.escalated` |
 | SoD | `AssignmentService` — 작성자(검토 생성 · 제출자) · **섹션 편집 이력자(rpt::api `RptRevisionQuery.sectionEditors`, compose 실행자 포함)** · 다른 단계 담당자 제외. 자동 배정 점수(0.45 전문성 + 0.35 여유 + 0.10 연속성 + 0.10 지터(시드 = roundId)) · score_detail 저장, 수동 배정 SoD 위반 403 `QAR-403-001` + **별도 트랜잭션 감사 로그**(롤백돼도 남음). 승인 단계는 PM 만, QA 담당자 ≠ 승인자 |
 | AUTO-CHECK | `AutoCheckEngine`(가상 스레드 병렬 · 규칙별 10초 · 예외/미구현 → INFO RULE_ERROR) + 규칙 15종 `AutoCheckRules`: NUM-001(본문 수치 ↔ 물량표 · 스냅샷 — `NumberExtractor` 한국어 단위 · 층/부재/결함 문맥, 바인딩 문장 변조, 문맥 미확정은 INFO) · NUM-002(물량표 재집계 · 단위 열) · GRD-001/002/003 · PHO-001/002 · **EQP-001**(RPT 가 eqp::api 로 측정일 기준 재판정한 값) · HRQ-001 · SEC-001/002 · TXT-001(AI 미수락) · TXT-002(금지 표현 사전, 세트별) · DRW-001(망도 · 캡션 결함 수) · DATE-001. 다른 모듈 원천(HRQ 자격 · FLD 사진/재료시험 · FAC 이력)은 `QarEvidencePort`(기본 미연동 → INFO "수동 확인"). 실행은 기준일 유효 세트, 제출 때 `rule_versions` 고정(BR-QAR-007), 실행 묶음(autocheck_run · content_hash)과 결과 append-only, 체크리스트 자동 미리 채움("자동 PASS(사람 확인 권장)") |
@@ -349,7 +395,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/dem/.../db/migration/dem/V10_0_0__dem_schema.sql` — rule_param(효력일) · code_sequence · **project**(core.project 1:1, `building_id → fac.building`, A6.1 상태) · **work_package**(v0.3 `facility_id → fac.building`, supervisor_gap) · **supervisor_assignment**(`ex_chief_period` btree_gist EXCLUDE · hrq_check_snapshot) · HRQ 읽기 모델 hrq_credential_block · hrq_employee_block · supervisor_alert · **checklist_template · checklist_template_item**(append-only) · **daily_log**(LOCKED CHECK) · **sync_op**(clientOpId) · log_amendment(append-only) · checklist_result · **evidence_photo**(core.attachment, UNIQUE sha256) · checklist_photo · corrective_order · document · analysis_model_version · transmittal · **document_revision**(내부 rev_code + 발행 issued_rev, 현재 발행본 1개 부분 유니크) · transmittal_item · **review_comment**(미결 부분 인덱스) · review_reply(append-only) · submission · adjacent_survey · adjacent_defect · adjacent_comparison(append-only) = 28개. `V10_0_1` 규칙 8종 · 점검표 5공정 17항목(**⚠️ 예시**, approved_by NULL) · 세부 권한 |
+| 스키마 | `modules/dem/.../db/migration/dem/V0028__dem_schema.sql` — rule_param(효력일) · code_sequence · **project**(core.project 1:1, `building_id → fac.building`, A6.1 상태) · **work_package**(v0.3 `facility_id → fac.building`, supervisor_gap) · **supervisor_assignment**(`ex_chief_period` btree_gist EXCLUDE · hrq_check_snapshot) · HRQ 읽기 모델 hrq_credential_block · hrq_employee_block · supervisor_alert · **checklist_template · checklist_template_item**(append-only) · **daily_log**(LOCKED CHECK) · **sync_op**(clientOpId) · log_amendment(append-only) · checklist_result · **evidence_photo**(core.attachment, UNIQUE sha256) · checklist_photo · corrective_order · document · analysis_model_version · transmittal · **document_revision**(내부 rev_code + 발행 issued_rev, 현재 발행본 1개 부분 유니크) · transmittal_item · **review_comment**(미결 부분 인덱스) · review_reply(append-only) · submission · adjacent_survey · adjacent_defect · adjacent_comparison(append-only) = 28개. `V0029` 규칙 8종 · 점검표 5공정 17항목(**⚠️ 예시**, approved_by NULL) · 세부 권한 |
 | 불변 | `dem.forbid_update_when_immutable()` — document_revision 은 **ISSUED → SUPERSEDED 상태 변경만**(`to_jsonb(NEW) - 'status' = to_jsonb(OLD) - 'status'`), daily_log LOCKED · analysis_model_version frozen 은 UPDATE 금지 / `dem.forbid_delete_when_immutable()` 세 테이블 DELETE 금지 / TRUNCATE 금지 — 모두 `DEM_IMMUTABLE`(SQLSTATE 23001). ⚠️ 설계 B3 트리거 원문(한 IF 에 OLD.status · OLD.frozen 을 OR)은 PL/pgSQL 이 없는 필드를 해석해 **"record old has no field frozen" 오류**(WIP 리비전 UPDATE 도 실패) → 테이블별 분기로 수정(10 v0.4 역반영 완료) |
 | 프로젝트 | `POST /api/v1/dem/projects`(업무 패키지 · 대상 건축물), `:transition`(A6.1 표, If-Match 선택) — **IN_PROGRESS 는 감리 패키지마다 오늘 유효 책임감리자 + 공백 없음(BR-DEM-001, 409 DEM-409-005)**, `:complete-demolition` → COMPLETING + **`dem.demolition.completed`**(projectId · workPackageId · **buildingId** · completedOn · submissionId), `:close` → CLOSED + **`dem.project.closed`**, `/submissions`(유형별 차수 자동) |
 | 감리자 | `POST /work-packages/{id}/supervisors` — 자격: rule SUPERVISOR_QUALIFICATION_CODES ∩ **hrq::api `HrqQueryApi.credentialsOf`**(이번에 추가) 유효 자격, 단 **`hrq.credential.expired` 로 받은 자격은 HRQ 상태와 무관하게 무효**(422 DEM-422-002, reasons = CREDENTIAL_EXPIRED · NO_VALID_QUALIFICATION · EMPLOYEE_TERMINATED), 동시 감리 한도(직원 advisory lock, 422 DEM-422-003), EXCLUDE 23P01 → 409 DEM-409-003, `:release`. 구독 `hrq.credential.expired`(차단 + 다른 유효 자격이 없으면 감리 패키지 공백 · 경고 · `dem.supervisor-gap.detected`) · `hrq.employee.terminated`(차단 + 지정 해제 valid_to = 퇴사일 · `dem.supervisor.released` · 공백) — `core.processed_event` 멱등 |
@@ -366,7 +412,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/ptl/.../db/migration/ptl/V13_0_0__ptl_schema.sql` — published_report(공개 프로젝션, UNIQUE (customer_id, revision_id), PUBLISHED · SUPERSEDED · REVOKED) · **report_download**(워터마크 1건 = 1행, append-only) · service_request(A6.3 상태, 긴급 = sla_due_at + 사유 CHECK) · notification(UNIQUE (customer_id, dedupe_key)) · sales_document(견적 · 서명 요청) · **access_log**(VIEW · DOWNLOAD · DENIED, append-only) = 6개. 모든 테이블 `customer_id NOT NULL → core.client` |
+| 스키마 | `modules/ptl/.../db/migration/ptl/V0030__ptl_schema.sql` — published_report(공개 프로젝션, UNIQUE (customer_id, revision_id), PUBLISHED · SUPERSEDED · REVOKED) · **report_download**(워터마크 1건 = 1행, append-only) · service_request(A6.3 상태, 긴급 = sla_due_at + 사유 CHECK) · notification(UNIQUE (customer_id, dedupe_key)) · sales_document(견적 · 서명 요청) · **access_log**(VIEW · DOWNLOAD · DENIED, append-only) = 6개. 모든 테이블 `customer_id NOT NULL → core.client` |
 | 고객 격리 | **RLS ENABLE + FORCE** 정책 `customer_isolation`(USING · WITH CHECK `customer_id = nullif(current_setting('app.customer_id', true), '')::uuid`) + DB 역할 **`ptl_customer`**(NOLOGIN · NOBYPASSRLS · ptl 스키마 SELECT/INSERT/일부 UPDATE만, DELETE · 내부 스키마 없음). `PortalRls.asCustomer(cid, …)` 가 트랜잭션 안에서 `set_config(…, true)` + `SET LOCAL ROLE ptl_customer` → 쿼리 → `RESET ROLE`(같은 이벤트 트랜잭션의 다른 모듈 리스너로 새지 않게), 트랜잭션 · 컨텍스트 없으면 fail-closed. 세션 계정이 슈퍼유저(내장 PG)여도 RLS 가 실제로 적용된다. 이벤트 처리(시스템 작업)도 대상 고객사 컨텍스트로만 쓴다(BYPASSRLS 계정 없음) |
 | 호출자 | `PortalAccess.require()` — CUSTOMER 역할 + PORTAL realm + **cid 클레임**(core.client.id)만, 내부 역할(ptl:share 권한 보유 SALES · PM · ADMIN · EXEC 포함) · cid 없는 토큰 → 403 `PTL-403-001`. 운영 보안 체인은 이미 `/api/v1/ptl/**` = CUSTOMER(Keycloak `atom-portal` realm, deploy/keycloak) |
 | API | `/api/v1/ptl` `GET /me` · `/buildings` · `/buildings/{id}` · `/buildings/{id}/grades` · `/buildings/{id}/inspection-schedule` · `/inspection-schedule`(D-day · 심각도 B7.2 OVERDUE/RED/YELLOW/GREEN) · `/reports` · `/reports/{id}`(SUPERSEDED 배너) · **`POST /reports/{id}:download`** · `/downloads` · `POST·GET /service-requests` · `/service-requests/{id}` · `/notifications?unread=` · `POST /notifications/{id}:read` · `/sales-documents`. 다른 고객사 자원은 **404 `PTL-404-001`(존재 은닉) + access_log DENIED(별도 트랜잭션) + 보안 로그 `PTL_CROSS_TENANT_ATTEMPT`** |
@@ -382,7 +428,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/aip/.../db/migration/aip/V11_0_0__aip_schema.sql` — model_version(A6.3 단계 · QA/EXEC 승인자) · prompt_version · **deployment**(production · canary · shadow 별칭, btree_gist **EXCLUDE** 기간 겹침 금지) · **job**(A6.1 7상태 · mode ASYNC/SYNC · 우선순위 1–4 · `idempotency_key` UNIQUE · input_sha256 · vram_budget_mb · attempts/max_attempts · not_before · **deadline_at** · lease_until · cancel_requested · `pg_notify('aip_job_progress')` 트리거) · job_event(append-only) · **suggestion**(BR-AIP-002 CHECK: 스케일 NONE 이면 폭 금지) · **project_consent**(고객 학습 동의) · **input_privacy**(블러 완료) · **feedback**(training_eligible 2단계 트리거) · label_task · adjudication · dataset_version · dataset_item · **inference_audit**(월 파티션 **PK (job_id, created_at)**, aip.job FK 없음 · append-only · TRUNCATE 금지) · audit_gap_alert = 16개 + `aip.ensure_audit_partition()`(현재월 + 3개월 선생성) / `V11_0_1` 레지스트리 시드(crack LoRA · gemma-4-12b-it · crack-measure, ⚠️ 예시 · 가중치 해시 미측정) · 프롬프트 4종 · 세부 권한 |
+| 스키마 | `modules/aip/.../db/migration/aip/V0031__aip_schema.sql` — model_version(A6.3 단계 · QA/EXEC 승인자) · prompt_version · **deployment**(production · canary · shadow 별칭, btree_gist **EXCLUDE** 기간 겹침 금지) · **job**(A6.1 7상태 · mode ASYNC/SYNC · 우선순위 1–4 · `idempotency_key` UNIQUE · input_sha256 · vram_budget_mb · attempts/max_attempts · not_before · **deadline_at** · lease_until · cancel_requested · `pg_notify('aip_job_progress')` 트리거) · job_event(append-only) · **suggestion**(BR-AIP-002 CHECK: 스케일 NONE 이면 폭 금지) · **project_consent**(고객 학습 동의) · **input_privacy**(블러 완료) · **feedback**(training_eligible 2단계 트리거) · label_task · adjudication · dataset_version · dataset_item · **inference_audit**(월 파티션 **PK (job_id, created_at)**, aip.job FK 없음 · append-only · TRUNCATE 금지) · audit_gap_alert = 16개 + `aip.ensure_audit_partition()`(현재월 + 3개월 선생성) / `V0032` 레지스트리 시드(crack LoRA · gemma-4-12b-it · crack-measure, ⚠️ 예시 · 가중치 해시 미측정) · 프롬프트 4종 · 세부 권한 |
 | Job 큐 | `JobService` — 생성(멱등 키 · 입력 정규화 해시 = 정렬된 첨부 sha256 + 정규 params, 이미지 본문은 해시로 대체) · 설계 B7.4 **SKIP LOCKED 디큐**(우선순위 + 에이징식, 마감 지난 Job 제외) · 완료는 `status='RUNNING' AND worker_id=나` **조건부 UPDATE**(lease 잃은 늦은 결과 버림) · 실패 → FAILED → QUEUED(2^n초 백오프) / 소진 → DEAD · **리퍼**(lease 만료 · PREEMPTED 복귀 · 마감 초과 DEAD `DEADLINE_EXCEEDED`) · 취소(QUEUED 즉시 · RUNNING 협조적) · 모든 전이 job_event + outbox. `AsyncJobProcessor` = 디큐(트랜잭션) → 워커 호출(트랜잭션 밖) → 완료/실패(트랜잭션), 비-vLLM VRAM 예산 4.5GB. `AipScheduler`(큐 · 리퍼 15초 · 파티션 · 누락 탐지 5분 · 30일 제안 만료) |
 | 동기 API | **aip::api `AipJobApi.runSync`**(설계 v0.3 B6: RPT 초안 · QAR 검토는 동기 호출) — mode SYNC Job · 감사 · `aip.inference.completed`, 같은 멱등 키 재호출은 성공 결과 재사용, 워커 미설정 → `AipDisabledException("DISABLED…")`, 장애 · 마감 초과 → UNAVAILABLE · TIMEOUT(Job FAILED). **QAR**: `AtomAiCorePort` 기본 구현을 `AipAtomAiCoreAdapter`(REPORT_REVIEW, 멱등 키 = 라운드)로 교체(기존 비활성 스텁 삭제, `atom.qar.ai.base-url` 이 있으면 예전 직접 vLLM 경로 유지). **RPT**: `POST /api/v1/rpt/revisions/{id}/ai-draft` — 스냅샷 결함 집계(유형별 수 · 최대 균열폭 · 면적)를 facts 로 REPORT_DRAFT 호출, **제안만 반환**(본문 미반영), 워커 없음 503 `RPT-503-002` |
 | 레지스트리 · 라우팅 | `ModelRegistryService` — 서비스별 활성 배포 해석, **murmur3_32 버킷**(같은 사진 = 같은 경로) < canary 비율이면 canary, shadow 는 비교용 표시. 승격 `POST /models/{id}/promote` = A6.3 표 + **SHADOW 진입 QA 승인 · PRODUCTION 진입 EXEC 승인**(`/approval`), 별칭 전환 시 이전 배포 종료 · 이전 production 모델 ARCHIVED · `aip.model.promoted` |
@@ -401,7 +447,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 | 항목 | 구현 |
 |---|---|
-| 스키마 | `modules/fld/.../db/migration/fld/V5_0_0__fld_schema.sql` — survey_round(완료 1회 기준 completed_at) · zone_assignment(잠금 CHECK) · zone_lock_audit(append-only, 해제 사유 5자) · code_counter(CRK-0001 채번) · **defect_event**(bigserial seq = change feed 커서, op_id UNIQUE = clientOpId, HLC 형식 CHECK, after_lock, **UPDATE · DELETE · TRUNCATE 트리거 예외**) · **defect_current**(프로젝션: attrs · measure_meta · field_hlc(필드별 lastModified) · version_vector(기기별 최대 HLC) · version(엔티티 버전) · photos · voice_memos · ai_pending) · measurement(append-only, 장비 방법 = equipment_id 필수 CHECK, 무효 교정 = 잠정 CHECK) · photo(기기 해시 UNIQUE, VERIFIED = core 첨부 · 서버 해시 = 기기 해시 · 체인 해시 CHECK, 검증 후 불변 · 삭제 금지 트리거) · upload_session/upload_chunk · voice_memo · ai_suggestion(discrepancy_at 1회) · **sync_batch · sync_op(op 별 최초 판정 = 재전송 응답 원천) · sync_conflict** · device_cursor = 18개 · `V5_0_1` 세부 권한 |
+| 스키마 | `modules/fld/.../db/migration/fld/V0017__fld_schema.sql` — survey_round(완료 1회 기준 completed_at) · zone_assignment(잠금 CHECK) · zone_lock_audit(append-only, 해제 사유 5자) · code_counter(CRK-0001 채번) · **defect_event**(bigserial seq = change feed 커서, op_id UNIQUE = clientOpId, HLC 형식 CHECK, after_lock, **UPDATE · DELETE · TRUNCATE 트리거 예외**) · **defect_current**(프로젝션: attrs · measure_meta · field_hlc(필드별 lastModified) · version_vector(기기별 최대 HLC) · version(엔티티 버전) · photos · voice_memos · ai_pending) · measurement(append-only, 장비 방법 = equipment_id 필수 CHECK, 무효 교정 = 잠정 CHECK) · photo(기기 해시 UNIQUE, VERIFIED = core 첨부 · 서버 해시 = 기기 해시 · 체인 해시 CHECK, 검증 후 불변 · 삭제 금지 트리거) · upload_session/upload_chunk · voice_memo · ai_suggestion(discrepancy_at 1회) · **sync_batch · sync_op(op 별 최초 판정 = 재전송 응답 원천) · sync_conflict** · device_cursor = 18개 · `V0018` 세부 권한 |
 | 리듀서 · 프로젝션 | `DefectState`(순수, I/O 없음) — 스칼라 · 기하 · 유형 · 위치 · 측정값 **필드별 LWW(HLC 문자열 비교)**, 잠정 측정(`_server.provisional`) 미반영, 사진 사진별 LWW, 음성 집합, AI 제안 = 첨부 − 결정, 삭제 remove-wins, 검수 LWW → 상태 A6.1(REMOVED > VERIFIED > 필수값 ? (미결 AI ? AI_SUGGESTED : RECORDED) : DRAFT). push 와 같은 트랜잭션에서 upsert, `POST /rounds/{id}/projection:rebuild`(SYSADMIN) 재구축 · `GET /defects/{id}/history?asOf=` 시점 재현 |
 | push | `POST /api/v1/fld/sync/push` — 회차 advisory lock 으로 직렬화한 한 트랜잭션, op 별 판정 **ACCEPTED · DUPLICATE(같은 seq) · CONFLICT · REJECTED**(op 단위 거부는 이벤트 저장 없이 배치 계속). 서버 판정은 이벤트 payload `_server`(번호 · 잠정 · measurementId)에 넣어 재구축이 결정적. 거부 사유: UNKNOWN_EVENT_TYPE(시스템 이벤트 포함) · INVALID_HLC · UNKNOWN_DEFECT · DEFECT_EXISTS · UNKNOWN_ZONE · **ZONE_LOCKED · LOCK_REASON_REQUIRED**(BR-FLD-009, PM + 사유 → after_lock) · NOT_ASSIGNED(ENG = 배정 구역 · 본인 작성) · UNKNOWN/DELETED_LOCATION_NODE(**fac::api `FacQueryApi.locationNode`** — 회차 건물의 살아 있는 노드) · INVALID_GEOMETRY(정규화 0~1) · EQUIPMENT_REQUIRED · UNKNOWN_EQUIPMENT · REMOVE_NOT_ALLOWED(ENG 본인 24h) 등. 500건 상한, 시계 드리프트 5분 초과 `CLOCK_DRIFT` 경고 |
 | 충돌(B7.2) | 측정값 = **MANUAL**(clientLastPulledSeq 또는 op.baseSeq 이후 **다른 기기**가 같은 항목을 다른 값으로 확정 → sync_conflict, 이벤트 미저장 · 원 op 는 local_payload 보존), 기하 = **GEOM_5MIN**, 삭제 뒤 측정 = **REMOVE_WINS**, 그 외 LWW 자동 수렴. 해결 `POST /sync/conflicts/{id}/resolve` — **KEEP_SERVER**(이벤트 없음) · **KEEP_CLIENT**(원 op 를 새 opId 로) · **MERGE**(원 payload 위 merged 필드 덮어쓰기), 해결 HLC 는 서버가 서버 값보다 늦게 보정, 측정이면 장비 재검증, 같은 opId 재요청 멱등, ENG 는 본인 충돌만 |
@@ -411,15 +457,17 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 | 구역 잠금 | `POST /zones/{id}/lock`(PM) — 사유를 한 번에: REQUIRED_MISSING(DRAFT) · OPEN_CONFLICT · AI_SUGGESTION_PENDING · PHOTO_REJECTED → 422 FLD-422-002 + issues(TC-FLD-011), 통과 시 결함별 서버 이벤트 DefectVerified · `fld.zone.locked`, **모든 구역 잠금 → 회차 COMPLETED · `fld.survey.completed` 1회**(completed_at NULL 일 때만 — 해제 · 재잠금에도 다시 안 냄). `/unlock`(사유) → DefectUnverified · 감사 |
 | AI · 음성 | `POST /photos/{id}/ai:analyze` → **aip::api `AipJobApi`**(CRACK_MEASURE, components[].widthMaxMm), 워커 꺼짐 = DISABLED. `POST /internal/ai-suggestions`(ADMIN · SYSADMIN = 내부 콜백) → 제안 + 서버 이벤트(값은 attrs 에 넣지 않음, BR-FLD-004). 사람 확정 폭과 **2배 이상** → `fld.ai-suggestion.discrepancy` 제안당 1회. 결정은 앱 op `AiSuggestionDecided` → `fld.ai-suggestion.decided`. 음성 메모 op(원본 = core 첨부, 재해시 일치 확인) → voice_memo |
 | 이벤트 | 발행 `fld.defect.recorded`(RECORDED 최초 · 위치 변경, FAC `node_defect_ref` 가 그대로 소비) · `fld.defect.changed`(push 배치 1건) · `fld.photo.verified` · `fld.zone.locked` · `fld.survey.completed` · `fld.ai-suggestion.discrepancy` · `fld.ai-suggestion.decided` |
-| 소비 모듈 연결 | **RPT**: `POST /reports/{id}/snapshots` 에 `fldRoundId` → 결함을 **fld::api `FldSurveyQuery.export`** 에서 읽음(확정 측정 · 균열폭 장비/측정일 · FAC 층 · 부재 매핑, RPT 표에 없는 유형은 제외 후 워터마크), source_watermarks = {fld::api, roundId, asOfSeq}. `fld.survey.completed` → `rpt.field_survey_completion`(V6_0_3). **CST**: `fld.survey.completed` → milestone_event 가 같은 WBS 에 진척 100%(EVENT). **QAR**: `QarEvidencePort` 기본 구현을 `FldEvidenceAdapter` 로 교체 — **AC-PHO-001 · 002 가 FLD 검증 사진으로 실제 판정**(회차 없으면 기존처럼 INFO), `fld.ai-suggestion.discrepancy` → `qar.fld_ai_discrepancy`(V7_0_2) |
+| 소비 모듈 연결 | **RPT**: `POST /reports/{id}/snapshots` 에 `fldRoundId` → 결함을 **fld::api `FldSurveyQuery.export`** 에서 읽음(확정 측정 · 균열폭 장비/측정일 · FAC 층 · 부재 매핑, RPT 표에 없는 유형은 제외 후 워터마크), source_watermarks = {fld::api, roundId, asOfSeq}. `fld.survey.completed` → `rpt.field_survey_completion`(V0022). **CST**: `fld.survey.completed` → milestone_event 가 같은 WBS 에 진척 100%(EVENT). **QAR**: `QarEvidencePort` 기본 구현을 `FldEvidenceAdapter` 로 교체 — **AC-PHO-001 · 002 가 FLD 검증 사진으로 실제 판정**(회차 없으면 기존처럼 INFO), `fld.ai-suggestion.discrepancy` → `qar.fld_ai_discrepancy`(V0025) |
 | 모듈 경계 | `allowedDependencies = core::api, fac::api, eqp::api, aip::api`, RPT · QAR 에 `fld::api` 추가, ArchUnit(fld → 다른 모듈 내부 0건, fld 내부 참조 0건, fld::api 소비자는 RPT · QAR 만 · FAC · CST 는 이벤트 계약만) |
 | TC | **TC-FLD-002**(3회 재전송 DUPLICATE · 배치 안 중복) · **003**(두 기기 폭 0.25/0.30 → CONFLICT · 재전송 같은 충돌 · 잠금 차단 · KEEP_CLIENT/MERGE/KEEP_SERVER) · **004**(메모/방향 자동 병합 · 같은 필드 LWW 도착 순서 무관) · **005**(60% 끊김 → 재시작 같은 세션 → HEAD 재개, 전송 합 = 파일 크기, 옛 offset 409, 체크섬 422) · **006**(1바이트 변조 → REJECTED · reuploadRequests → 재업로드 VERIFIED · WORM 변조 MISMATCH) · **011**(422 + 목록) · **013**(재구축 해시 동일 + 리듀서 무작위 순서 1,000가지 수렴) · **014**(교정 만료 → 잠정 · DRAFT · 추적 0) · **015**(+10분 드리프트 경고) + 불변 트리거 · 이벤트 계약(`FldContractTest`) · RPT 스냅샷 · CST 진척 · QAR 원천 · FAC 읽기 모델 실제 흐름 |
 
 ## 5. 설계와 다른 점 (의도적 편차)
 
+> 아래 메모의 `V2_0_0` · `V8_0_1` 같은 번호는 2026-10-19 재번호 이전 번호입니다. 새 번호는 2-1 절 표를 보세요.
+
 1. **Redis 대신 DB 잠금**: 멱등 키 "처리 중" 잠금을 Redis `SET NX 30s` 대신 `idempotency_key` 행(response_code NULL)으로 구현. 30초 지난 잠금은 다음 요청이 이어받음. Redis 어댑터는 Step 2 로컬 스택 후 추가.
 2. **PostGIS·pg_trgm·btree_gist 분리**: 내장 PostgreSQL 에 확장이 없어 `client.geom`, `attachment.captured_geom`, 트라이그램 인덱스, `rule_set`(EXCLUDE) 을 `db/migration-ext`(프로필 `postgis`)로 분리.
-3. **마이그레이션 1개 파일**: 설계의 V1_0_0~V1_0_6 대신 `V1__core.sql` 하나(요청 사양). 다음부터 `V1_1`, `V1_2` … 로 증분.
+3. **마이그레이션 1개 파일**: 설계의 V1_0_0~V1_0_6 대신 `V0001__core_schema.sql` 하나(요청 사양). 이후 증분 규칙은 2-1 절(전역 단조 번호).
 4. **`audit_log.module`, `attachment.owner_module` 을 varchar(4)** 로 확장('CORE' 수용).
 5. **audit_log 해시 체인 컬럼 추가**(`prev_hash`, `row_hash`) — 설계 7.2 에는 없음(ATOM-LIB-001 C2 반영). 기본 파티션(`audit_log_default`)도 안전망으로 추가.
 6. **Relay 리더 선출(ShedLock) 미구현**: `SKIP LOCKED` 로 다중 인스턴스도 안전하지만 중복 폴링 비용이 있음 → Step 15.
@@ -453,7 +501,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 
 27. **AIP**: 마이그레이션 `V11_001`~`V11_007` 대신 `V11_0_0`·`V11_0_1`. **pgvector · pg_bigm · pg_partman 이 내장 PG 에 없어** kb_document · kb_chunk 를 만들지 않고(워커의 합성 지식베이스 + kiwipiepy 키워드 검색 KEYWORD_ONLY 로 대체, 벡터 · RRF · reranker 는 후속), 감사 월 파티션은 `aip.ensure_audit_partition()` + 스케줄러로 선생성(36개월 DETACH 후속). **큐 처리 주체**: 설계는 Python 워커가 aip.job 을 직접 SKIP LOCKED 디큐하지만, 이번 단계는 DB 를 공유하지 않으므로 **ERP 가 디큐하고 워커를 HTTP 로 호출**(디큐 SQL · lease · 리퍼 · 조건부 완료는 설계 그대로 Java 에 구현). 워커 엔드포인트도 설계 B4.4(`/internal/v1/jobs` 등록)와 달리 **서비스별 동기 엔드포인트**(score · findings · measure · kb/search · report/draft · report/review). `result_ref` 는 MinIO 경로 대신 **결과 JSON 을 그대로 저장**(이벤트 resultRef = `db:aip.job/{id}#result_ref`), 비동기 이미지 입력은 MinIO 입력 로더가 없어 **params.imageB64 로 받아 job.params 에 임시 보관**(감사 · 해시 · 이벤트에는 해시만). job 에 `mode`(ASYNC/SYNC) · `requester_module` · `max_attempts` · `deadline_at` · `cancel_requested`, suggestion 에 `project_id` · `flags`, feedback 에 `label_queued` · `committed_dataset_id`, adjudication 에 `approved`, 동의 · 블러 플래그 테이블 2개, `audit_gap_alert` 추가. A6.1 에 **QUEUED → DEAD(마감 초과)** · **RUNNING → CANCELLED(협조적 취소)** 전이 추가. 설계의 디큐 정렬은 `priority ASC` 가 먼저라 에이징 식이 같은 우선순위 안에서만 작동함(설계 그대로 두고 기록). 균열 측정은 분할 모델(ONNX) 대신 **합성 이미지용 임계값 분할**(운영은 maskB64 로 seg 마스크 전달), 호모그래피 정면화 측정(TC-AIP-004) · 타일 스티칭(TC-AIP-007)은 후속. Java 측정 도메인은 세선화를 하지 않고 **워커가 보낸 중심선**을 받는다(skimage 와 비트 단위로 같은 세선화를 Java 로 다시 만들지 않기 위해 — 프루닝 · 길이 · EDT · 반올림은 Java 독립 구현으로 골든 일치). 프루닝의 끝점 · 갈림점은 **교차수**(0→1 전이 수)로 판정(이웃 수로는 계단형 대각선에서 가짜 갈림점이 생김). 균열 점수 기본 라벨은 서빙 LoRA 가 학습된 프롬프트와 같은 **crack/normal**(yes/no 는 `labels` 로 선택). 권한: 8.2 매트릭스 리소스(inference-job · label-task · model · audit-log) 밖의 세부 권한 suggestion · adjudication(Senior Labeler 역할이 없어 QA · SYSADMIN) · dataset · consent · promotion · job 추가, QA 의 Job 생성(설계 A2 C)은 매트릭스 셀(R)과 충돌해 미부여. SSE 대신 JSON 이벤트 목록, Resilience4j · mTLS 대신 요청별 타임아웃 · 사내 주소만 허용(BR-AIP-011). `aip.model.rolled-back` 은 이벤트 이름 규칙(구동사 back 미허용) 때문에 롤백 API 와 함께 후속.
 
-28. **FLD**: 마이그레이션 `V5_001`~`V5_014` 14개 대신 `V5_0_0`·`V5_0_1`(+ EQP `V4_0_2` 측정 추적, RPT `V6_0_3`, QAR `V7_0_2`) — 이미 V13 까지 적용된 DB 에서는 out-of-order 가 필요(새 DB 기준). **PostGIS 가 없어** defect_current.geom_sheet(geometry) · GIST 공간 질의를 빼고 정규화 좌표(jsonb)만. 이벤트 저장소 불변은 설계의 `RULE DO INSTEAD NOTHING`(조용히 0건) 대신 **예외 트리거**(05-IMPL Step 2 함정 반영), DB 권한 분리(erp_app GRANT)는 운영 계정 분리 후. **tusd · MinIO post-finish 훅 대신 ERP 엔드포인트가 tus 1.0 core 의미를 직접 구현**(청크는 temp-upload 객체, 완료 시 core 첨부 파이프라인), 원본 보관 · 해시 체인은 설계의 fld.evidence_link 대신 **core.attachment 체인(chain_scope = 회차)** 재사용 — TSA 일일 앵커 · 입회자 서명 · 독립 검증기(Step 15)는 후속. 측정값 서버 재검증 실패는 TC-FLD-014 대로 **잠정 저장 + 확정 차단**(이벤트는 남기되 attrs · 보고서 미반영, 응답 blockedReason)이며 알림 채널은 미연동. 충돌 해결 결과는 op 로 다시 push 하는 대신 해결 API 가 서버에서 새 이벤트를 만든다(앱은 응답 · pull 로 반영). 결함 계보 · 이전 회차 매칭(Hungarian) · 승계 상태 · 재료시험 DSL · 패키지 manifest · 중복 결함 병합(DefectMerged)은 이번 범위 밖이라 잠금 검증에서 "미확인 이전 결함" 항목을 빼고 대신 미결 AI 제안 · 거부 사진을 넣었다. 이벤트 이름 `fld.ai-suggestion.discrepancy` 는 과거형이 아니어서 이름 규칙(EventNames)에 설계 정식명으로 등록. `fld.defect.changed` 는 시트 단위 30초 디바운스 대신 push 배치 1건. RPT 스냅샷은 결함만 fld::api 에서 읽고 동 · 부재 그룹(부재 수)은 FAC/HRQ 공개 API 전까지 요청 본문, 도면 좌표(polyline)는 FAC 시트 크기 포트가 없어 비움(망도 WARNING). AI 제안 첨부 콜백은 mTLS 서비스 계정 대신 ADMIN · SYSADMIN 권한.
+28. **FLD**: 마이그레이션 `V5_001`~`V5_014` 14개 대신 `V5_0_0`·`V5_0_1`(+ EQP `V4_0_2` 측정 추적, RPT `V6_0_3`, QAR `V7_0_2`) — 이미 V13 까지 적용된 DB 에서는 out-of-order 가 필요했던 문제는 2026-10-19 전역 재번호(2-1 절)로 해소. **PostGIS 가 없어** defect_current.geom_sheet(geometry) · GIST 공간 질의를 빼고 정규화 좌표(jsonb)만. 이벤트 저장소 불변은 설계의 `RULE DO INSTEAD NOTHING`(조용히 0건) 대신 **예외 트리거**(05-IMPL Step 2 함정 반영), DB 권한 분리(erp_app GRANT)는 운영 계정 분리 후. **tusd · MinIO post-finish 훅 대신 ERP 엔드포인트가 tus 1.0 core 의미를 직접 구현**(청크는 temp-upload 객체, 완료 시 core 첨부 파이프라인), 원본 보관 · 해시 체인은 설계의 fld.evidence_link 대신 **core.attachment 체인(chain_scope = 회차)** 재사용 — TSA 일일 앵커 · 입회자 서명 · 독립 검증기(Step 15)는 후속. 측정값 서버 재검증 실패는 TC-FLD-014 대로 **잠정 저장 + 확정 차단**(이벤트는 남기되 attrs · 보고서 미반영, 응답 blockedReason)이며 알림 채널은 미연동. 충돌 해결 결과는 op 로 다시 push 하는 대신 해결 API 가 서버에서 새 이벤트를 만든다(앱은 응답 · pull 로 반영). 결함 계보 · 이전 회차 매칭(Hungarian) · 승계 상태 · 재료시험 DSL · 패키지 manifest · 중복 결함 병합(DefectMerged)은 이번 범위 밖이라 잠금 검증에서 "미확인 이전 결함" 항목을 빼고 대신 미결 AI 제안 · 거부 사진을 넣었다. 이벤트 이름 `fld.ai-suggestion.discrepancy` 는 과거형이 아니어서 이름 규칙(EventNames)에 설계 정식명으로 등록. `fld.defect.changed` 는 시트 단위 30초 디바운스 대신 push 배치 1건. RPT 스냅샷은 결함만 fld::api 에서 읽고 동 · 부재 그룹(부재 수)은 FAC/HRQ 공개 API 전까지 요청 본문, 도면 좌표(polyline)는 FAC 시트 크기 포트가 없어 비움(망도 WARNING). AI 제안 첨부 콜백은 mTLS 서비스 계정 대신 ADMIN · SYSADMIN 권한.
 
 ## 6. 다음 단계
 

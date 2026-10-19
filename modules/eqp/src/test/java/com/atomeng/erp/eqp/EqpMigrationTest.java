@@ -73,7 +73,7 @@ class EqpMigrationTest {
     void schemaAndSeeds() throws Exception {
         try (var c = conn(); var st = c.createStatement()) {
             assertThat(scalar(st, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'eqp'"))
-                    .isEqualTo(15L);   // 14 + V4_0_2 measurement_trace(Step 9)
+                    .isEqualTo(15L);   // 14 + V0014 measurement_trace(Step 9)
             assertThat(scalar(st, "SELECT count(*) FROM eqp.equipment_type")).isEqualTo(11L);
             assertThat(scalar(st, "SELECT count(*) FROM eqp.calibration_rule")).isEqualTo(11L);
             assertThat(scalar(st, "SELECT pre_use_check->'anvil'->>'target' FROM eqp.calibration_rule r JOIN "

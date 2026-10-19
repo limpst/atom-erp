@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /api/v1/fld (설계 05 B4). 권한: 8.2 표 fld:defect 셀(push = update, pull · 조회 = read) + 세부 권한(V5_0_1).
+ * /api/v1/fld (설계 05 B4). 권한: 8.2 표 fld:defect 셀(push = update, pull · 조회 = read) + 세부 권한(V0018).
  * 프로젝트 범위(◐)는 서비스가 회차 → 프로젝트로 확인한다(FldAccess). 이어 올리기는 tus 1.0 core 헤더
  * (Upload-Offset · Upload-Length · Tus-Resumable)를 쓴다.
  */

@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * /api/v1/dem (설계 10 B4). POST 는 공통 Idempotency-Key 필터(현장 앱 X-Client-Id=field-app 이면 필수), 감리일지는
  * 오프라인 동기화 멱등 키 clientOpId(본문) + 선택 If-Match. 감리일지 작성은 8.2 표 셀 권한 dem:supervision-log:*,
- * 그 외는 DEM 세부 권한(V10_0_1).
+ * 그 외는 DEM 세부 권한(V0029).
  */
 @RestController
 @RequestMapping("/api/v1/dem")

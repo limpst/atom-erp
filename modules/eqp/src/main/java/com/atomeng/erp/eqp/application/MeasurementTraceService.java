@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** {@link MeasurementTracePort} 구현 — eqp.measurement_trace INSERT ONLY (V4_0_2) */
+/** {@link MeasurementTracePort} 구현 — eqp.measurement_trace INSERT ONLY (V0014) */
 @Service
 public class MeasurementTraceService implements MeasurementTracePort {
 

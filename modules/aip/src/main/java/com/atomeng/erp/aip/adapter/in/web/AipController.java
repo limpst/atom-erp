@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /api/v1/aip (설계 11 B4.1). 권한: 8.2 표 aip:inference-job · model · audit-log + 세부 권한(V11_0_1) suggestion · adjudication ·
+ * /api/v1/aip (설계 11 B4.1). 권한: 8.2 표 aip:inference-job · model · audit-log + 세부 권한(V0032) suggestion · adjudication ·
  * dataset · consent · promotion · job. 프로젝트 범위(◐)는 서비스(AipAccess)가 Job · 제안 → 프로젝트로 확인한다.
  * SSE(진행률 스트림)는 이번 단계에서 JSON 이벤트 목록으로 대신한다(LISTEN aip_job_progress 트리거는 준비됨).
  */

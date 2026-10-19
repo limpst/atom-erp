@@ -12,9 +12,11 @@ spring:
     enabled: true
     schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem,ptl,aip,fld
     create-schemas: true
-    # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fld
+    # 전역 단조 번호 V0001, V0002 … (모듈 무관 한 줄 순서, README '마이그레이션 규칙'). 위치 나열 순서는 의미 없음.
+    # PostGIS 의존 DDL 은 postgis 프로필에서 db/migration-ext 추가 — 프로필은 설치 시점에 결정(나중에 켜기 금지)
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/sal,classpath:db/migration/fld,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/cst,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fcd
     validate-on-migrate: true
+    out-of-order: false   # 이미 적용된 최대 버전보다 낮은 새 마이그레이션은 거부(MigrationBaselineTest 가 빌드에서 먼저 막음)
   jpa:
     open-in-view: false
     hibernate:
@@ -91,7 +93,7 @@ atom:
       read-timeout: 10s
       max-attempts: 3
   rpt:
-    facility-class: BLD_RC        # 상태평가 rule table 기본 시설물 분류(⚠️ 예시 규칙 V6_0_2)
+    facility-class: BLD_RC        # 상태평가 rule table 기본 시설물 분류(⚠️ 예시 규칙 V0021)
     pdf:
       gotenberg-url: ${GOTENBERG_URL:}   # 비우면 스텁 변환기(합성 PDF, 경고 로그) — 운영은 Gotenberg(LibreOffice+H2Orestart)
       timeout: 10m
@@ -147,8 +149,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fld,classpath:db/migration-ext
-    out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/sal,classpath:db/migration/fld,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/cst,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fcd,classpath:db/migration-ext
 
 ---
 # 로컬 개발: Keycloak 없이 헤더 인증 스텁 (X-Actor-Id, X-Roles …). 운영 금지.

@@ -1,0 +1,39 @@
+# Flyway 마이그레이션 기준선 (README "마이그레이션 규칙") — 손으로 고치지 말 것.
+# 배포(릴리스)에 포함된 마이그레이션 목록. 이 목록의 파일은 내용을 바꿀 수 없고(sha256 고정),
+# 새 마이그레이션 버전은 이 목록의 최대 버전보다 커야 한다(MigrationBaselineTest).
+# 다시 쓰기: ./gradlew :apps:erp-server:test --tests '*MigrationBaselineTest*' -PupdateMigrationBaseline
+# 형식: 버전 | 모듈 | 클래스패스 경로 | sha256(UTF-8, LF 정규화)
+0001 | core | db/migration/core/V0001__core_schema.sql | bfe61ef02324e885bc9c4e3ba8cd5d5682f36eb856091f5b64d621bc753909c4
+0002 | core | db/migration/core/V0002__core_role_permission_matrix.sql | ff78f18617f260121f8244bb0b2f9ffd492d311dbf9adfa35620527e87521fb5
+0003 | core | db/migration/core/V0003__core_attachment_upload_pii.sql | a3db709bfd16cf1487be74ca823b572604eb29010df3849a75805d707ca21c8d
+0004 | core | db/migration-ext/V0004__core_postgis_ext.sql | 28d633a2fb07f8c59bea36743cd951e928f1322fc2c02f267d97255bd9d39cda
+0005 | fac | db/migration/fac/V0005__fac_schema.sql | a63a752d5ed25037be8c3708c90fecd9162902ed49000b976cc6301127c4cad1
+0006 | fac | db/migration/fac/V0006__fac_cycle_rule_seed.sql | b75670179c98430359e33c73dbd8e2eacb43e64690dcafe7da121fd52ae7a9a5
+0007 | fac | db/migration/fac/V0007__fac_node_merge.sql | 82643f7ca6c8113d35ca22bd47546e82d3dfe69c2b6ca2339dd77d7fe40214b0
+0008 | fac | db/migration-ext/V0008__fac_postgis_ext.sql | 0907ed8b7cc160dd7d816a15f914203779b87951101967d9e2c6d090857e9c68
+0009 | hrq | db/migration/hrq/V0009__hrq_schema.sql | c792840c2c05c4c8d145798be032be077079aee69eef2b1dd8a850ba71352e1f
+0010 | hrq | db/migration/hrq/V0010__hrq_rule_seed.sql | 96528900de78e1b0b084a3bd35e5c91ed17a467b79e595ce486b5a22d95ce379
+0011 | hrq | db/migration-ext/V0011__hrq_postgis_ext.sql | 628ce262072c0346fc003e69fe8968fbe5d2c94c97604657f8d5c5679dac999b
+0012 | eqp | db/migration/eqp/V0012__eqp_schema.sql | 22cce2dd9cc345678b6aae0ba51f85ee440b085a79b84ef0e3134bc6e454f83a
+0013 | eqp | db/migration/eqp/V0013__eqp_seed.sql | 28d3472918e9516e6a12d8ee51e475ff9c6c61504b8bac8c6656c2c5b394a328
+0014 | eqp | db/migration/eqp/V0014__eqp_measurement_trace.sql | eb126c92c7b91352db4413e9e79cab0c6d54410a0d7e43289e237893cb6e9469
+0015 | sal | db/migration/sal/V0015__sal_schema.sql | c4dd038c59b8acf88f662418a260e99bc84f9229a7929d34da637690e8d5f630
+0016 | sal | db/migration/sal/V0016__sal_seed.sql | be52fb04ecf6cb14512ff0b927ef6fbaf7753ca6489d12bc0143696ac5bd386d
+0017 | fld | db/migration/fld/V0017__fld_schema.sql | 14cc8c60462fdebea23d48a5f33aa04d16ed25d49696d7f9ee2544e9730ba3d9
+0018 | fld | db/migration/fld/V0018__fld_seed.sql | a98957a2d2eef3bc24061da6e866fee3639e6e0def4c8b455ce43897b98d3ca4
+0019 | rpt | db/migration/rpt/V0019__rpt_schema.sql | 0444fa3e57e892425f4fef90457d4076636f3864b48e23607a793584db0a42f2
+0020 | rpt | db/migration/rpt/V0020__rpt_seed.sql | 3bb421768465e42bd5ff36fcca12b544ae4700912579e9fc7790b9e0cf979724
+0021 | rpt | db/migration/rpt/V0021__rpt_rule_seed.sql | abd9f21faed30950165e21c79c95619573392a4a9926e408f60878bfe0438c05
+0022 | rpt | db/migration/rpt/V0022__rpt_fld_survey.sql | 88a6e4f5a8d88bde61a29057ec892e6bfbf683e603c80e6b36dc9274b3b29b6d
+0023 | qar | db/migration/qar/V0023__qar_schema.sql | 49267aac55fd4be1a82249ebfb2cc4d4076b19f1cc56248618b6839b1e790d9b
+0024 | qar | db/migration/qar/V0024__qar_seed.sql | 53c356fb28759349d369f24bd13b83800cc8c351196f093b953b900d39dcb3df
+0025 | qar | db/migration/qar/V0025__qar_fld_discrepancy.sql | 56580db67b410e3b7db493d71f1b0bf79b7fc61e56ee4277e56c05309024a01f
+0026 | cst | db/migration/cst/V0026__cst_schema.sql | 2c35c2016d38437aedc19bcf4b8afe20109c0176fc9e83bfcc90e07f5780b18c
+0027 | cst | db/migration/cst/V0027__cst_permissions.sql | 8e033636d054ca37b6db16435bb2cacbe573ff8cadd408faa07fd9b0dd4f13af
+0028 | dem | db/migration/dem/V0028__dem_schema.sql | 797587ee06507e6a276ef8c609f2d0224ac39de02f51cc734b61ae4cdf583d5c
+0029 | dem | db/migration/dem/V0029__dem_seed.sql | 317acc0a3f32718d17c1312291f8db88bbad890b38d27b07df60df0860f2b0fc
+0030 | ptl | db/migration/ptl/V0030__ptl_schema.sql | ececc7e25e81dae0d0637c82835d214a719a1276e188b4202fe87451b049b96c
+0031 | aip | db/migration/aip/V0031__aip_schema.sql | 6950f1d440ef6b9574e6132670c97f6f0e567dc61c356f785cfcfcfaee7c4777
+0032 | aip | db/migration/aip/V0032__aip_seed.sql | bba911edd2bb0f1b1f3562279aedce4c05cfcd8242d30fa52cca24097b8d125b
+0033 | fcd | db/migration/fcd/V0033__fcd_schema.sql | d3fbd4218fbc294ce553edce0e9ed1eebd62bc6176e7b8115ab0b57f6d0a428a
+0034 | fcd | db/migration/fcd/V0034__fcd_seed.sql | da666cb6009bb5954086fecbd162dd57044da43c7fb9f2b98e08459f7eb3de13

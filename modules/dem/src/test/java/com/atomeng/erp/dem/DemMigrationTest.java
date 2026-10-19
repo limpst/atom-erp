@@ -114,7 +114,7 @@ class DemMigrationTest {
                     .isEqualTo("3");
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE role = 'PM' "
                     + "AND permission = 'dem:transmittal:issue'")).isEqualTo(1L);
-            // 8.2 표 셀 리소스(supervision-log · setting)는 V1_2 에만 — DEM 시드가 표 검사 리소스를 건드리지 않는다
+            // 8.2 표 셀 리소스(supervision-log · setting)는 V0002 에만 — DEM 시드가 표 검사 리소스를 건드리지 않는다
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'dem:supervision-log:%'"))
                     .isEqualTo(15L);
         }

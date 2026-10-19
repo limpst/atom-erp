@@ -2,7 +2,7 @@
 
 사용: python tools/gen_role_permission_seed.py
 입력: apps/erp-server/src/test/resources/permission-matrix-8.2.csv
-출력: modules/core/src/main/resources/db/migration/core/V1_2__core_role_permission_matrix.sql
+출력: modules/core/src/main/resources/db/migration/core/V0002__core_role_permission_matrix.sql
 
 해석 규칙(Java PermissionMatrixTest 와 독립 구현 — 두 구현의 결과가 같아야 테스트 통과):
   - 토큰: [CRUDA]+ (괄호 한정어)? ◐?   C=create R=read U=update D=delete A=approve
@@ -18,7 +18,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "apps/erp-server/src/test/resources/permission-matrix-8.2.csv"
-OUT = ROOT / "modules/core/src/main/resources/db/migration/core/V1_2__core_role_permission_matrix.sql"
+OUT = ROOT / "modules/core/src/main/resources/db/migration/core/V0002__core_role_permission_matrix.sql"
 
 DEFAULT_RESOURCE = {
     "SAL": "opportunity", "FAC": "facility", "HRQ": "engineer", "EQP": "equipment", "FLD": "defect",
@@ -74,7 +74,7 @@ def main():
                     rows.append((role, perm, scope))
     lines = [
         "-- =====================================================================",
-        "-- V1_2 — 설계 00 v0.3 §8.2 역할-모듈 권한 매트릭스 시드 (12역할 × 11모듈 = 132셀)",
+        "-- V0002 — 설계 00 v0.3 §8.2 역할-모듈 권한 매트릭스 시드 (12역할 × 11모듈 = 132셀)",
         "-- 생성기: tools/gen_role_permission_seed.py (직접 수정 금지, CSV 수정 후 재생성)",
         "-- 원본:   apps/erp-server/src/test/resources/permission-matrix-8.2.csv",
         "-- =====================================================================",

@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /api/v1/rpt (설계 06 B4). 권한: 8.2 표의 rpt:report 셀(create · read · update · approve) + 세부 권한(V6_0_1)
+ * /api/v1/rpt (설계 06 B4). 권한: 8.2 표의 rpt:report 셀(create · read · update · approve) + 세부 권한(V0020)
  * rpt:grade:decide(책임기술자) · rpt:delivery:confirm(PM · ADMIN) · rpt:rule:read. 프로젝트 범위(◐)는 서비스가 확인.
  * 섹션 저장 · 등급 확정은 ETag/If-Match(412). 발행본 삭제 API 는 두지 않는다(TC-RPT-007: DELETE → 405).
  */

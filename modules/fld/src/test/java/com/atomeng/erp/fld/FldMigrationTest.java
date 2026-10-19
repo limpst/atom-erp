@@ -141,7 +141,7 @@ class FldMigrationTest {
     }
 
     @Test
-    @DisplayName("EQP V4_0_2 측정 추적 append-only")
+    @DisplayName("EQP V0014 측정 추적 append-only")
     void traceAppendOnly() {
         assertThatThrownBy(() -> exec("TRUNCATE eqp.measurement_trace")).hasMessageContaining("append-only");
     }

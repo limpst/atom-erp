@@ -63,6 +63,13 @@ public class IdentityAutoConfiguration {
         return new RequirePermissionAspect(registry, scopes, beans, clock);
     }
 
+    /** CMN-04 · CMN-06: 운영 프로필에서 헤더 인증 금지, OIDC 모드는 audience 필수 — 어기면 기동 실패 */
+    @Bean
+    Object atomProductionSecurityGuard(org.springframework.core.env.Environment env, AtomSecurityProperties props) {
+        ProductionGuards.check(env, props);
+        return new Object();
+    }
+
     @Bean
     JwtAuthConverter jwtAuthConverter() {
         return new JwtAuthConverter();
@@ -90,7 +97,12 @@ public class IdentityAutoConfiguration {
                     return null; // 신뢰하지 않는 issuer → 401
                 }
                 return managers.computeIfAbsent(issuer, i -> {
-                    var provider = new JwtAuthenticationProvider(JwtDecoders.fromIssuerLocation(i));
+                    // CMN-06: issuer 기본 검증(서명 · 만료 · iss) + audience
+                    var decoder = (org.springframework.security.oauth2.jwt.NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(i);
+                    decoder.setJwtValidator(new org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator<>(
+                            org.springframework.security.oauth2.jwt.JwtValidators.createDefaultWithIssuer(i),
+                            new AudienceValidator(props.audiences())));
+                    var provider = new JwtAuthenticationProvider(decoder);
                     provider.setJwtAuthenticationConverter(converter);
                     return provider::authenticate;
                 });

@@ -46,6 +46,7 @@ atom:
     issuers:
       - ${KEYCLOAK_URL:http://localhost:8180}/realms/atom-internal
       - ${KEYCLOAK_URL:http://localhost:8180}/realms/atom-portal
+    audiences: ${ATOM_SECURITY_AUDIENCES:atom-erp-api}   # CMN-06 허용 토큰 aud(Keycloak audience 매퍼, deploy/keycloak/README.md)
   idempotency:
     required-clients: [field-app]
     retention: 24h
@@ -154,7 +155,7 @@ spring:
     locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/sal,classpath:db/migration/fld,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/cst,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fcd,classpath:db/migration-ext
 
 ---
-# 로컬 개발: Keycloak 없이 헤더 인증 스텁 (X-Actor-Id, X-Roles …). 운영 금지.
+# 로컬 개발: Keycloak 없이 헤더 인증 스텁 (X-Actor-Id, X-Roles …). 운영 금지 — prod/production 프로필과 함께 켜면 기동 실패(CMN-04).
 spring:
   config:
     activate:

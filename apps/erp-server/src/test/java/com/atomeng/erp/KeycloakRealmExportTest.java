@@ -35,8 +35,43 @@ class KeycloakRealmExportTest {
 
     private static Set<String> claimNames(JsonNode realm) {
         List<String> out = new ArrayList<>();
-        realm.get("clientScopes").forEach(s -> s.get("protocolMappers")
-                .forEach(m -> out.add(m.get("config").get("claim.name").asText())));
+        realm.get("clientScopes").forEach(s -> s.get("protocolMappers").forEach(m -> {
+            if (!AUDIENCE_MAPPER.equals(m.get("protocolMapper").asText())) {   // audience 매퍼는 클레임 이름이 없다(aud)
+                out.add(m.get("config").get("claim.name").asText());
+            }
+        }));
+        return Set.copyOf(out);
+    }
+
+    static final String AUDIENCE_MAPPER = "oidc-audience-mapper";
+
+    @Test
+    @DisplayName("보안 검토 CMN-06: 두 realm 의 기본 scope 가 aud=atom-erp-api 를 넣고, 서버 기본 허용 audience 와 같다")
+    void audienceMapper() throws Exception {
+        String yml = Files.readString(Path.of(System.getProperty("atom.repo.root", "../.."))
+                .resolve("apps/erp-server/src/main/resources/application.yml"));
+        assertThat(yml).contains("audiences: ${ATOM_SECURITY_AUDIENCES:atom-erp-api}");
+        for (String f : List.of("atom-internal-realm.json", "atom-portal-realm.json")) {
+            JsonNode r = realm(f);
+            Set<String> defaults = names(r.get("defaultDefaultClientScopes"));
+            List<String> auds = new ArrayList<>();
+            r.get("clientScopes").forEach(sc -> {
+                if (defaults.contains(sc.get("name").asText())) {
+                    sc.get("protocolMappers").forEach(m -> {
+                        if (AUDIENCE_MAPPER.equals(m.get("protocolMapper").asText())) {
+                            auds.add(m.get("config").get("included.custom.audience").asText());
+                            assertThat(m.get("config").get("access.token.claim").asText()).isEqualTo("true");
+                        }
+                    });
+                }
+            });
+            assertThat(auds).as(f).containsExactly("atom-erp-api");
+        }
+    }
+
+    private static Set<String> names(JsonNode textArray) {
+        List<String> out = new ArrayList<>();
+        textArray.forEach(n -> out.add(n.asText()));
         return Set.copyOf(out);
     }
 

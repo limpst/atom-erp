@@ -35,7 +35,13 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-realm-role-mapper",
           "config": { "claim.name": "roles", "multivalued": "true", "jsonType.label": "String",
-                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }
+                      "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }        },
+        {
+          "name": "erp-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "atom-erp-api", "access.token.claim": "true", "id.token.claim": "false",
+                      "introspection.token.claim": "true" }
         }
       ]
     }

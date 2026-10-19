@@ -63,7 +63,7 @@ public class EvidenceService {
                 + "WHERE attachment_id = ? OR sha256 = ? ORDER BY received_at LIMIT 1", r.attachmentId(), claimed);
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL", r.workPackageId());
         var att = dem.one("첨부", """
-                SELECT bucket, object_key, sha256, owner_module, created_by FROM core.attachment
+                SELECT bucket, object_key, sha256, owner_module, chain_scope, created_by FROM core.attachment
                  WHERE id = ? AND deleted_at IS NULL""", r.attachmentId());
         // 보안 검토 2026-10-19: 다른 모듈(FLD · RPT …)의 첨부나 남이 올린 첨부를 id 만 알고 증거 사진으로 끌어오지 못하게 한다.
         // DEM 첨부 파이프라인으로 호출자 본인이 올린 첨부만 등록(시스템 실행은 웹 경계 밖이라 작성자 검사 생략).
@@ -93,6 +93,10 @@ public class EvidenceService {
                         "같은 사진이 다른 업무 패키지에 이미 등록되어 있습니다");
             }
             return new Registered(false, view((UUID) existing.get(0).get("id")));
+        }
+        // 보안 검토 CORE-01(a): 첨부의 체인 범위(= 업로드 때 소유자 확인을 거친 업무 패키지)가 등록 대상 패키지여야 한다
+        if (!r.workPackageId().equals(att.get("chain_scope"))) {
+            throw new DomainException(DemErrors.INVALID, "다른 업무 패키지 체인으로 올린 첨부입니다");
         }
         UUID id = UuidV7.next();
         dem.jdbc().update("""

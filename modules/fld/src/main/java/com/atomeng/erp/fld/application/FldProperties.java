@@ -14,7 +14,7 @@ public record FldProperties(Sync sync, Upload upload, Ai ai) {
 
     public FldProperties {
         sync = sync == null ? new Sync(null, null, null, null, null) : sync;
-        upload = upload == null ? new Upload(null, null) : upload;
+        upload = upload == null ? new Upload(null, null, null, null) : upload;
         ai = ai == null ? new Ai(null) : ai;
     }
 
@@ -33,10 +33,16 @@ public record FldProperties(Sync sync, Upload upload, Ai ai) {
         }
     }
 
-    public record Upload(Integer maxChunkBytes, Duration sessionTtl) {
+    /**
+     * @param maxFileBytes           사진 원본 최대 크기(보안 검토 FLD-02, 기본 50MB — 수치는 정책 FLD-02b 로 조정)
+     * @param maxOpenSessionsPerUser 사용자당 동시에 열린 업로드 세션 수(기본 20 — 수치는 정책 FLD-02b 로 조정)
+     */
+    public record Upload(Integer maxChunkBytes, Duration sessionTtl, Long maxFileBytes, Integer maxOpenSessionsPerUser) {
         public Upload {
             maxChunkBytes = maxChunkBytes == null ? 5 * 1024 * 1024 : maxChunkBytes;
             sessionTtl = sessionTtl == null ? Duration.ofDays(7) : sessionTtl;
+            maxFileBytes = maxFileBytes == null ? 50L * 1024 * 1024 : maxFileBytes;
+            maxOpenSessionsPerUser = maxOpenSessionsPerUser == null ? 20 : maxOpenSessionsPerUser;
         }
     }
 

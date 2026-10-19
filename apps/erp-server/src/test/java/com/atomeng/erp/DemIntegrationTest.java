@@ -332,14 +332,17 @@ class DemIntegrationTest extends IntegrationTestBase {
         return out.toByteArray();
     }
 
-    /** core 첨부 파이프라인(presign → PUT → :complete)으로 합성 사진 업로드 → {attachmentId, objectKey, sha256} */
-    private JsonNode upload(UUID eng, int i) throws Exception {
+    /**
+     * core 첨부 파이프라인(presign → PUT → :complete)으로 합성 사진 업로드 → {attachmentId, objectKey, sha256}.
+     * 보안 검토 CORE-01(a): 체인 범위(chainScope)는 실제 업무 패키지 · 올리는 사람은 투입 인원 또는 그 패키지 활성 감리자.
+     */
+    private JsonNode upload(UUID eng, UUID wp, int i) throws Exception {
         byte[] photo = syntheticPhoto(i);
         String sha = HashChain.sha256(new ByteArrayInputStream(photo));
         var p = json(mvc.perform(as(postJson("/api/v1/core/attachments:presign", """
                         {"fileName":"DEM_%04d.png","mimeType":"image/png","sizeBytes":%d,"sha256":"%s","capturedAt":"%s",
                          "ownerModule":"DEM","ownerType":"EvidencePhoto","ownerId":"%s","chainScope":"%s"}"""
-                        .formatted(i, photo.length, sha, Instant.now(), UUID.randomUUID(), UUID.randomUUID())), eng, "ENG")
+                        .formatted(i, photo.length, sha, Instant.now(), UUID.randomUUID(), wp)), eng, "ENG")
                         .header("X-Client-Id", "field-app").header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isCreated()).andReturn());
         storage.put(Buckets.TEMP_UPLOAD, p.get("tempKey").asText(), new ByteArrayInputStream(photo), "image/png");
@@ -383,8 +386,8 @@ class DemIntegrationTest extends IntegrationTestBase {
         assign(f.supervisionWp(), eng, "CHIEF", today().minusDays(3), null, 201);
 
         // 사진 먼저 동기화(core 첨부 → DEM 증거 등록)
-        JsonNode att1 = upload(eng, 1);
-        JsonNode att2 = upload(eng, 2);
+        JsonNode att1 = upload(eng, f.supervisionWp(), 1);
+        JsonNode att2 = upload(eng, f.supervisionWp(), 2);
         UUID p1 = registerPhoto(eng, f.supervisionWp(), att1, 201);
         UUID p2 = registerPhoto(eng, f.supervisionWp(), att2, 201);
         assertThat(registerPhoto(eng, f.supervisionWp(), att1, 200)).isEqualTo(p1);   // 재등록 = 기존 id(멱등)
@@ -395,7 +398,7 @@ class DemIntegrationTest extends IntegrationTestBase {
                         att1.get("attachmentId").asText(), att1.get("sha256").asText(), f.designWp())), eng, "ENG"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEM-409-008"))
                 .andExpect(jsonPath("$.id").doesNotExist());
-        JsonNode attOther = upload(eng, 7);
+        JsonNode attOther = upload(eng, f.supervisionWp(), 7);
         mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
                         {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
                         attOther.get("attachmentId").asText(), attOther.get("sha256").asText(), f.supervisionWp())),
@@ -408,11 +411,25 @@ class DemIntegrationTest extends IntegrationTestBase {
                         eng, "ENG"))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEM-422-001"));
         assertThat(events("dem.evidence-photo.registered", p1)).isEqualTo(1);
+        // 보안 검토 CORE-01(a): 감리자도 투입 인원도 아닌 업무 패키지 체인으로는 첨부를 올릴 수 없고(422 CORE-422-013),
+        // 감리 패키지 체인으로 올린 첨부를 다른 패키지 증거로 등록하면 422
+        byte[] foreign = syntheticPhoto(40);
+        mvc.perform(as(postJson("/api/v1/core/attachments:presign", """
+                        {"fileName":"X.png","mimeType":"image/png","sizeBytes":%d,"sha256":"%s",
+                         "ownerModule":"DEM","ownerType":"EvidencePhoto","ownerId":"%s","chainScope":"%s"}"""
+                        .formatted(foreign.length, HashChain.sha256(new ByteArrayInputStream(foreign)), UUID.randomUUID(),
+                                demProject().supervisionWp())), eng, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("CORE-422-013"));
+        JsonNode attMoved = upload(eng, f.supervisionWp(), 41);
+        mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
+                        {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
+                        attMoved.get("attachmentId").asText(), attMoved.get("sha256").asText(), f.designWp())), eng, "ENG"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEM-422-001"));
         assertThat(lastEvent("dem.evidence-photo.registered", p1).get("sha256").asText())
                 .isEqualTo(att1.get("sha256").asText());
 
         // 해시 위조(기기 해시 ≠ 서버 해시) → 409 + 보안 감사(롤백돼도 남음)
-        JsonNode att3 = upload(eng, 3);
+        JsonNode att3 = upload(eng, f.supervisionWp(), 3);
         mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
                         {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
                         att3.get("attachmentId").asText(), "f".repeat(64), f.supervisionWp())), eng, "ENG"))

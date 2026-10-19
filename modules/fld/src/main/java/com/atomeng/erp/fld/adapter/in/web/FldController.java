@@ -235,7 +235,15 @@ class FldController {
                                                      @RequestHeader("Upload-Offset") long offset,
                                                      @RequestHeader(value = "Upload-Checksum", required = false)
                                                      String checksum,
-                                                     @RequestBody byte[] chunk) {
+                                                     jakarta.servlet.http.HttpServletRequest request)
+            throws java.io.IOException {
+        // 보안 검토 FLD-02: 본문을 통째로 메모리에 읽기 전에 청크 상한을 건다(Content-Length · 실제 읽은 양 모두)
+        int max = uploads.maxChunkBytes();
+        if (request.getContentLengthLong() > max) {
+            throw new com.atomeng.common.core.error.DomainException(
+                    com.atomeng.erp.fld.application.FldErrors.CHUNK_TOO_LARGE, "청크 상한 " + max + " 바이트 초과");
+        }
+        byte[] chunk = request.getInputStream().readNBytes(max + 1);
         var s = uploads.append(id, offset, chunk, checksum);
         return ResponseEntity.ok().headers(tus(s)).body(view(s));
     }

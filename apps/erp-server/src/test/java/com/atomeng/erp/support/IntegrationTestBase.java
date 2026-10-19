@@ -36,6 +36,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
         "atom.qar.worker.enabled=false",
         "atom.dem.log-lock.enabled=false",
         "atom.aip.scheduler.enabled=false",
+        "atom.fld.upload.cleanup.enabled=false",
         "spring.jpa.open-in-view=false"
 })
 public abstract class IntegrationTestBase {

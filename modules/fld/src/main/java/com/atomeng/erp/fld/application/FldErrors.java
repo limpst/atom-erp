@@ -17,6 +17,14 @@ public final class FldErrors {
     public static final String CONFLICT_RESOLVED = "FLD-409-006";
     public static final String ROUND_EXISTS = "FLD-409-007";
     public static final String CHUNK_TOO_LARGE = "FLD-413-001";
+    /** 보안 검토 FLD-02: 신고 원본 크기가 상한(atom.fld.upload.max-file-bytes) 초과 */
+    public static final String FILE_TOO_LARGE = "FLD-413-002";
+    /** 보안 검토 FLD-02: 업로드 세션 만료(expires_at 경과) — 새 세션으로 다시 올린다 */
+    public static final String UPLOAD_EXPIRED = "FLD-410-001";
+    /** 보안 검토 FLD-02: 사용자당 열린 업로드 세션 상한(atom.fld.upload.max-open-sessions-per-user) 초과 */
+    public static final String TOO_MANY_SESSIONS = "FLD-429-001";
+    /** 보안 검토 FLD-02/05: 허용되지 않는 MIME, 또는 매직 바이트로 판별한 실제 형식 ≠ 신고 MIME */
+    public static final String MEDIA_TYPE = "FLD-422-004";
     public static final String INVALID = "FLD-422-001";
     /** FR-FLD-019 / TC-FLD-011 구역 잠금 검증 실패 (FLD_ZONE_NOT_READY) */
     public static final String ZONE_NOT_READY = "FLD-422-002";

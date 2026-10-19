@@ -11,7 +11,13 @@ import com.atomeng.common.evidence.HashChain;
 import com.atomeng.common.evidence.ObjectStorage;
 import com.atomeng.erp.core.adapter.out.persistence.AttachmentJdbcRepository;
 import com.atomeng.erp.core.adapter.out.persistence.AttachmentJdbcRepository.Upload;
+import com.atomeng.common.evidence.MediaSniffer;
+import com.atomeng.common.identity.AtomAuthentication;
+import com.atomeng.common.identity.AtomPrincipal;
+import com.atomeng.common.identity.authz.ProjectScopeResolver;
 import com.atomeng.erp.core.api.AttachmentIngestApi;
+import com.atomeng.erp.core.api.AttachmentOwnerResolver;
+import com.atomeng.erp.core.api.AttachmentReadApi;
 import com.atomeng.erp.core.api.AttachmentStoredEvent;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,10 +50,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </ol>
  */
 @Service
-public class AttachmentService implements AttachmentIngestApi {
+public class AttachmentService implements AttachmentIngestApi, AttachmentReadApi {
 
     private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
     private static final Duration PRESIGN_TTL = Duration.ofMinutes(15);
+    private static final java.time.ZoneId SEOUL = java.time.ZoneId.of("Asia/Seoul");
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");
     private static final Pattern EXT = Pattern.compile("^[a-z0-9]{1,8}$");
 
@@ -68,9 +75,18 @@ public class AttachmentService implements AttachmentIngestApi {
     private final CurrentActor actor;
     private final Clock clock;
     private final TransactionTemplate tx;
+    private final Map<String, AttachmentOwnerResolver> owners = new HashMap<>();
+    private final ProjectScopeResolver scopes;
+    private final long maxBytes;
 
     public AttachmentService(AttachmentJdbcRepository repo, ObjectStorage storage, OutboxPublisher outbox,
-                             AuditLog audit, CurrentActor actor, Clock clock, PlatformTransactionManager txManager) {
+                             AuditLog audit, CurrentActor actor, Clock clock, PlatformTransactionManager txManager,
+                             List<AttachmentOwnerResolver> ownerResolvers, ProjectScopeResolver scopes,
+                             @org.springframework.beans.factory.annotation.Value(
+                                     "${atom.attachment.max-bytes:52428800}") long maxBytes) {
+        ownerResolvers.forEach(r -> owners.put(r.ownerModule(), r));
+        this.scopes = scopes;
+        this.maxBytes = maxBytes;
         this.repo = repo;
         this.storage = storage;
         this.outbox = outbox;
@@ -86,11 +102,21 @@ public class AttachmentService implements AttachmentIngestApi {
             throw new DomainException(CoreErrors.VALIDATION_FAILED, "sha256 은 소문자 16진수 64자",
                     List.of(Map.of("field", "sha256", "reason", "PATTERN")));
         }
+        // 보안 검토 CORE-01(b)(c): 크기 상한 · MIME 허용 목록(실제 형식은 :complete 때 매직 바이트로 다시 확인)
+        if (c.sizeBytes() > maxBytes) {
+            throw new DomainException(CoreErrors.PAYLOAD_TOO_LARGE, "첨부 상한 " + maxBytes + " 바이트 초과");
+        }
+        if (!MediaSniffer.allowed(c.mimeType())) {
+            throw new DomainException(CoreErrors.ATTACHMENT_MEDIA_TYPE, "허용되지 않는 형식: " + c.mimeType())
+                    .with("allowed", new java.util.TreeSet<>(MediaSniffer.ALLOWED));
+        }
+        requireOwner(c.ownerModule(), c.ownerType(), c.ownerId(), c.chainScope());
         UUID uploadId = UuidV7.next();
         String tempKey = uploadId + "/" + safeName(c.fileName());
         var presigned = storage.presignPut(Buckets.TEMP_UPLOAD, tempKey, PRESIGN_TTL);
         Instant captured = c.capturedAt() == null ? null : c.capturedAt().truncatedTo(ChronoUnit.MICROS);
-        var u = new Upload(uploadId, Buckets.TEMP_UPLOAD, tempKey, c.fileName(), c.mimeType(), c.sizeBytes(), sha,
+        var u = new Upload(uploadId, Buckets.TEMP_UPLOAD, tempKey, c.fileName(), MediaSniffer.normalize(c.mimeType()),
+                c.sizeBytes(), sha,
                 c.ownerModule(), c.ownerType(), c.ownerId(), c.chainScope(), captured, "PENDING", null,
                 presigned.expiresAt());
         tx.executeWithoutResult(s -> repo.insertUpload(u, actor.actorIdOrSystem()));
@@ -118,12 +144,26 @@ public class AttachmentService implements AttachmentIngestApi {
         if (!storage.exists(u.tempBucket(), u.tempKey())) {
             throw new DomainException(CoreErrors.UPLOAD_OBJECT_MISSING, "업로드된 파일이 없습니다");
         }
+        if (!MediaSniffer.matches(u.mimeType(), MediaSniffer.head(storage.get(u.tempBucket(), u.tempKey())))) {
+            reject(u, "REJECTED", "MIME 불일치");
+            throw new DomainException(CoreErrors.ATTACHMENT_MEDIA_TYPE,
+                    "파일 내용이 신고한 형식(" + u.mimeType() + ")이 아닙니다");
+        }
         String actual;
-        try (InputStream in = storage.get(u.tempBucket(), u.tempKey())) {
+        CountingInputStream counted;
+        try (InputStream in = counted = new CountingInputStream(storage.get(u.tempBucket(), u.tempKey()))) {
             actual = HashChain.sha256(in);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        if (counted.count() > maxBytes) {
+            reject(u, "REJECTED", "크기 상한 초과");
+            throw new DomainException(CoreErrors.PAYLOAD_TOO_LARGE, "첨부 상한 " + maxBytes + " 바이트 초과");
+        }
+        // 실제 크기를 기록한다(클라이언트 신고값은 대략값일 수 있음 — 계약 유지)
+        Upload sized = new Upload(u.id(), u.tempBucket(), u.tempKey(), u.fileName(), u.mimeType(), counted.count(),
+                u.claimedSha256(), u.ownerModule(), u.ownerType(), u.ownerId(), u.chainScope(), u.capturedAt(),
+                u.status(), u.attachmentId(), u.expiresAt());
         if (!actual.equals(u.claimedSha256())) {
             reject(u, "REJECTED", "sha256 불일치");
             log.warn("attachment hash mismatch upload={} (claimed≠actual) — temp 객체 삭제", uploadId);
@@ -142,7 +182,7 @@ public class AttachmentService implements AttachmentIngestApi {
             repo.lockChain(u.chainScope());
             String prev = repo.tailHash(u.chainScope()).orElse(null);
             String chainHash = HashChain.link(prev, actual, u.capturedAt(), u.ownerId());
-            repo.insertAttachment(attachmentId, Buckets.FIELD_ORIGINAL, objectKey, u, actual, prev, chainHash, by);
+            repo.insertAttachment(attachmentId, Buckets.FIELD_ORIGINAL, objectKey, sized, actual, prev, chainHash, by);
             repo.markUpload(uploadId, "COMPLETED", null, attachmentId, clock.instant());
             outbox.publish(new AttachmentStoredEvent(attachmentId, Buckets.FIELD_ORIGINAL, objectKey, u.mimeType(),
                     u.chainScope(), actual));
@@ -223,6 +263,89 @@ public class AttachmentService implements AttachmentIngestApi {
             return new ChainReport(chainScope, false, links.size(), null, "끊긴 고리 " + (links.size() - walked) + "개");
         }
         return new ChainReport(chainScope, true, walked, null, null);
+    }
+
+    /**
+     * 보안 검토 CORE-01(a): 소유자 · 체인 범위를 소유 모듈의 해석기로 프로젝트까지 풀고, 웹 호출자는 그 프로젝트 투입 인원
+     * (또는 해석기가 허용한 직원 — 예 DEM 활성 감리자)만 올릴 수 있다. 해석기가 없는 모듈 · 풀 수 없는 소유자는 거부.
+     */
+    private void requireOwner(String ownerModule, String ownerType, UUID ownerId, UUID chainScope) {
+        AttachmentOwnerResolver r = owners.get(ownerModule);
+        UUID project = r == null ? null : r.projectOf(ownerType, ownerId, chainScope).orElse(null);
+        if (project == null) {
+            throw new DomainException(CoreErrors.ATTACHMENT_OWNER_INVALID,
+                    "첨부 소유자 · 체인 범위를 확인할 수 없습니다(" + ownerModule + "/" + ownerType + ")");
+        }
+        AtomPrincipal p = AtomAuthentication.currentPrincipal().orElse(null);
+        if (p == null) {
+            return;   // 시스템 실행(웹 경계 밖)
+        }
+        UUID emp = p.employeeId();
+        boolean ok = emp != null && (scopes.isMember(emp, project, java.time.LocalDate.now(clock.withZone(SEOUL)))
+                || r.mayAttach(emp, ownerType, ownerId, chainScope));
+        if (!ok) {
+            throw new DomainException(CoreErrors.ATTACHMENT_OWNER_INVALID, "이 프로젝트에 첨부를 올릴 수 없습니다");
+        }
+    }
+
+    @Override
+    public java.util.Optional<AttachmentInfo> find(UUID attachmentId) {
+        return repo.find(attachmentId).map(a -> {
+            AttachmentOwnerResolver r = owners.get(a.ownerModule());
+            UUID project = r == null ? null : r.projectOf(a.ownerType(), a.ownerId(), a.chainScope()).orElse(null);
+            return new AttachmentInfo(a.id(), project, a.ownerModule(), a.ownerType(), a.ownerId(), a.chainScope(),
+                    a.sha256(), a.mimeType(), a.sizeBytes(), a.createdBy());
+        });
+    }
+
+    @Override
+    public byte[] readOriginal(UUID attachmentId, long limit) {
+        String[] loc = repo.stored(attachmentId)
+                .orElseThrow(() -> new DomainException(CoreErrors.NOT_FOUND, "첨부 없음: " + attachmentId));
+        byte[] bytes;
+        try (InputStream in = storage.get(loc[0], loc[1])) {
+            bytes = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8, limit + 1));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        if (bytes.length > limit) {
+            throw new DomainException(CoreErrors.PAYLOAD_TOO_LARGE, "첨부가 상한 " + limit + " 바이트를 넘습니다");
+        }
+        if (!loc[2].equals(HashChain.sha256(new java.io.ByteArrayInputStream(bytes)))) {
+            throw new DomainException(CoreErrors.ATTACHMENT_HASH_MISMATCH, "저장된 원본 해시가 기록과 다릅니다");
+        }
+        return bytes;
+    }
+
+    /** 읽은 바이트 수를 세는 스트림 */
+    private static final class CountingInputStream extends java.io.FilterInputStream {
+        private long count;
+
+        CountingInputStream(InputStream in) {
+            super(in);
+        }
+
+        @Override
+        public int read() throws IOException {
+            int b = super.read();
+            if (b >= 0) {
+                count++;
+            }
+            return b;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int n = super.read(b, off, len);
+            if (n > 0) {
+                count += n;
+            }
+            return n;
+        }
+
+        long count() {
+            return count;
+        }
     }
 
     private void reject(Upload u, String status, String reason) {

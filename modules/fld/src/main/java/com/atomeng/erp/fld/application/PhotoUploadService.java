@@ -7,6 +7,7 @@ import com.atomeng.common.core.util.Hashing;
 import com.atomeng.common.events.OutboxPublisher;
 import com.atomeng.common.evidence.Buckets;
 import com.atomeng.common.evidence.HashChain;
+import com.atomeng.common.evidence.MediaSniffer;
 import com.atomeng.common.evidence.ObjectStorage;
 import com.atomeng.erp.core.api.AttachmentIngestApi;
 import com.atomeng.erp.fld.adapter.out.persistence.FldJdbc;
@@ -95,8 +96,24 @@ public class PhotoUploadService {
                 || c.sizeBytes() <= 0) {
             throw new DomainException(FldErrors.INVALID, "photoId · roundId · sha256(64 hex) · sizeBytes(>0) 필수");
         }
+        // 보안 검토 FLD-02: 신고 크기 상한 · 사진 MIME 허용 목록(실제 형식은 완료 때 매직 바이트로 확인)
+        if (c.sizeBytes() > props.upload().maxFileBytes()) {
+            throw new DomainException(FldErrors.FILE_TOO_LARGE, "사진 상한 " + props.upload().maxFileBytes()
+                    + " 바이트 초과").with("maxFileBytes", props.upload().maxFileBytes());
+        }
+        String mime = c.mimeType() == null || c.mimeType().isBlank() ? "image/jpeg" : MediaSniffer.normalize(c.mimeType());
+        if (!mime.startsWith("image/") || !MediaSniffer.allowed(mime)) {
+            throw new DomainException(FldErrors.MEDIA_TYPE, "허용되지 않는 사진 형식: " + c.mimeType());
+        }
         Round round = fld.round(c.roundId());
         access.requireProject("fld:photo:upload", round.projectId());
+        // 보안 검토 FLD-05: 결함은 같은 회차의 결함이어야 한다(다른 프로젝트 결함에 사진을 붙이지 못하게)
+        if (c.defectId() != null && fld.jdbc().queryForObject(
+                "SELECT count(*) FROM fld.defect_current WHERE id = ? AND round_id = ?", Integer.class,
+                c.defectId(), c.roundId()) == 0) {
+            throw new DomainException(FldErrors.INVALID, "defectId 가 이 회차의 결함이 아닙니다");
+        }
+        UUID me = actor.actorIdOrSystem();
         return tx.execute(s -> {
             List<Map<String, Object>> rows = fld.jdbc().queryForList(
                     "SELECT id, round_id, device_sha256, upload_state FROM fld.photo WHERE id = ? OR device_sha256 = ? "
@@ -104,8 +121,9 @@ public class PhotoUploadService {
             Map<String, Object> photo = null;
             for (Map<String, Object> r : rows) {
                 if (!r.get("id").equals(c.photoId())) {
-                    throw new DomainException(FldErrors.PHOTO_EXISTS, "같은 원본(해시)이 다른 사진으로 이미 등록됨")
-                            .with("existingPhotoId", r.get("id"));
+                    DomainException dup = new DomainException(FldErrors.PHOTO_EXISTS, "같은 원본(해시)이 다른 사진으로 이미 등록됨");
+                    // 보안 검토 FLD-05: 다른 회차(다른 프로젝트일 수 있음) 사진 id 는 알려 주지 않는다
+                    throw c.roundId().equals(r.get("round_id")) ? dup.with("existingPhotoId", r.get("id")) : dup;
                 }
                 photo = r;
             }
@@ -115,8 +133,7 @@ public class PhotoUploadService {
                         INSERT INTO fld.photo(id, round_id, defect_id, owner_type, kind, device_sha256, size_bytes,
                                               mime_type, exif, taken_at, device_id, upload_state, created_at, created_by)
                         VALUES (?, ?, ?, 'DEFECT', ?, ?, ?, ?, ?::jsonb, ?, ?, 'PENDING', ?, ?)""", c.photoId(),
-                        c.roundId(), c.defectId(), kind(c.kind()), sha, c.sizeBytes(),
-                        c.mimeType() == null || c.mimeType().isBlank() ? "image/jpeg" : c.mimeType(),
+                        c.roundId(), c.defectId(), kind(c.kind()), sha, c.sizeBytes(), mime,
                         c.exif() == null ? "{}" : fld.json(c.exif()), FldJdbc.ts(c.takenAt()),
                         c.deviceId() == null ? actor.actorIdOrSystem() : c.deviceId(), Timestamp.from(now),
                         actor.actorIdOrSystem());
@@ -134,6 +151,16 @@ public class PhotoUploadService {
                     "SELECT id FROM fld.upload_session WHERE photo_id = ? AND status = 'OPEN'", UUID.class, c.photoId());
             if (!open.isEmpty()) {
                 return state(open.get(0), false);
+            }
+            // 보안 검토 FLD-02: 사용자당 열린(만료 전) 세션 수 상한 — 같은 사용자 생성은 advisory lock 으로 직렬화
+            fld.jdbc().queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "fld-upload:" + me);
+            Integer openByMe = fld.jdbc().queryForObject("""
+                    SELECT count(*) FROM fld.upload_session WHERE created_by = ? AND status = 'OPEN' AND expires_at > ?""",
+                    Integer.class, me, Timestamp.from(clock.instant()));
+            if (openByMe != null && openByMe >= props.upload().maxOpenSessionsPerUser()) {
+                throw new DomainException(FldErrors.TOO_MANY_SESSIONS, "열린 업로드 세션이 "
+                        + props.upload().maxOpenSessionsPerUser() + "개를 넘습니다 — 진행 중인 업로드를 끝내거나 만료를 기다리세요")
+                        .with("maxOpenSessions", props.upload().maxOpenSessionsPerUser());
             }
             UUID id = UuidV7.next();
             fld.jdbc().update("""
@@ -198,13 +225,18 @@ public class PhotoUploadService {
             }
         }
         UploadState after = tx.execute(s -> {
-            Map<String, Object> u = fld.one("업로드 세션", "SELECT received_bytes, total_bytes, status "
+            Map<String, Object> u = fld.one("업로드 세션", "SELECT received_bytes, total_bytes, status, expires_at "
                     + "FROM fld.upload_session WHERE id = ? FOR UPDATE", uploadId);
             long received = ((Number) u.get("received_bytes")).longValue();
             long total = ((Number) u.get("total_bytes")).longValue();
             if (!"OPEN".equals(u.get("status"))) {
                 throw new DomainException(FldErrors.UPLOAD_NOT_OPEN, "열린 업로드 세션이 아닙니다(" + u.get("status") + ")")
                         .with("status", u.get("status"));
+            }
+            if (!FldJdbc.inst(u.get("expires_at")).isAfter(clock.instant())) {
+                // 보안 검토 FLD-02: 만료 세션에는 청크를 더 받지 않는다(정리는 expireSessions)
+                throw new DomainException(FldErrors.UPLOAD_EXPIRED, "업로드 세션이 만료되었습니다 — 새 세션으로 다시 올리세요")
+                        .with("reupload", true);
             }
             if (offset != received) {
                 throw new DomainException(FldErrors.OFFSET_MISMATCH, "Upload-Offset " + offset + " ≠ 서버 수신 " + received
@@ -241,6 +273,12 @@ public class PhotoUploadService {
         String expected = ((String) u.get("device_sha256")).trim();
         List<String> keys = fld.jdbc().queryForList(
                 "SELECT object_key FROM fld.upload_chunk WHERE session_id = ? ORDER BY offset_bytes", String.class, uploadId);
+        // 보안 검토 FLD-02/05: 신고 MIME 을 믿지 않는다 — 조립한 원본의 매직 바이트가 신고 형식과 같아야 한다
+        if (!MediaSniffer.matches((String) u.get("mime_type"), MediaSniffer.head(concat(keys)))) {
+            reject(uploadId, photoId, "MIME_MISMATCH", keys);
+            throw new DomainException(FldErrors.MEDIA_TYPE, "사진 내용이 신고한 형식(" + u.get("mime_type") + ")이 아닙니다")
+                    .with("reason", "MIME_MISMATCH").with("photoId", photoId).with("reupload", true);
+        }
         String actual;
         try (InputStream in = concat(keys)) {
             actual = HashChain.sha256(in);
@@ -284,6 +322,44 @@ public class PhotoUploadService {
         });
         keys.forEach(k -> storage.delete(Buckets.TEMP_UPLOAD, k));
         return state(uploadId, false);
+    }
+
+    /**
+     * 보안 검토 FLD-02: 만료된 OPEN 세션 정리 — EXPIRED 로 바꾸고 임시 청크 객체 · 행을 지운다(사진은 재업로드 대기 REJECTED).
+     *
+     * @return 정리한 세션 수
+     */
+    public int expireSessions() {
+        Timestamp now = Timestamp.from(clock.instant());
+        List<UUID> expired = fld.jdbc().queryForList("""
+                SELECT id FROM fld.upload_session WHERE status = 'OPEN' AND expires_at <= ? ORDER BY expires_at LIMIT 500""",
+                UUID.class, now);
+        int n = 0;
+        for (UUID id : expired) {
+            List<String> keys = tx.execute(s -> {
+                Map<String, Object> u = fld.jdbc().queryForList(
+                        "SELECT photo_id, status FROM fld.upload_session WHERE id = ? FOR UPDATE", id).get(0);
+                if (!"OPEN".equals(u.get("status"))) {
+                    return null;
+                }
+                List<String> k = fld.jdbc().queryForList(
+                        "SELECT object_key FROM fld.upload_chunk WHERE session_id = ?", String.class, id);
+                fld.jdbc().update("DELETE FROM fld.upload_chunk WHERE session_id = ?", id);
+                fld.jdbc().update("UPDATE fld.upload_session SET status = 'EXPIRED', reject_reason = 'EXPIRED', "
+                        + "updated_at = ? WHERE id = ?", now, id);
+                fld.jdbc().update("UPDATE fld.photo SET upload_state = 'REJECTED', reject_reason = 'UPLOAD_EXPIRED' "
+                        + "WHERE id = ? AND upload_state = 'UPLOADING'", u.get("photo_id"));
+                return k;
+            });
+            if (keys != null) {
+                keys.forEach(k -> storage.delete(Buckets.TEMP_UPLOAD, k));
+                n++;
+            }
+        }
+        if (n > 0) {
+            log.info("fld 업로드 세션 만료 정리 {}건", n);
+        }
+        return n;
     }
 
     private InputStream concat(List<String> keys) {

@@ -22,6 +22,10 @@ public final class CoreErrors {
     public static final String UPLOAD_EXPIRED = "CORE-422-011";
     /** :complete 했는데 임시 객체가 없음(업로드 안 됨) */
     public static final String UPLOAD_OBJECT_MISSING = "CORE-422-012";
+    /** 첨부 소유자(ownerModule/Type/Id · chainScope)를 프로젝트로 풀 수 없거나 호출자가 그 프로젝트에 올릴 수 없음 (CORE-01(a)) */
+    public static final String ATTACHMENT_OWNER_INVALID = "CORE-422-013";
+    /** 허용 목록 밖 MIME, 또는 매직 바이트로 판별한 실제 형식 ≠ 신고 MIME (CORE-01(c)) */
+    public static final String ATTACHMENT_MEDIA_TYPE = "CORE-422-014";
     /** 이미 완료·거부된 업로드에 :complete */
     public static final String UPLOAD_NOT_PENDING = "CORE-409-011";
     /** 같은 actor·key 인데 요청 해시가 다름(키 오용). 설계 9.4 */

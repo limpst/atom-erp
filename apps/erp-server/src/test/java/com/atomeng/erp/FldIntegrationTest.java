@@ -994,4 +994,84 @@ class FldIntegrationTest extends IntegrationTestBase {
         call(get("/api/v1/fld/rounds/" + f.round()), f.eng(), "ENG", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.zones[0].status").value("IN_PROGRESS"));
     }
+
+    // ================================================================== 보안 검토 FLD-02 업로드 한도
+
+    @Autowired
+    com.atomeng.erp.fld.application.PhotoUploadService photoUploads;
+    @Autowired
+    com.atomeng.common.evidence.ObjectStorage storage;
+
+    private ResultActions rawUpload(Fx f, UUID photo, String sha, long size, String mime) throws Exception {
+        return call(post("/api/v1/fld/uploads"), f.eng(), "ENG", """
+                {"photoId":"%s","roundId":"%s","sha256":"%s","sizeBytes":%d%s}""".formatted(photo, f.round(), sha, size,
+                mime == null ? "" : ",\"mimeType\":\"" + mime + "\""));
+    }
+
+    @Test
+    @DisplayName("보안 검토 FLD-02 · 05: 다른 회차 defectId 422 · 신고 크기 상한 413 · 사진 외 MIME 422 · 사용자당 열린 세션 20개 상한 429 · 청크 본문 상한 413")
+    void uploadLimits() throws Exception {
+        Fx f = fixture();
+        rawUpload(f, UUID.randomUUID(), "1".repeat(64), 60L * 1024 * 1024, null)
+                .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.code").value("FLD-413-002"));
+        // FLD-05: 이 회차의 결함이 아닌 defectId → 422
+        call(post("/api/v1/fld/uploads"), f.eng(), "ENG", """
+                {"photoId":"%s","roundId":"%s","defectId":"%s","sha256":"%s","sizeBytes":100}""".formatted(UUID.randomUUID(),
+                f.round(), UUID.randomUUID(), "4".repeat(64))).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("FLD-422-001"));
+        rawUpload(f, UUID.randomUUID(), "2".repeat(64), 100, "text/html")
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("FLD-422-004"));
+        UUID first = null;
+        for (int i = 0; i < 20; i++) {
+            JsonNode c = tree(rawUpload(f, UUID.randomUUID(), "%064x".formatted(1000 + i), 100, "image/jpeg")
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            first = first == null ? UUID.fromString(c.get("uploadId").asText()) : first;
+        }
+        rawUpload(f, UUID.randomUUID(), "3".repeat(64), 100, "image/jpeg")
+                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("FLD-429-001"));
+        // 청크 상한(5MB)을 넘는 본문은 읽기 전에 413
+        patchChunk(f.eng(), first, 0, new byte[5 * 1024 * 1024 + 1])
+                .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.code").value("FLD-413-001"));
+        // 만료 정리 후에는 다시 열 수 있다
+        clock.advance(java.time.Duration.ofDays(8));
+        assertThat(photoUploads.expireSessions()).isGreaterThanOrEqualTo(20);
+        rawUpload(f, UUID.randomUUID(), "3".repeat(64), 100, "image/jpeg").andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("보안 검토 FLD-02: 만료 세션 PATCH → 410 FLD-410-001, 정리 작업이 EXPIRED · 임시 청크 삭제 / 신고 MIME ≠ 실제 형식 → 422 · REJECTED")
+    void uploadExpiryCleanupAndSniffing() throws Exception {
+        Fx f = fixture();
+        byte[] data = jpeg(9);
+        UUID photo = UUID.randomUUID();
+        UUID upload = UUID.fromString(tree(rawUpload(f, photo, sha(data), data.length, "image/jpeg")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("uploadId").asText());
+        patchChunk(f.eng(), upload, 0, Arrays.copyOfRange(data, 0, 1000)).andExpect(status().isOk());
+        String chunkKey = jdbc.queryForObject("SELECT object_key FROM fld.upload_chunk WHERE session_id = ?", String.class,
+                upload);
+        clock.advance(java.time.Duration.ofDays(8));
+        patchChunk(f.eng(), upload, 1000, Arrays.copyOfRange(data, 1000, 2000))
+                .andExpect(status().isGone()).andExpect(jsonPath("$.code").value("FLD-410-001"));
+        assertThat(photoUploads.expireSessions()).isGreaterThanOrEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM fld.upload_session WHERE id = ?", String.class, upload))
+                .isEqualTo("EXPIRED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fld.upload_chunk WHERE session_id = ?", Integer.class, upload))
+                .isZero();
+        assertThat(storage.exists(com.atomeng.common.evidence.Buckets.TEMP_UPLOAD, chunkKey)).isFalse();
+        clock.reset();
+
+        // PNG 원본을 JPEG 로 신고 → 조립 후 매직 바이트 불일치 → 422, 사진 REJECTED, core 첨부 미생성
+        var out = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(40, 40, BufferedImage.TYPE_INT_RGB), "png", out);
+        byte[] png = out.toByteArray();
+        UUID photo2 = UUID.randomUUID();
+        UUID up2 = UUID.fromString(tree(rawUpload(f, photo2, sha(png), png.length, "image/jpeg")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("uploadId").asText());
+        patchChunk(f.eng(), up2, 0, png).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("FLD-422-004"));
+        assertThat(jdbc.queryForObject("SELECT upload_state FROM fld.photo WHERE id = ?", String.class, photo2))
+                .isEqualTo("REJECTED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.attachment WHERE owner_id = ?", Integer.class, photo2))
+                .isZero();
+    }
 }

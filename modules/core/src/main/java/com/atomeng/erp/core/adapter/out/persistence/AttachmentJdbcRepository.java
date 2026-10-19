@@ -104,6 +104,20 @@ public class AttachmentJdbcRepository {
         return t == null ? null : t.toInstant();
     }
 
+    public record Row(UUID id, String ownerModule, String ownerType, UUID ownerId, UUID chainScope, String sha256,
+                      String mimeType, long sizeBytes, UUID createdBy) {}
+
+    /** 삭제되지 않은 첨부 메타데이터 */
+    public Optional<Row> find(UUID id) {
+        return jdbc.query("""
+                SELECT id, owner_module, owner_type, owner_id, chain_scope, sha256, mime_type, size_bytes, created_by
+                  FROM core.attachment WHERE id = ? AND deleted_at IS NULL""", (rs, i) -> new Row(
+                rs.getObject("id", UUID.class), rs.getString("owner_module"), rs.getString("owner_type"),
+                rs.getObject("owner_id", UUID.class), rs.getObject("chain_scope", UUID.class),
+                rs.getString("sha256").trim(), rs.getString("mime_type"), rs.getLong("size_bytes"),
+                rs.getObject("created_by", UUID.class)), id).stream().findFirst();
+    }
+
     /** 저장된 원본 위치 · 기록 해시 (삭제 제외) — [bucket, objectKey, sha256] */
     public Optional<String[]> stored(UUID attachmentId) {
         return jdbc.query("SELECT bucket, object_key, sha256 FROM core.attachment WHERE id = ? AND deleted_at IS NULL",

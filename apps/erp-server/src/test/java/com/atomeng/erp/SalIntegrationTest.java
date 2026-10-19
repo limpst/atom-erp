@@ -316,6 +316,50 @@ class SalIntegrationTest extends IntegrationTestBase {
                 "SALES").andExpect(status().isUnprocessableEntity());
     }
 
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 회귀 시험
+
+    @Test
+    @DisplayName("SEC-SAL-01: EXEC A 승인 후 EXEC B 반려 → DRAFT · approved_by 해제, 다시 :issue 하면 ISSUED 가 아니라 PENDING_APPROVAL")
+    void rejectAfterApproveClearsApproval() throws Exception {
+        UUID exec2 = employee("임원2");
+        UUID client = createClient(sales, "합성발주처-sal-" + UUID.randomUUID());
+        UUID opp = proposingOpportunity(client, "PRECISE_DIAG");
+        UUID id = UUID.fromString(createEstimate(opp, "0.07", sales, "SALES").get("id").asText());
+        JsonNode p = issue(id, sales, "SALES");
+        assertThat(p.get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        JsonNode approved = json(postIfMatch("/api/v1/sal/estimates/" + id + ":approve-discount",
+                map("decision", "APPROVE"), p.get("version").asLong(), exec, "EXEC").andExpect(status().isOk()).andReturn());
+        JsonNode rejected = json(postIfMatch("/api/v1/sal/estimates/" + id + ":approve-discount",
+                map("decision", "REJECT", "comment", "합성: 재검토"), approved.get("version").asLong(), exec2, "EXEC")
+                .andExpect(status().isOk()).andReturn());
+        assertThat(rejected.get("status").asText()).isEqualTo("DRAFT");
+        assertThat(rejected.get("approvedBy").isNull()).isTrue();
+        JsonNode again = issue(id, sales, "SALES");
+        assertThat(again.get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        assertThat(events("sal.estimate.issued")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("SEC-SAL-02: 다른 영업 기회의 ACCEPTED 견적을 계약에 연결 → 422 SAL-422-001, 계약 0건")
+    void contractRejectsEstimateOfOtherOpportunity() throws Exception {
+        UUID[] a = wonWithAcceptedEstimate();
+        UUID[] b = wonWithAcceptedEstimate();
+        BigDecimal offerB = get("/api/v1/sal/estimates/" + b[1], sales, "SALES").get("offerAmount").decimalValue();
+        post("/api/v1/sal/contracts", contractBody(a[0], b[1], "PRIVATE_SECTOR", offerB), sales, "SALES")
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("SAL-422-001"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM sal.contract WHERE opportunity_id = ?", Integer.class, a[0]))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("SEC-SAL-03: page=2147483647 → int 곱 오버플로(음수 OFFSET) 500 이 아니라 200 빈 목록")
+    void pagingOverflowIsNot500() throws Exception {
+        mvc.perform(as(MockMvcRequestBuilders.get("/api/v1/sal/opportunities?page=2147483647&size=500"), sales, "SALES"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(as(MockMvcRequestBuilders.get("/api/v1/sal/bid-notices?page=2147483647&size=500"), sales, "SALES"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+    }
+
     // ------------------------------------------------------------------ 계약 → 프로젝트 → CST 실행예산 (TC-SAL-031 · 030 · 032, TC-CST-01)
 
     /** WON 기회 + ACCEPTED 견적 */

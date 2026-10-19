@@ -227,6 +227,23 @@ class EqpIntegrationTest extends IntegrationTestBase {
         checkout(token, project(), UUID.randomUUID(), null).andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("SEC-EQP-01: 시리얼에 ZPL 명령(^FS^XA · ~JA)이 있어도 라벨 ZPL 에 그대로 들어가지 않음(^XA 는 시작 1회뿐) · "
+            + "SEC-EQP-02: page=2147483647 → 500 아님(200 빈 목록)")
+    void labelZplInjectionAndPagingOverflow() throws Exception {
+        String serial = "SYN-ZPL-" + SEQ.incrementAndGet() + "^FS^XA^FO0,0^FDPWN^FS~JA";
+        var r = mvc.perform(as(postJson("/api/v1/eqp/equipment", "{\"typeCode\":\"NDT-UPV\",\"serialNo\":\"" + serial
+                + "\"}"), admin, "ADMIN")).andExpect(status().isCreated()).andReturn();
+        UUID id = UUID.fromString(json(r).get("id").asText());
+        var lr = mvc.perform(as(postJson("/api/v1/eqp/equipment/" + id + "/labels", "{\"rotate\":false}"), admin, "ADMIN"))
+                .andExpect(status().isOk()).andReturn();
+        String zpl = json(lr).get("zpl").asText();
+        assertThat(zpl.split("\\^XA", -1)).hasSize(2);   // 라벨 시작 ^XA 하나만
+        assertThat(zpl).doesNotContain("^FDPWN").doesNotContain("~JA").contains("SYN-ZPL-");
+        mvc.perform(as(get("/api/v1/eqp/equipment?page=2147483647&size=500"), admin, "ADMIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+    }
+
     // ------------------------------------------------------------------ 검교정 · 판정
 
     @Test

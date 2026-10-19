@@ -98,7 +98,7 @@ public class OpportunityService {
                  WHERE deleted_at IS NULL AND (?::text IS NULL OR stage = ?::text)
                    AND (?::uuid IS NULL OR owner_id = ?::uuid) AND (?::text IS NULL OR source = ?::text)
                  ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?""",
-                stage, stage, ownerId, ownerId, source, source, size, page * size)
+                stage, stage, ownerId, ownerId, source, source, size, (long) page * size)
                 .stream().map(OpportunityService::view).toList();
     }
 

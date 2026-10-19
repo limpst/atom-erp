@@ -145,7 +145,7 @@ public class EquipmentService {
     }
 
     public List<EquipmentRow> list(String status, String type, Integer calDueWithinDays, int page, int size) {
-        return eqp.list(status, type, calDueWithinDays, today(), size, page * size);
+        return eqp.list(status, type, calDueWithinDays, today(), size, (long) page * size); // int 곱 오버플로 → 음수 OFFSET 500 방지(SEC)
     }
 
     public long count(String status, String type, Integer calDueWithinDays) {
@@ -218,7 +218,7 @@ public class EquipmentService {
                 ^FO190,65^A0N,22,22^FD%s^FS
                 ^FO190,100^A0N,20,20^FDS/N %s^FS
                 ^FO190,135^A0N,20,20^FDATOM ENG^FS
-                ^XZ""".formatted(url, e.code(), e.typeName(), e.serialNo());
+                ^XZ""".formatted(url, zplSafe(e.code()), zplSafe(e.typeName()), zplSafe(e.serialNo()));
         audit.append("EQP", AuditLog.Action.UPDATE, "equipment-label", id, null,
                 Map.of("code", e.code(), "rotated", rotate, "issuedAt", now.toString()));
         Map<String, Object> m = new LinkedHashMap<>();
@@ -229,6 +229,17 @@ public class EquipmentService {
         m.put("zpl", zpl);
         m.put("rotated", rotate);
         return m;
+    }
+
+    /**
+     * ZPL 필드 데이터 정화 (보안 검토 2026-10-19): 사용자가 입력한 시리얼 · 유형명에 ZPL 명령 접두(^ · ~)나 줄바꿈이 있으면
+     * 라벨 프린터 명령이 주입된다(예: "^FS^XA…"). 명령 문자를 제거하고 줄바꿈은 공백으로 바꾼다.
+     */
+    static String zplSafe(String v) {
+        if (v == null) {
+            return "";
+        }
+        return v.replace("^", "").replace("~", "").replace('\r', ' ').replace('\n', ' ');
     }
 
     /** QR 토큰 검증 → 장비. 형식 오류 400, 서명 불일치(위조 · 회전 전 라벨) 403 */

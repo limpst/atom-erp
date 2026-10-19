@@ -106,6 +106,10 @@ public class ContractService {
             if (!"ACCEPTED".equals(SalJdbc.str(est, "status"))) {
                 throw new DomainException(SalCodes.ESTIMATE_STATE, "고객이 수락한(ACCEPTED) 견적만 계약에 연결합니다");
             }
+            if (c.opportunityId() != null && !c.opportunityId().equals(SalJdbc.uuid(est, "opportunity_id"))) {
+                // 다른 기회의 수락 견적으로 금액 대조(1%)를 통과시키는 것을 막는다(보안 검토 2026-10-19)
+                throw new DomainException(SalCodes.INVALID, "연결한 견적이 이 계약의 영업 기회 견적이 아닙니다");
+            }
             BigDecimal offer = SalJdbc.dec(est, "offer_amount");
             if (offer.signum() > 0 && amountKrw.subtract(offer).abs().divide(offer, 6, RoundingMode.HALF_UP)
                     .compareTo(ONE_PCT) >= 0 && (c.amountDiffReason() == null || c.amountDiffReason().isBlank())) {

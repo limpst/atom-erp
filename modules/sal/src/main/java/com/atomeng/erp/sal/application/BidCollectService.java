@@ -208,7 +208,7 @@ public class BidCollectService {
                  WHERE deleted_at IS NULL AND (?::text IS NULL OR status = ?::text)
                    AND (?::text IS NULL OR title_tsv @@ plainto_tsquery('simple', ?::text) OR title ILIKE '%' || ?::text || '%')
                  ORDER BY close_at DESC NULLS LAST, bid_no, bid_seq LIMIT ? OFFSET ?""",
-                status, status, q, q, q, size, page * size);
+                status, status, q, q, q, size, (long) page * size);
     }
 
     public List<Map<String, Object>> collectLogs(int limit) {

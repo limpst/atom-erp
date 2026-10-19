@@ -219,8 +219,10 @@ public class EstimateService {
                         Map.of("decision", "APPROVE", "discountRate", rate, "approvedBy", by));
             }
             case "REJECT" -> {
+                // 앞선 APPROVE 의 approved_by 가 남으면 반려된 견적이 다음 :issue 에서 승인된 것으로 발행된다(보안 검토 2026-10-19)
                 sal.jdbc().update("""
-                        UPDATE sal.estimate SET status = 'DRAFT', approval_comment = ?, version = version + 1,
+                        UPDATE sal.estimate SET status = 'DRAFT', approved_by = NULL, approved_at = NULL,
+                               approval_comment = ?, version = version + 1,
                                updated_at = now(), updated_by = ? WHERE id = ?""", comment, by, id);
                 audit.append("SAL", AuditLog.Action.APPROVE, "estimate-discount", id, Map.of("status", st.name()),
                         Map.of("decision", "REJECT", "status", "DRAFT"));

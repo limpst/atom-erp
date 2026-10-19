@@ -84,7 +84,7 @@ public class EqpJdbc {
     }
 
     public List<EquipmentRow> list(String status, String typeCode, Integer calDueWithinDays, LocalDate today,
-                                   int limit, int offset) {
+                                   int limit, long offset) {
         return jdbc.query(SELECT + listWhere() + " ORDER BY e.code LIMIT ? OFFSET ?", ROW,
                 status, status, typeCode, typeCode, calDueWithinDays, d(today), d(today), calDueWithinDays, limit, offset);
     }

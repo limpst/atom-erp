@@ -132,23 +132,43 @@ public class RuleSetService {
     /** 4-eyes 승인 — 작성자 본인 금지(TC-FCD-024: API 403 + DB CHECK) */
     @Transactional
     public Map<String, Object> approve(String version, UUID approver) {
-        Map<String, Object> row = jdbc.query("SELECT status, authored_by FROM fcd.rule_set WHERE version = ? FOR UPDATE",
-                rs -> rs.next() ? Map.<String, Object>of("status", rs.getString(1), "author", rs.getString(2)) : null,
-                version);
-        if (row == null) {
+        return approve(version, null, approver);
+    }
+
+    /**
+     * 4-eyes 승인. 유일성은 (name, version) 이므로 버전만으로 여러 행이 잡히면 name 으로 특정해야 한다
+     * (SEC-FCD-004: 같은 버전 · 다른 이름 초안이 함께 ACTIVE 되는 것 방지). 갱신은 id 한 행만.
+     */
+    @Transactional
+    public Map<String, Object> approve(String version, String name, UUID approver) {
+        List<Map<String, Object>> rows = jdbc.query("""
+                SELECT id, name, status, authored_by FROM fcd.rule_set
+                 WHERE version = ? AND (?::text IS NULL OR name = ?) ORDER BY id FOR UPDATE""",
+                (rs, i) -> Map.<String, Object>of("id", rs.getObject(1, UUID.class), "name", rs.getString(2),
+                        "status", rs.getString(3), "author", rs.getString(4)),
+                version, name, name);
+        if (rows.isEmpty()) {
             throw new DomainException(FcdErrors.NOT_FOUND, "룰셋 없음: " + version);
         }
+        if (rows.size() > 1) {
+            throw new DomainException(FcdErrors.STATE, "같은 버전의 룰셋이 여러 개입니다 — name 으로 지정하세요: " + version);
+        }
+        Map<String, Object> row = rows.get(0);
         if (row.get("author").equals(approver.toString())) {
             throw new DomainException(FcdErrors.FOUR_EYES, "4-eyes: 작성자 본인은 승인할 수 없습니다");
         }
         if (!List.of("DRAFT", "PENDING_APPROVAL").contains((String) row.get("status"))) {
             throw new DomainException(FcdErrors.STATE, "승인할 수 없는 상태: " + row.get("status"));
         }
-        jdbc.update("UPDATE fcd.rule_set SET status = 'ACTIVE', approved_by = ?, approved_at = now() WHERE version = ?",
-                approver.toString(), version);
+        int n = jdbc.update("UPDATE fcd.rule_set SET status = 'ACTIVE', approved_by = ?, approved_at = now() WHERE id = ?",
+                approver.toString(), row.get("id"));
+        if (n != 1) {
+            throw new IllegalStateException("룰셋 승인 갱신 행 수 오류: " + n);
+        }
         cache.set(null);
+        Map<String, Object> before = Map.of("status", row.get("status"), "author", row.get("author"), "name", row.get("name"));
         audit.append("FCD", AuditLog.Action.APPROVE, "rule_set", UUID.nameUUIDFromBytes(version.getBytes(
-                StandardCharsets.UTF_8)), row, Map.of("status", "ACTIVE", "approvedBy", approver.toString()));
-        return Map.of("version", version, "status", "ACTIVE");
+                StandardCharsets.UTF_8)), before, Map.of("status", "ACTIVE", "approvedBy", approver.toString()));
+        return Map.of("version", version, "name", row.get("name"), "status", "ACTIVE");
     }
 }

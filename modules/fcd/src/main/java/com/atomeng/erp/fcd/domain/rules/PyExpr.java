@@ -41,7 +41,14 @@ public final class PyExpr {
 
     private PyExpr() {}
 
+    /** SEC-FCD-003: 식 길이 · 중첩 깊이 상한 — 깊은 괄호로 StackOverflowError(500) 를 내는 입력 차단 */
+    public static final int MAX_EXPR_LENGTH = 4000;
+    public static final int MAX_NESTING_DEPTH = 200; // 괄호 한 단 = test · notTest · factor 3 단 → 약 66 단 괄호
+
     public static Node compile(String src) {
+        if (src != null && src.length() > MAX_EXPR_LENGTH) {
+            throw new ExprError("expression too long: " + src.length() + " > " + MAX_EXPR_LENGTH);
+        }
         String norm = String.join(" ", src.trim().split("\\s+"));
         return CACHE.computeIfAbsent(norm, s -> new Parser(new Lexer(s).tokens()).parseAll());
     }
@@ -204,6 +211,13 @@ public final class PyExpr {
     static final class Parser {
         private final List<Tok> toks;
         private int p;
+        private int depth;
+
+        private void enter() {
+            if (++depth > MAX_NESTING_DEPTH) {
+                throw new ExprError("expression nested too deeply (max " + MAX_NESTING_DEPTH + ")");
+            }
+        }
 
         Parser(List<Tok> toks) {
             this.toks = toks;
@@ -262,6 +276,15 @@ public final class PyExpr {
         }
 
         private Node test() {
+            enter();
+            try {
+                return testInner();
+            } finally {
+                depth--;
+            }
+        }
+
+        private Node testInner() {
             if (isKw("lambda")) {
                 throw new ExprError("syntax not allowed: Lambda");
             }
@@ -324,6 +347,15 @@ public final class PyExpr {
         }
 
         private Node notTest() {
+            enter();
+            try {
+                return notTestInner();
+            } finally {
+                depth--;
+            }
+        }
+
+        private Node notTestInner() {
             if (isKw("not")) {
                 p++;
                 Node x = notTest();
@@ -464,6 +496,15 @@ public final class PyExpr {
         }
 
         private Node factor() {
+            enter();
+            try {
+                return factorInner();
+            } finally {
+                depth--;
+            }
+        }
+
+        private Node factorInner() {
             if (isOp("-")) {
                 p++;
                 Node x = factor();
@@ -779,14 +820,12 @@ public final class PyExpr {
                 if (!(nd instanceof Long || nd instanceof Boolean)) {
                     throw new PyOps.PyTypeError("ndigits must be int");
                 }
-                int n = (int) PyOps.asLong(nd);
+                long n = PyOps.asLong(nd);
                 if (x instanceof Double d) {
                     return PyOps.round(d, n);
                 }
                 if (x instanceof Long || x instanceof Boolean) {
-                    long l = PyOps.asLong(x);
-                    return n >= 0 ? l : new java.math.BigDecimal(l).setScale(n, java.math.RoundingMode.HALF_EVEN)
-                            .longValue();
+                    return PyOps.roundInt(PyOps.asLong(x), n);
                 }
                 throw new PyOps.PyTypeError("type doesn't define __round__");
             }

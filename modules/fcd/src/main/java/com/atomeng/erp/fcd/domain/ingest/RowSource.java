@@ -132,6 +132,24 @@ public final class RowSource {
         };
     }
 
+    /** SEC-FCD-007: 행 · 열 상한(빈 행 보존 패딩 · 압축 폭탄으로 메모리 고갈 방지). 카드사 월 명세서는 수만 행 수준. */
+    public static final int MAX_ROWS = 200_000;
+    public static final int MAX_COLS = 512;
+    /** XLSX 압축 해제 시 항목 하나의 최대 크기(POI 기본 4GB → 200MB) */
+    public static final long MAX_XLSX_ENTRY_BYTES = 200L * 1024 * 1024;
+
+    static void checkRows(long n) {
+        if (n > MAX_ROWS) {
+            throw new FormatException("E-TOO-MANY-ROWS", "행 수가 상한(" + MAX_ROWS + ")을 넘습니다");
+        }
+    }
+
+    static void checkCols(long n) {
+        if (n > MAX_COLS) {
+            throw new FormatException("E-TOO-MANY-COLS", "열 수가 상한(" + MAX_COLS + ")을 넘습니다");
+        }
+    }
+
     public static Result read(byte[] data) {
         String kind = sniffKind(data);
         List<String> warnings = new ArrayList<>();
@@ -158,6 +176,8 @@ public final class RowSource {
                 String delim = detectDelimiter(text);
                 List<List<Object>> rows = new ArrayList<>();
                 for (List<String> r : CsvParser.parse(text, delim.charAt(0))) {
+                    checkRows(rows.size() + 1L);
+                    checkCols(r.size());
                     rows.add(new ArrayList<>(r));
                 }
                 return new Result("CSV", rows, enc, delim, bad, null, warnings);
@@ -263,6 +283,7 @@ public final class RowSource {
 
     private static Result readXlsx(byte[] data, List<String> warnings) {
         ZipSecureFile.setMinInflateRatio(0.01);   // zip bomb 방지
+        ZipSecureFile.setMaxEntrySize(MAX_XLSX_ENTRY_BYTES);
         try (OPCPackage pkg = OPCPackage.open(new ByteArrayInputStream(data))) {
             XSSFReader reader = new XSSFReader(pkg);
             ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(pkg);
@@ -281,6 +302,7 @@ public final class RowSource {
 
                         @Override
                         public void startRow(int rowNum) {
+                            checkRows(rowNum + 1L);
                             while (lastRow + 1 < rowNum) {   // 빈 행 보존(행 번호 = 파일 행 번호)
                                 rows.add(new ArrayList<>());
                                 lastRow++;
@@ -297,6 +319,7 @@ public final class RowSource {
                         @Override
                         public void cell(String ref, String formattedValue, XSSFComment comment) {
                             int col = new CellReference(ref).getCol();
+                            checkCols(col + 1L);
                             while (cur.size() < col) {
                                 cur.add("");
                             }
@@ -345,9 +368,11 @@ public final class RowSource {
             List<List<Object>> rows = new ArrayList<>();
             if (best != null) {
                 int width = 0;
+                checkRows(best.getLastRowNum() + 1L);
                 for (Row r : best) {
                     width = Math.max(width, r.getLastCellNum());
                 }
+                checkCols(width);
                 for (int i = 0; i <= best.getLastRowNum(); i++) {
                     Row r = best.getRow(i);
                     List<Object> out = new ArrayList<>();
@@ -389,6 +414,7 @@ public final class RowSource {
         Matcher tr = TR.matcher(html);
         while (tr.find()) {
             List<Object> row = new ArrayList<>();
+            checkRows(rows.size() + 1L);
             Matcher td = TD.matcher(tr.group(1));
             while (td.find()) {
                 row.add(unescape(TAG.matcher(td.group(1)).replaceAll("")).strip());

@@ -261,7 +261,8 @@ public final class FileParser {
             appr = appr == null ? null : appr.strip();
             String cat = str(cell(row, col.get("category")));
             CanonicalRow cr = new CanonicalRow(channel, kind, cardId, appr, when, prec,
-                    !"CANCEL".equals(kind) ? Math.abs(amt) : 0, String.valueOf(merchant), bizno, cat,
+                    !"CANCEL".equals(kind) ? Math.abs(amt) : 0, PanTools.maskPans(String.valueOf(merchant)), bizno,
+                    PanTools.maskPans(cat),
                     cur.isEmpty() ? "KRW" : cur, foreign, fxRate, cancelAmount, partial, cancelAt, null, null, rowNo,
                     raw, "");
             Map<String, Object> baseMap = new HashMap<>(raw);
@@ -289,9 +290,16 @@ public final class FileParser {
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private static String q(String s) {
+    /**
+     * CSV 셀 인용 + 수식 주입 무력화(SEC-FCD-009). 카드사 파일 원문값(가맹점명 등 외부 통제 문자열)이
+     * {@code =HYPERLINK(...)} 처럼 = + - @ 탭 CR 로 시작하면 Excel 이 수식으로 실행하므로 앞에 ' 를 붙인다.
+     */
+    static String q(String s) {
         if (s == null) {
             return "";
+        }
+        if (!s.isEmpty() && "=+-@\t\r".indexOf(s.charAt(0)) >= 0) {
+            s = "'" + s;
         }
         if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
             return "\"" + s.replace("\"", "\"\"") + "\"";

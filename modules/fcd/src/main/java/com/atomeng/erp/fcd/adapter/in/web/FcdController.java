@@ -113,6 +113,10 @@ class FcdController {
                 .orElseThrow(() -> new DomainException("CORE-401-001", "인증 필요"));
     }
 
+    private boolean has(String permission) {
+        return registry.scopeFor(me().roles(), permission).isPresent();
+    }
+
     private boolean selfOnly(String permission) {
         AtomPrincipal p = me();
         return registry.scopeFor(p.roles(), permission).map(s -> s == PermissionScope.SELF).orElse(true);
@@ -228,8 +232,9 @@ class FcdController {
 
     @PostMapping("/rule-sets/{version}:approve")
     @RequirePermission("fcd:ruleset:approve")
-    public Map<String, Object> approve(@PathVariable String version) {
-        return rulesets.approve(version, me().actorId());
+    public Map<String, Object> approve(@PathVariable String version,
+                                       @RequestParam(required = false) String name) {
+        return rulesets.approve(version, name, me().actorId());
     }
 
     @PostMapping("/scoring:run")
@@ -368,12 +373,21 @@ class FcdController {
     @GetMapping("/expense-reports/{id}")
     @RequirePermission("fcd:expense:write")
     public Map<String, Object> report(@PathVariable UUID id) {
-        return expenses.report(id);
+        Map<String, Object> r = expenses.report(id);
+        // SEC-FCD-002: fcd:expense:write 는 모든 역할에 SELF — 결재(approve) · 전기(post) 권한자만 남의 정산서를 본다
+        if (!me().actorId().equals(r.get("employee_id")) && !has("fcd:expense:approve") && !has("fcd:expense:post")) {
+            throw new DomainException(FcdErrors.NOT_OWNER, "본인 정산서만 조회할 수 있습니다");
+        }
+        return r;
     }
 
     @GetMapping("/employees/{id}/expense-gate")
     @RequirePermission("fcd:case:read")
     public Map<String, Object> gate(@PathVariable UUID id) {
+        // SEC-FCD-003: SELF 범위(EMPLOYEE · PM)는 본인 게이트만 — 남의 '조사 중' 여부 노출 방지
+        if (selfOnly("fcd:case:read") && !me().actorId().equals(id)) {
+            throw new DomainException(FcdErrors.NOT_OWNER, "본인 정산 게이트만 조회할 수 있습니다");
+        }
         List<String> blocking = cases.blockingCases(id);
         return Map.of("canSubmit", blocking.isEmpty(), "blockingCases", blocking);
     }

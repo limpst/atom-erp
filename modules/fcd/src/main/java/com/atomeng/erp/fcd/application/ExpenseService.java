@@ -230,8 +230,12 @@ public class ExpenseService {
     }
 
     public Map<String, Object> report(UUID id) {
-        Map<String, Object> r = new java.util.LinkedHashMap<>(jdbc.queryForMap(
-                "SELECT id, employee_id, period, status, approved_by, posted_at FROM fcd.expense_report WHERE id = ?", id));
+        List<Map<String, Object>> found = jdbc.queryForList(
+                "SELECT id, employee_id, period, status, approved_by, posted_at FROM fcd.expense_report WHERE id = ?", id);
+        if (found.isEmpty()) {
+            throw new DomainException(FcdErrors.NOT_FOUND, "정산서 없음: " + id);
+        }
+        Map<String, Object> r = new java.util.LinkedHashMap<>(found.get(0));
         r.put("lines", jdbc.queryForList("""
                 SELECT id, txn_id, account_code, cost_element, project_id, supply_amount, vat_amount, vat_deductible,
                        sync_status, voucher_no FROM fcd.expense_line WHERE report_id = ? ORDER BY id""", id));

@@ -152,6 +152,17 @@ public final class PyFormat {
 
     // ------------------------------------------------------------------ format(v, spec)
 
+    /** 폭 · 정밀도 상한 (SEC-FCD-006: {@code {x:>999999999}} 로 1GB 문자열을 만드는 DoS 차단) */
+    public static final int MAX_SPEC_NUMBER = 1000;
+
+    private static int boundedSpecInt(String digits, String spec) {
+        if (digits.length() > 4 || Integer.parseInt(digits) > MAX_SPEC_NUMBER) {
+            throw new PyOps.PyValueError("Too many decimal digits in format string '" + spec + "' (max "
+                    + MAX_SPEC_NUMBER + ")");
+        }
+        return Integer.parseInt(digits);
+    }
+
     /**
      * @throws PyOps.PyValueError 스펙이 값 타입과 맞지 않을 때(호출 측은 str(v) 로 대체 — format_message 동작)
      */
@@ -166,9 +177,9 @@ public final class PyFormat {
         String fill = m.group(1) != null ? m.group(1) : (m.group(5) != null ? "0" : " ");
         String align = m.group(2);
         String sign = m.group(3) != null ? m.group(3) : "-";
-        int width = m.group(6) != null ? Integer.parseInt(m.group(6)) : 0;
+        int width = m.group(6) != null ? boundedSpecInt(m.group(6), spec) : 0;
         String group = m.group(7);
-        Integer prec = m.group(8) != null ? Integer.valueOf(m.group(8)) : null;
+        Integer prec = m.group(8) != null ? boundedSpecInt(m.group(8), spec) : null;
         String type = m.group(9);
         if (m.group(5) != null && align == null) {
             align = "=";

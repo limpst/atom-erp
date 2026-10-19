@@ -412,6 +412,17 @@ public final class PyOps {
         if (isIntLike(a) && isIntLike(b) && asLong(b) >= 0) {
             long base = asLong(a);
             long e = asLong(b);
+            // SEC-FCD-005: |base| ≤ 1 은 넘침 없이 e 번 반복하므로(1 ** 2^63-1 → 9e18 회) 결과를 바로 계산.
+            // |base| ≥ 2 는 63 회 안에 multiplyExact 가 넘침을 던지므로 반복 횟수가 자연히 제한된다.
+            if (base == 0) {
+                return e == 0 ? 1L : 0L;
+            }
+            if (base == 1) {
+                return 1L;
+            }
+            if (base == -1) {
+                return (e & 1L) == 0 ? 1L : -1L;
+            }
             long r = 1;
             for (long i = 0; i < e; i++) {
                 r = Math.multiplyExact(r, base);
@@ -465,12 +476,35 @@ public final class PyOps {
         return (long) Math.rint(x);
     }
 
+    /** CPython floatobject.c: (DBL_MANT_DIG - DBL_MIN_EXP) * 0.30103 = 323, -(DBL_MAX_EXP + 1) * 0.30103 = -308 */
+    static final long ROUND_NDIGITS_MAX = 323;
+    static final long ROUND_NDIGITS_MIN = -308;
+
+    /** Python round(int, n) — n ≥ 0 은 그대로, 음수는 10^-n 단위 짝수 반올림. |long| < 10^19 이므로 n ≤ -20 은 0. */
+    public static long roundInt(long l, long n) {
+        if (n >= 0) {
+            return l;
+        }
+        if (n < -19) {
+            return 0L;
+        }
+        return new BigDecimal(l).setScale((int) n, RoundingMode.HALF_EVEN).longValue();
+    }
+
     /** Python round(x, n) — 이진값 그대로 십진 짝수 반올림(CPython 의 correctly-rounded 방식과 같음) */
-    public static double round(double x, int n) {
+    public static double round(double x, long n) {
         if (Double.isNaN(x) || Double.isInfinite(x)) {
             return x;
         }
-        return new BigDecimal(x).setScale(n, RoundingMode.HALF_EVEN).doubleValue();
+        // CPython float.__round__ 과 같은 경계(NDIGITS_MAX/MIN): 이 밖은 계산 없이 x 또는 ±0.0.
+        // SEC-FCD-006: round(0.5, 999999999) 가 10^999999999 자리 BigDecimal 을 만들던 DoS 차단.
+        if (n > ROUND_NDIGITS_MAX) {
+            return x;
+        }
+        if (n < ROUND_NDIGITS_MIN) {
+            return 0.0 * x;
+        }
+        return new BigDecimal(x).setScale((int) n, RoundingMode.HALF_EVEN).doubleValue();
     }
 
     public static double toFloat(Object v) {

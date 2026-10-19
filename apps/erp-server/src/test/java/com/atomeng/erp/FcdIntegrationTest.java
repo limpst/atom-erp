@@ -311,6 +311,16 @@ class FcdIntegrationTest extends IntegrationTestBase {
         JsonNode sub = json(mvc.perform(as(postJson("/api/v1/fcd/expense-reports/2026-05:submit", "{}"), emp, "EMPLOYEE"))
                 .andExpect(status().isOk()).andReturn());
         String report = sub.get("reportId").asText();
+        // SEC-FCD-002 · 003: 다른 직원(SELF 범위)은 남의 정산서 · 정산 게이트 조회 403, 본인 · 결재권자(FIN)는 200
+        UUID other = actor();
+        mvc.perform(as(get("/api/v1/fcd/expense-reports/" + report), other, "EMPLOYEE")).andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/fcd/expense-reports/" + report), emp, "EMPLOYEE")).andExpect(status().isOk());
+        mvc.perform(as(get("/api/v1/fcd/expense-reports/" + report), fin, "FIN")).andExpect(status().isOk());
+        mvc.perform(as(get("/api/v1/fcd/expense-reports/" + UUID.randomUUID()), fin, "FIN")).andExpect(status().isNotFound());
+        mvc.perform(as(get("/api/v1/fcd/employees/" + emp + "/expense-gate"), other, "EMPLOYEE"))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/fcd/employees/" + emp + "/expense-gate"), emp, "EMPLOYEE")).andExpect(status().isOk());
+        mvc.perform(as(get("/api/v1/fcd/employees/" + emp + "/expense-gate"), auditor, "AUDITOR")).andExpect(status().isOk());
         mvc.perform(as(postJson("/api/v1/fcd/expense-reports/" + report + ":approve", "{}"), emp, "FIN"))
                 .andExpect(status().isForbidden());
         mvc.perform(as(postJson("/api/v1/fcd/expense-reports/" + report + ":approve", "{}"), fin, "FIN"))
@@ -485,6 +495,29 @@ class FcdIntegrationTest extends IntegrationTestBase {
         }
         assertThat(drafts).isEqualTo(2);
         assertThat(list.size()).isGreaterThanOrEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("SEC-FCD-004: 같은 버전 · 다른 이름 초안 2개 — 버전만으로 승인하면 409(모호), name 지정 시 그 행만 ACTIVE")
+    void rulesetApproveTargetsSingleRow() throws Exception {
+        String base = new String(java.util.Objects.requireNonNull(getClass().getResourceAsStream("/fcd/rulesets/fcd-2026.5.0.yaml"))
+                .readAllBytes(), StandardCharsets.UTF_8)
+                .replace("version: 2026.5.0", "version: 2099.2.0").replace("effective_from: '2026-04-01'",
+                        "effective_from: '2099-02-01'");
+        String evil = base.replace("ruleset: fcd", "ruleset: fcd-shadow");
+        for (String y : List.of(base, evil)) {
+            mvc.perform(as(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/fcd/rule-sets")
+                    .contentType("application/yaml").content(y), fin, "FIN")).andExpect(status().isCreated());
+        }
+        mvc.perform(as(postJson("/api/v1/fcd/rule-sets/2099.2.0:approve", "{}"), auditor, "AUDITOR"))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fcd.rule_set WHERE version = '2099.2.0' AND status = 'ACTIVE'",
+                Integer.class)).isZero();
+        mvc.perform(as(postJson("/api/v1/fcd/rule-sets/2099.2.0:approve?name=fcd", "{}"), auditor, "AUDITOR"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
+        assertThat(jdbc.queryForList("SELECT name, status FROM fcd.rule_set WHERE version = '2099.2.0' ORDER BY name"))
+                .extracting(r -> r.get("name") + ":" + r.get("status"))
+                .containsExactly("fcd:ACTIVE", "fcd-shadow:DRAFT");
     }
 
     @Test

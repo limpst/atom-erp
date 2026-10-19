@@ -1,0 +1,65 @@
+[
+ {
+  "chunkId": "6d84f595-7ccf-53aa-88f5-83901f84aea8",
+  "documentId": "61ca7803-18b8-550b-b42b-befc72a79542",
+  "kind": "GUIDELINE",
+  "accessScope": "INTERNAL",
+  "effectiveTo": null,
+  "headingPath": "합성지침 > 3장 > 3.2 균열",
+  "content": "콘크리트 균열은 폭과 길이, 진행성을 함께 기록한다. 균열폭은 균열 게이지 또는 측정 장비로 확인한다."
+ },
+ {
+  "chunkId": "aa9b9712-edb9-568e-8ce6-f85de3e371c6",
+  "documentId": "61ca7803-18b8-550b-b42b-befc72a79542",
+  "kind": "GUIDELINE",
+  "accessScope": "INTERNAL",
+  "effectiveTo": null,
+  "headingPath": "합성지침 > 3장 > 3.4 백태",
+  "content": "백태가 함께 나타난 균열은 누수 경로가 있을 가능성이 있으므로 배면 누수 여부를 함께 조사한다."
+ },
+ {
+  "chunkId": "2c186b9c-81cf-52fa-ac9a-02f2d4f1dd73",
+  "documentId": "61ca7803-18b8-550b-b42b-befc72a79542",
+  "kind": "GUIDELINE",
+  "accessScope": "INTERNAL",
+  "effectiveTo": null,
+  "headingPath": "합성지침 > 4장 > 4.1 보수",
+  "content": "표면처리, 주입, 충전 공법 중에서 균열폭과 진행성에 맞는 방법을 고른다."
+ },
+ {
+  "chunkId": "bfcd1b3b-fac4-52e5-820d-128d4f03b5b4",
+  "documentId": "547a9289-e618-500b-9981-e04971cc361d",
+  "kind": "PAST_REPORT",
+  "accessScope": "INTERNAL",
+  "effectiveTo": null,
+  "headingPath": "합성 과거보고서 > 소견",
+  "content": "[고객] 지하주차장 슬래브 하부에서 망상 균열이 관찰되었다. 건조수축에 의한 것으로 추정된다."
+ },
+ {
+  "chunkId": "93cc7abb-dad7-552a-b922-084010914bcc",
+  "documentId": "9cbb14b6-ce59-5242-91e5-fc7f09ac5b1b",
+  "kind": "STD_PHRASE",
+  "accessScope": "INTERNAL",
+  "effectiveTo": null,
+  "headingPath": "표준문구 > 균열",
+  "content": "균열의 진행 여부를 확인하기 위해 정기적인 관찰(모니터링)을 권장한다."
+ },
+ {
+  "chunkId": "6c4b962e-76c1-5caa-9c45-f75724a33274",
+  "documentId": "0b15efb8-6c2e-5554-8857-f511f53a9c8b",
+  "kind": "GUIDELINE",
+  "accessScope": "RESTRICTED",
+  "effectiveTo": null,
+  "headingPath": "제한문서 > 백태",
+  "content": "(권한 범위 밖 합성 문서) 백태와 균열이 동반된 슬래브 사례 목록."
+ },
+ {
+  "chunkId": "53dbfe61-f689-5597-a729-dd1f34701863",
+  "documentId": "060cecc5-9bd1-55dc-afbd-70f340b71b5b",
+  "kind": "GUIDELINE",
+  "accessScope": "INTERNAL",
+  "effectiveTo": "2025-12-31",
+  "headingPath": "합성지침(구판) > 백태",
+  "content": "(효력 종료 합성 문서) 백태 동반 균열은 즉시 보수한다."
+ }
+]

@@ -135,6 +135,64 @@ public class TestBeans {
         }
     }
 
+    /**
+     * AIP Python 워커 대역 — 실제 워커 · vLLM 은 호출하지 않는다. 기본: 활성, 경로별 계약 예시 응답(jobId 에코).
+     * 요청 본문을 기록해 시험이 기록된 OpenAPI 계약(AipContract)으로 검증한다. enabled=false 면 미설정 워커와 같다.
+     */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    FakeAipWorker fakeAipWorker() {
+        return new FakeAipWorker();
+    }
+
+    public static class FakeAipWorker implements com.atomeng.erp.aip.application.port.AipWorkerPort {
+        private volatile boolean enabled = true;
+        private final Map<String, java.util.function.Function<com.fasterxml.jackson.databind.JsonNode,
+                com.fasterxml.jackson.databind.JsonNode>> handlers = new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.List<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> requests =
+                java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+        public void reset() {
+            enabled = true;
+            handlers.clear();
+            requests.clear();
+        }
+
+        public void setEnabled(boolean v) {
+            enabled = v;
+        }
+
+        public void on(String path, java.util.function.Function<com.fasterxml.jackson.databind.JsonNode,
+                com.fasterxml.jackson.databind.JsonNode> fn) {
+            handlers.put(path, fn);
+        }
+
+        public java.util.List<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> requests() {
+            synchronized (requests) {
+                return java.util.List.copyOf(requests);
+            }
+        }
+
+        public long calls(String path) {
+            return requests().stream().filter(e -> e.getKey().equals(path)).count();
+        }
+
+        @Override
+        public boolean enabled() {
+            return enabled;
+        }
+
+        @Override
+        public Response post(String path, com.fasterxml.jackson.databind.JsonNode body, java.time.Duration timeout) {
+            if (!enabled) {
+                throw new com.atomeng.erp.aip.api.AipJobApi.AipDisabledException("DISABLED: 시험 대역 비활성");
+            }
+            requests.add(Map.entry(path, body.deepCopy()));
+            var fn = handlers.get(path);
+            return new Response(200, fn != null ? fn.apply(body) : AipSamples.reply(path, body), 5);
+        }
+    }
+
     @Bean
     TestEventConsumer testEventConsumer(JdbcTemplate jdbc) {
         return new TestEventConsumer(jdbc);

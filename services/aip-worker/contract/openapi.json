@@ -1,0 +1,1654 @@
+{
+  "components": {
+    "schemas": {
+      "ComponentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "areaPx": {
+            "title": "Areapx",
+            "type": "integer"
+          },
+          "bbox": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Bbox",
+            "type": "array"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "lengthM": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lengthm"
+          },
+          "skeletonLengthPx": {
+            "title": "Skeletonlengthpx",
+            "type": "number"
+          },
+          "widthMaxMm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widthmaxmm"
+          },
+          "widthMaxPx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widthmaxpx"
+          },
+          "widthMeanMm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widthmeanmm"
+          },
+          "widthP95Mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widthp95Mm"
+          },
+          "widthUncertMm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widthuncertmm"
+          }
+        },
+        "required": [
+          "bbox",
+          "areaPx",
+          "skeletonLengthPx",
+          "widthMaxPx",
+          "widthMaxMm",
+          "widthMeanMm",
+          "widthP95Mm",
+          "widthUncertMm",
+          "lengthM",
+          "flags"
+        ],
+        "title": "ComponentOut",
+        "type": "object"
+      },
+      "CrackScoreRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "imageB64": {
+            "description": "JPEG/PNG base64",
+            "minLength": 8,
+            "title": "Imageb64",
+            "type": "string"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Labels",
+            "type": "array"
+          },
+          "model": {
+            "default": "crack",
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          }
+        },
+        "required": [
+          "imageB64"
+        ],
+        "title": "CrackScoreRequest",
+        "type": "object"
+      },
+      "CrackScoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "latencyMs": {
+            "title": "Latencyms",
+            "type": "integer"
+          },
+          "logprobNeg": {
+            "title": "Logprobneg",
+            "type": "number"
+          },
+          "logprobPos": {
+            "title": "Logprobpos",
+            "type": "number"
+          },
+          "pCrack": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pcrack",
+            "type": "number"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Provenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "pCrack",
+          "logprobPos",
+          "logprobNeg",
+          "labels",
+          "provenance",
+          "latencyMs"
+        ],
+        "title": "CrackScoreResponse",
+        "type": "object"
+      },
+      "DraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "facts": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Facts",
+            "type": "object"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "model": {
+            "default": "gemma-4-12b-it",
+            "title": "Model",
+            "type": "string"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "facts"
+        ],
+        "title": "DraftRequest",
+        "type": "object"
+      },
+      "DraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "retrievedChunkIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Retrievedchunkids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "OK",
+              "INSUFFICIENT_EVIDENCE",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "draft",
+          "errors",
+          "retrievedChunkIds",
+          "keywords",
+          "attempts"
+        ],
+        "title": "DraftResponse",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "crackPattern": {
+            "enum": [
+              "VERTICAL",
+              "HORIZONTAL",
+              "DIAGONAL",
+              "MAP",
+              "NA"
+            ],
+            "title": "Crackpattern",
+            "type": "string"
+          },
+          "defectType": {
+            "enum": [
+              "CRACK",
+              "SPALL",
+              "SCALING",
+              "EFFLORESCENCE",
+              "REBAR",
+              "LEAK",
+              "NONE"
+            ],
+            "title": "Defecttype",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 120,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "defectType",
+          "crackPattern",
+          "confidence",
+          "description"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "imageB64": {
+            "minLength": 8,
+            "title": "Imageb64",
+            "type": "string"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "maxTokens": {
+            "default": 200,
+            "maximum": 1024.0,
+            "minimum": 32.0,
+            "title": "Maxtokens",
+            "type": "integer"
+          },
+          "model": {
+            "default": "gemma-4-12b-it",
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageB64"
+        ],
+        "title": "FindingRequest",
+        "type": "object"
+      },
+      "FindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "finding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Finding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "latencyMs": {
+            "title": "Latencyms",
+            "type": "integer"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Provenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rawText": {
+            "title": "Rawtext",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobId",
+          "finding",
+          "valid",
+          "rawText",
+          "provenance",
+          "latencyMs"
+        ],
+        "title": "FindingResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "status": {
+            "const": "UP",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "vllmReachable": {
+            "title": "Vllmreachable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "vllmReachable",
+          "models"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "ImageInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "markers": {
+            "items": {
+              "$ref": "#/components/schemas/MarkerOut"
+            },
+            "title": "Markers",
+            "type": "array"
+          },
+          "mmPerPx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mmperpx"
+          },
+          "mmPerPxUncert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mmperpxuncert"
+          },
+          "scaleReprojErrPx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scalereprojerrpx"
+          },
+          "scaleSource": {
+            "title": "Scalesource",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "mmPerPx",
+          "mmPerPxUncert",
+          "scaleSource",
+          "scaleReprojErrPx",
+          "markers"
+        ],
+        "title": "ImageInfo",
+        "type": "object"
+      },
+      "KbHit": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkId": {
+            "title": "Chunkid",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "documentId": {
+            "title": "Documentid",
+            "type": "string"
+          },
+          "headingPath": {
+            "title": "Headingpath",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "matchedKeywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Matchedkeywords",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "chunkId",
+          "documentId",
+          "kind",
+          "headingPath",
+          "score",
+          "matchedKeywords",
+          "content"
+        ],
+        "title": "KbHit",
+        "type": "object"
+      },
+      "KbSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "k": {
+            "default": 8,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "K",
+            "type": "integer"
+          },
+          "query": {
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "KbSearchRequest",
+        "type": "object"
+      },
+      "KbSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/KbHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "mode": {
+            "const": "KEYWORD_ONLY",
+            "title": "Mode",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "keywords",
+          "mode",
+          "hits"
+        ],
+        "title": "KbSearchResponse",
+        "type": "object"
+      },
+      "MarkerOut": {
+        "additionalProperties": false,
+        "properties": {
+          "cornersPx": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Cornerspx",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "cornersPx"
+        ],
+        "title": "MarkerOut",
+        "type": "object"
+      },
+      "MeasureRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "boundariesMm": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Boundariesmm",
+            "type": "array"
+          },
+          "darkThreshold": {
+            "default": 100,
+            "maximum": 255.0,
+            "minimum": 1.0,
+            "title": "Darkthreshold",
+            "type": "integer"
+          },
+          "imageB64": {
+            "minLength": 8,
+            "title": "Imageb64",
+            "type": "string"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "maskB64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "분할 모델 이진 마스크 PNG(없으면 합성용 임계값 분할)",
+            "title": "Maskb64"
+          },
+          "minComponentPx": {
+            "default": 50,
+            "minimum": 1.0,
+            "title": "Mincomponentpx",
+            "type": "integer"
+          },
+          "pruneSpurPx": {
+            "default": 10,
+            "minimum": 0.0,
+            "title": "Prunespurpx",
+            "type": "integer"
+          },
+          "scale": {
+            "$ref": "#/components/schemas/ScaleSpec"
+          }
+        },
+        "required": [
+          "imageB64"
+        ],
+        "title": "MeasureRequest",
+        "type": "object"
+      },
+      "MeasureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentOut"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageInfo"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "timings": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Timings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "jobId",
+          "image",
+          "components",
+          "timings"
+        ],
+        "title": "MeasureResponse",
+        "type": "object"
+      },
+      "Problem": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "title"
+        ],
+        "title": "Problem",
+        "type": "object"
+      },
+      "Provenance": {
+        "additionalProperties": true,
+        "description": "atomeng_common.vlm.Provenance(모델 · LoRA · 프롬프트/입력 해시 · 스키마 해시 · 클라이언트 버전)",
+        "properties": {
+          "base_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Model"
+          },
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Hash"
+          },
+          "lora": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lora"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_hash": {
+            "title": "Prompt Hash",
+            "type": "string"
+          },
+          "schema_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Hash"
+          },
+          "served_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served Model"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task",
+          "model",
+          "prompt_hash",
+          "client"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "ReviewBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ReviewBlock",
+        "type": "object"
+      },
+      "ReviewCitation": {
+        "additionalProperties": true,
+        "properties": {
+          "blockId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blockid"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ReviewCitation",
+        "type": "object"
+      },
+      "ReviewFinding": {
+        "additionalProperties": true,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCitation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "statement": {
+            "default": "",
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "title": "ReviewFinding",
+        "type": "object"
+      },
+      "ReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "facts": {
+            "title": "Facts"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "locale": {
+            "default": "ko",
+            "title": "Locale",
+            "type": "string"
+          },
+          "model": {
+            "default": "gemma-4-12b-it",
+            "title": "Model",
+            "type": "string"
+          },
+          "reportType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporttype"
+          },
+          "roundId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roundid"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "ReviewRequest",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "latencyMs": {
+            "title": "Latencyms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "model",
+          "findings",
+          "latencyMs"
+        ],
+        "title": "ReviewResponse",
+        "type": "object"
+      },
+      "ReviewSection": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "blocks"
+        ],
+        "title": "ReviewSection",
+        "type": "object"
+      },
+      "ScaleSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "boardLayoutMm": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "마커 id → 평면 좌상단 [x, y] mm (2마커 보드)",
+            "title": "Boardlayoutmm"
+          },
+          "dictionary": {
+            "default": "DICT_4X4_50",
+            "title": "Dictionary",
+            "type": "string"
+          },
+          "markerSizeMm": {
+            "default": 50.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Markersizemm",
+            "type": "number"
+          },
+          "mmPerPx": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mmperpx"
+          },
+          "mmPerPxUncert": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mmperpxuncert"
+          },
+          "source": {
+            "default": "ARUCO",
+            "enum": [
+              "ARUCO",
+              "MANUAL",
+              "NONE"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "ScaleSpec",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "에이톰 ERP AIP 워커 내부 API — ERP aip 모듈 전용(설계 11 B4.4). 합성 데이터로만 시험.",
+    "title": "atomeng-aip worker",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/internal/v1/crack/measure": {
+      "post": {
+        "operationId": "crack_measure_internal_v1_crack_measure_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeasureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Crack Measure",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/internal/v1/crack/score": {
+      "post": {
+        "operationId": "crack_score_internal_v1_crack_score_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrackScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrackScoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Crack Score",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/internal/v1/findings/generate": {
+      "post": {
+        "operationId": "findings_generate_internal_v1_findings_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Findings Generate",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/internal/v1/health": {
+      "get": {
+        "operationId": "health_internal_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/internal/v1/kb/search": {
+      "post": {
+        "operationId": "kb_search_internal_v1_kb_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kb Search",
+        "tags": [
+          "llm"
+        ]
+      }
+    },
+    "/internal/v1/report/draft": {
+      "post": {
+        "operationId": "report_draft_internal_v1_report_draft_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Report Draft",
+        "tags": [
+          "llm"
+        ]
+      }
+    },
+    "/internal/v1/report/review": {
+      "post": {
+        "operationId": "report_review_internal_v1_report_review_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Report Review",
+        "tags": [
+          "llm"
+        ]
+      }
+    }
+  }
+}

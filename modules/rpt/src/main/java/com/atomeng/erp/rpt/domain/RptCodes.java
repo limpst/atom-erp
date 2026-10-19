@@ -34,4 +34,8 @@ public final class RptCodes {
     public static final String TEMPLATE_NOT_FOUND = "RPT-422-007";
     /** PDF 변환기(Gotenberg) 장애 */
     public static final String PDF_UNAVAILABLE = "RPT-503-001";
+    /** AI 소견 초안(aip::api REPORT_DRAFT) 사용 불가 — AIP 워커 미설정 · 장애(보고서 작성은 그대로 가능) */
+    public static final String AI_DRAFT_UNAVAILABLE = "RPT-503-002";
+    /** AI 소견 초안 응답 시간 초과 */
+    public static final String AI_DRAFT_TIMEOUT = "RPT-504-001";
 }

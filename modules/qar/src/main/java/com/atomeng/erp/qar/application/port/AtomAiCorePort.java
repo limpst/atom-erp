@@ -6,8 +6,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Atom AI Core(AIP) 검토 포트 (설계 B4 AIP /v1/review 계약, B8). 실제 구현은 로컬 vLLM(OpenAI 호환, guided JSON) 어댑터
- * {@code VllmAtomAiCoreClient}, base-url 미설정이면 {@code DisabledAtomAiCore}(항상 미가용 → AI 단계 스킵).
+ * Atom AI Core(AIP) 검토 포트 (설계 B4 AIP /v1/review 계약, B8). 기본 구현은 AIP 모듈 동기 Job 어댑터
+ * {@code AipAtomAiCoreAdapter}(aip::api REPORT_REVIEW — AIP 워커 미설정이면 DISABLED → AI 단계 스킵),
+ * atom.qar.ai.base-url 이 있으면 로컬 vLLM 직접 어댑터 {@code VllmAtomAiCoreClient}(호환 경로).
  * 테스트는 대역(stub)만 쓴다 — 실제 vLLM 은 호출하지 않는다.
  */
 public interface AtomAiCorePort {

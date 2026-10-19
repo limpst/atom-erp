@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":modules:qar"))
     implementation(project(":modules:dem"))
     implementation(project(":modules:ptl"))
+    implementation(project(":modules:aip"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))
@@ -37,6 +38,7 @@ dependencies {
 
     testImplementation(project(":common:common-testing"))
     testImplementation(libs.wiremock)
+    testImplementation(libs.json.schema.validator)   // AIP 워커 계약 시험(OpenAPI 스키마 검증)
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation(libs.archunit)
     testImplementation("org.apache.poi:poi-ooxml:5.4.1")   // FCD 통합 테스트: 합성 XLSX 명세서 생성

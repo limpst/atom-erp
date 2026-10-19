@@ -22,7 +22,7 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem", "ptl");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem", "ptl", "aip");
         // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
         ApplicationModule cst = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
@@ -178,6 +178,33 @@ class ModularityTests {
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideOutsideOfPackage("com.atomeng.erp.ptl..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.ptl..")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("11-IMPL Step 1: aip 는 core::api 만 참조, 다른 업무 모듈 → aip 는 aip::api 만(RPT · QAR 동기 Job)")
+    void aipBoundary() {
+        ApplicationModule aip = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("aip")).findFirst().orElseThrow();
+        assertThat(aip.getNamedInterfaces().getByName("api")).isPresent();
+        var classes = new com.tngtech.archunit.core.importer.ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideInAPackage("com.atomeng.erp.aip..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.fac..", "com.atomeng.erp.hrq..",
+                        "com.atomeng.erp.cst..", "com.atomeng.erp.fcd..", "com.atomeng.erp.eqp..", "com.atomeng.erp.sal..",
+                        "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..", "com.atomeng.erp.dem..", "com.atomeng.erp.ptl..",
+                        "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..")
+                .check(classes);
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackage("com.atomeng.erp.aip..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.aip.application..",
+                        "com.atomeng.erp.aip.domain..", "com.atomeng.erp.aip.adapter..")
+                .check(classes);
+        // 소비자는 RPT(AI 소견 초안) · QAR(AI 검토)뿐
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackages("com.atomeng.erp.aip..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.aip..")
                 .check(classes);
     }
 

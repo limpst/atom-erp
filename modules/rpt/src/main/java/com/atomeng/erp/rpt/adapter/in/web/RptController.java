@@ -6,6 +6,7 @@ import com.atomeng.erp.rpt.application.ComposeService;
 import com.atomeng.erp.rpt.application.PublishService;
 import com.atomeng.erp.rpt.application.RenderService;
 import com.atomeng.erp.rpt.application.ReportService;
+import com.atomeng.erp.rpt.application.AiDraftService;
 import com.atomeng.erp.rpt.application.RptRevisionQueryService;
 import com.atomeng.erp.rpt.application.RuleTableService;
 import com.atomeng.erp.rpt.application.SectionService;
@@ -101,9 +102,11 @@ class RptController {
     private final PublishService publish;
     private final RuleTableService rules;
     private final RptRevisionQueryService query;
+    private final AiDraftService aiDraft;
 
     RptController(ReportService reports, SnapshotService snapshots, ComposeService compose, SectionService sections,
-                  RenderService render, PublishService publish, RuleTableService rules, RptRevisionQueryService query) {
+                  RenderService render, PublishService publish, RuleTableService rules, RptRevisionQueryService query,
+                  AiDraftService aiDraft) {
         this.reports = reports;
         this.snapshots = snapshots;
         this.compose = compose;
@@ -112,6 +115,7 @@ class RptController {
         this.publish = publish;
         this.rules = rules;
         this.query = query;
+        this.aiDraft = aiDraft;
     }
 
     private static ResponseEntity<Map<String, Object>> withEtag(Map<String, Object> v) {
@@ -172,6 +176,13 @@ class RptController {
     @RequirePermission("rpt:report:update")
     public Map<String, Object> compose(@PathVariable UUID revId) {
         return compose.compose(revId);
+    }
+
+    /** AI 소견 초안(aip::api REPORT_DRAFT 동기 Job) — 제안만 돌려주고 본문에는 반영하지 않는다 */
+    @PostMapping("/revisions/{revId}/ai-draft")
+    @RequirePermission("rpt:report:update")
+    public Map<String, Object> aiDraft(@PathVariable UUID revId) {
+        return aiDraft.draft(revId);
     }
 
     @GetMapping("/revisions/{revId}/grade")

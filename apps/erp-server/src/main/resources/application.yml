@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem,ptl
+    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem,ptl,aip
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors,messages/dem-errors,messages/ptl-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors,messages/dem-errors,messages/ptl-errors,messages/aip-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -97,7 +97,7 @@ atom:
       timeout: 10m
   qar:
     ai:
-      base-url: ${ATOM_AI_CORE_URL:}     # Atom AI Core = 로컬 vLLM(OpenAI 호환, 예 http://localhost:8080) — 비우면 AI 검토 단계 스킵
+      base-url: ${ATOM_AI_CORE_URL:}     # (호환) 직접 vLLM 경로 — 비우면 AIP 모듈 동기 Job(REPORT_REVIEW)으로 검토, AIP 워커도 꺼져 있으면 AI 단계 스킵
       model: ${ATOM_AI_CORE_MODEL:atom-qar-review}
       deadline: 10m                      # NFR-QAR-02 작업 마감(요청 + 10분) → 초과 시 AI_TIMEOUT
       http-timeout: 9m
@@ -105,6 +105,16 @@ atom:
     worker:
       enabled: true                      # AI 작업 처리 · 타임아웃 스캔
       poll-interval: 5s
+  aip:
+    worker:
+      base-url: ${ATOM_AIP_WORKER_URL:}  # Python AIP 워커(services/aip-worker, 예 http://127.0.0.1:8090) — 비우면 꺼짐(동기 DISABLED · 비동기 Job 대기)
+      default-timeout: 2m
+    scheduler:
+      enabled: true                      # 큐 처리(워커 켜졌을 때만) · 리퍼 · 감사 파티션 · 누락 탐지 · 제안 만료
+      poll-interval: 2s
+    suggestion:
+      accept-sample-rate: 0.2            # BR-AIP-012 ① 수락 약한 양성 표본
+      expire-days: 30
   dem:
     log-lock:
       enabled: true

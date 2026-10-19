@@ -5,6 +5,7 @@ embedded-postgres = "2.2.2"
 embedded-postgres-binaries = "16.15.0"
 archunit = "1.4.1"
 wiremock = "3.13.2"
+json-schema-validator = "1.5.6"
 
 [libraries]
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -13,3 +14,4 @@ embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = 
 embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
 archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }

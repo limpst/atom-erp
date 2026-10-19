@@ -78,8 +78,14 @@ public class VllmAtomAiCoreClient implements AtomAiCorePort {
         } catch (Exception e) {
             throw new AiUnavailableException("vLLM 응답이 JSON 이 아님", e);
         }
+        List<CitationGuard.Draft> findings = findings(parsed.path("findings"));
+        return new Response(resp.path("model").asText(model), findings);
+    }
+
+    /** 지적 JSON 배열 → CitationGuard 초안(잘못된 블록 id 는 null → CitationGuard 가 UNKNOWN_BLOCK 으로 거부). AIP 경로와 공용 */
+    public static List<CitationGuard.Draft> findings(JsonNode array) {
         List<CitationGuard.Draft> findings = new ArrayList<>();
-        for (JsonNode f : parsed.path("findings")) {
+        for (JsonNode f : array) {
             List<CitationGuard.Citation> cites = new ArrayList<>();
             for (JsonNode c : f.path("citations")) {
                 UUID blockId = null;
@@ -96,7 +102,7 @@ public class VllmAtomAiCoreClient implements AtomAiCorePort {
             findings.add(new CitationGuard.Draft(f.path("category").asText(null), f.path("severity").asText("MINOR"),
                     f.path("statement").asText(""), cites));
         }
-        return new Response(resp.path("model").asText(model), findings);
+        return findings;
     }
 
     static JsonNode schema() {

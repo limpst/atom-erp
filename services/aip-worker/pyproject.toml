@@ -1,0 +1,39 @@
+[project]
+name = "atomeng-aip"
+version = "0.1.0"
+description = "에이톰 ERP AI 플랫폼(AIP) 워커 — 균열 점수 · 소견 생성 · 균열폭/길이 측정 · 키워드 검색 (FastAPI, ERP aip 모듈이 호출)"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "에이톰엔지니어링" }]
+classifiers = ["Private :: Do Not Upload", "Programming Language :: Python :: 3.12"]
+dependencies = [
+  "atomeng-common[vlm]",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.7",
+  "numpy>=1.26,<3",
+  "scipy>=1.12",
+  "scikit-image>=0.24",
+  "opencv-python-headless>=4.10",
+  "kiwipiepy>=0.18",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[tool.uv.sources]
+# 공통 라이브러리(로컬 경로 의존, 편집 가능 설치) — atomeng_common.vlm 을 그대로 쓴다
+atomeng-common = { path = "../../../atom-common", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atomeng_aip"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["live: 로컬 vLLM(127.0.0.1:8080) 이 떠 있을 때만 실행(요청만 보냄)"]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]

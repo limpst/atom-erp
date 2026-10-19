@@ -66,6 +66,80 @@ export interface LedgerRow {
   reversalOf: string | null; sourceRef: string | null; flags: string[];
 }
 
+export type PeriodStatus = 'OPEN' | 'CLOSING' | 'CLOSED' | 'REOPENED';
+export const PERIOD_STATUS_LABEL: Record<PeriodStatus, string> = { OPEN: '열림', CLOSING: '마감 중', CLOSED: '마감', REOPENED: '재오픈' };
+/** GET /cst/periods — JDBC 맵 */
+export interface PeriodRow {
+  period_ym: string; status: PeriodStatus; closed_at: string | null; closed_by: string | null; reopened_at: string | null;
+  reopened_by: string | null; reopen_reason: string | null; hrq_closed_at: string | null;
+  recon_status: 'MATCHED' | 'MISMATCH' | null; diff_mandays: number | null; hrq_total_mandays: number | null;
+  cst_total_mandays: number | null; reconciled_at: string | null;
+}
+export interface PeriodView {
+  periodYm: string; status?: PeriodStatus; closedAt?: string | null; hrqClosedAt?: string | null; reopenReason?: string | null;
+  reconciliation: ReconciliationRow | null;
+}
+export interface ReconciliationRow {
+  id: string; period_ym: string; source_event_id: string; hrq_total_mandays: number; cst_total_mandays: number;
+  diff_mandays: number; status: 'MATCHED' | 'MISMATCH'; detail: string; created_at: string;
+}
+export interface ReconDetailRow {
+  projectId?: string; employeeId?: string; grade?: string; workType?: string; hrq?: number; cst?: number; diff?: number;
+  [k: string]: unknown;
+}
+export const CLOSE_BLOCKER_LABEL: Record<string, string> = {
+  HRQ_MONTH_NOT_CLOSED: 'HRQ 월 마감 전(타임시트 인·일 확정 필요)',
+  MANDAY_NOT_RECONCILED: 'HRQ↔CST 인·일 대사 결과 없음',
+  MANDAY_RECONCILIATION_MISMATCH: 'HRQ↔CST 인·일 대사 불일치(MISMATCH)',
+};
+export interface CloseResult { periodYm: string; closed: boolean; blockers: string[] }
+export interface EvmSnapshot {
+  asOf: string; bac: number | null; pv: number | null; ev: number | null; acStd: number | null; sv: number | null;
+  spi: number | null; cpiStd: number | null; ac: number | null; cv: number | null; cpi: number | null; eac: number | null;
+  etc: number | null; vac: number | null; tcpi: number | null; acBasis: 'REAL' | 'STANDARD'; alertLevel: AlertLevel | null;
+}
+
+/** 원장 정정 짝 — REVERSAL 행(reversalOf = 원 행 id)과 그 원 행을 같은 묶음 번호로 */
+export function reversalPairs(rows: Pick<LedgerRow, 'id' | 'reversalOf'>[]): Map<string, number> {
+  const pair = new Map<string, number>();
+  let n = 0;
+  for (const r of rows) {
+    if (r.reversalOf) {
+      const k = pair.get(r.reversalOf) ?? ++n;
+      pair.set(r.reversalOf, k);
+      pair.set(r.id, k);
+    }
+  }
+  return pair;
+}
+
+export type CorrectionRole = 'ORIGINAL' | 'REVERSAL' | 'REPLACEMENT';
+export const CORRECTION_ROLE_LABEL: Record<CorrectionRole, string> = { ORIGINAL: '정정 전', REVERSAL: '역분개', REPLACEMENT: '정정 후' };
+/**
+ * 정정 묶음: 원 행 ↔ 역분개(reversalOf) 짝에, 같은 업무 멱등키(sourceRef = timesheetKey:새 리비전)로 들어온 새 행(정정 후)을 붙인다.
+ */
+export function correctionGroups(
+  rows: Pick<LedgerRow, 'id' | 'reversalOf' | 'sourceType' | 'sourceRef'>[],
+): Map<string, { pair: number; role: CorrectionRole }> {
+  const pairs = reversalPairs(rows);
+  const out = new Map<string, { pair: number; role: CorrectionRole }>();
+  const refPair = new Map<string, number>();
+  for (const r of rows) {
+    const n = pairs.get(r.id);
+    if (n === undefined) continue;
+    if (r.reversalOf) {
+      out.set(r.id, { pair: n, role: 'REVERSAL' });
+      if (r.sourceRef) refPair.set(r.sourceRef, n);
+    } else out.set(r.id, { pair: n, role: 'ORIGINAL' });
+  }
+  for (const r of rows) {
+    if (!out.has(r.id) && r.sourceRef && r.sourceType !== 'REVERSAL' && refPair.has(r.sourceRef)) {
+      out.set(r.id, { pair: refPair.get(r.sourceRef)!, role: 'REPLACEMENT' });
+    }
+  }
+  return out;
+}
+
 export const coreApi = {
   projects: (status?: ProjectStatus) => http.get<Project[]>('/core/projects', { status }),
   project: (id: string) => http.get<Project>(`/core/projects/${id}`),
@@ -86,5 +160,14 @@ export const cstApi = {
     }),
   profitability: (projectId: string) => http.get<Profitability>(`/cst/projects/${projectId}/profitability`),
   evm: (projectId: string, asOf?: string) => http.get<EvmView>(`/cst/projects/${projectId}/evm`, { asOf }),
-  ledger: (projectId: string) => http.get<LedgerRow[]>(`/cst/projects/${projectId}/ledger`),
+  ledger: (projectId: string, from?: string, to?: string) =>
+    http.get<LedgerRow[]>(`/cst/projects/${projectId}/ledger`, { from, to }),
+  evmSnapshots: (projectId: string, from?: string, to?: string) =>
+    http.get<EvmSnapshot[]>(`/cst/projects/${projectId}/evm/snapshots`, { from, to }),
+  periods: () => http.get<PeriodRow[]>('/cst/periods'),
+  period: (ym: string) => http.get<PeriodView>(`/cst/periods/${ym}`),
+  reconciliations: (ym: string) => http.get<ReconciliationRow[]>(`/cst/periods/${ym}/reconciliations`),
+  closePeriod: (ym: string) => http.post<CloseResult>(`/cst/periods/${ym}:close`),
+  reopenPeriod: (ym: string, reason: string) =>
+    http.post<{ periodYm: string; status: PeriodStatus }>(`/cst/periods/${ym}:reopen`, { reason }),
 };

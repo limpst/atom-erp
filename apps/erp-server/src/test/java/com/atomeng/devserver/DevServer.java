@@ -54,7 +54,8 @@ public final class DevServer {
 
         // 시스템 속성은 application.yml 보다 우선한다(기본 속성은 yml 에 덮인다)
         props.forEach((k, val) -> System.setProperty(k, String.valueOf(val)));
-        SpringApplication app = new SpringApplication(ErpServerApplication.class);
+        // AIP 워커 대역(평소 DISABLED, 시드 동안만 켬 — DevAipWorker)
+        SpringApplication app = new SpringApplication(ErpServerApplication.class, DevAipWorker.Config.class);
         ConfigurableApplicationContext ctx = app.run(args);
 
         if (seed) {

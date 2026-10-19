@@ -157,6 +157,19 @@ public class HrqJdbc {
         return jdbc.query("SELECT * FROM hrq.credential WHERE employee_id = ? ORDER BY acquired_on DESC", this::cred, empId);
     }
 
+    /** 웹 목록(자격 승인 큐 · 만료 칩): 직원 · 자격 종류 이름 포함. employeeId 가 있으면 그 직원 것만 */
+    public List<Map<String, Object>> credentialList(String status, UUID employeeId) {
+        return jdbc.queryForList("""
+                SELECT c.id, c.employee_id, e.emp_no, e.name AS employee_name, c.type_code, t.name AS type_name,
+                       t.has_expiry, c.cert_no, c.acquired_on, c.expires_on, c.status, c.reject_reason, c.approved_by,
+                       c.approved_at, c.created_at
+                  FROM hrq.credential c JOIN hrq.employee e ON e.id = c.employee_id
+                  JOIN hrq.credential_type t ON t.code = c.type_code
+                 WHERE (?::text IS NULL OR c.status = ?) AND (?::uuid IS NULL OR c.employee_id = ?)
+                 ORDER BY (c.status = 'PENDING') DESC, c.expires_on NULLS LAST, e.emp_no""",
+                status, status, employeeId, employeeId);
+    }
+
     public void setCredentialStatus(UUID id, String status, UUID by, String rejectReason, boolean approved) {
         jdbc.update("""
                 UPDATE hrq.credential SET status = ?, reject_reason = coalesce(?, reject_reason),
@@ -351,6 +364,13 @@ public class HrqJdbc {
         jdbc.update("""
                 UPDATE hrq.month_close SET status = 'REOPENED', reopened_at = now(), reopened_by = ?, reopen_reason = ?
                  WHERE year_month = ?""", by, reason, ym);
+    }
+
+    /** 웹 목록: 월 마감 이력(최근 월부터) */
+    public List<Map<String, Object>> monthCloses() {
+        return jdbc.queryForList("""
+                SELECT year_month, status, total_mandays, closed_at, closed_by, reopened_at, reopened_by, reopen_reason
+                  FROM hrq.month_close ORDER BY year_month DESC LIMIT 36""");
     }
 
     public Map<String, Object> monthClose(String ym) {

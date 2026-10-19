@@ -149,6 +149,15 @@ public class ImportService {
         return batch(batchId);
     }
 
+    /** 웹 목록: 최근 가져오기 배치(읽기 전용, 원문 · 파일 내용 없음) */
+    public List<Map<String, Object>> batches(int limit) {
+        return jdbc.queryForList("""
+                SELECT b.id, b.channel, b.filename, b.status, b.file_kind, b.detected_encoding, b.rows_total, b.rows_error,
+                       b.counts::text AS counts, p.profile_code, b.uploaded_at, b.committed_at, b.rolled_back_at
+                  FROM fcd.import_batch b LEFT JOIN fcd.import_profile p ON p.id = b.profile_id
+                 ORDER BY b.uploaded_at DESC LIMIT ?""", limit);
+    }
+
     public Map<String, Object> batch(UUID id) {
         List<Map<String, Object>> l = jdbc.queryForList("""
                 SELECT b.id, b.channel, b.filename, b.file_sha256, b.status, b.file_kind, b.detected_encoding,

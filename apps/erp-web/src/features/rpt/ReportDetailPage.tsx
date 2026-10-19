@@ -289,6 +289,7 @@ export function ReportDetailPage() {
               <th>발행</th>
               <th>납품</th>
               <th>PDF sha256</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -299,6 +300,11 @@ export function ReportDetailPage() {
                 <td>{fmtDateTime(x.publishedAt)}</td>
                 <td>{fmtDateTime(x.deliveredAt)}</td>
                 <td className="mono">{x.pdfSha256?.slice(0, 16) ?? ''}</td>
+                <td>
+                  <Link to={`/reports/${r.id}/revisions/${x.id}`} aria-label={`리비전 상세 Rev.${x.revNo}`}>
+                    상세 · 파일
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

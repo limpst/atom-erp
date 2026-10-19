@@ -146,3 +146,22 @@ table.simple td.num, table.simple th.num { text-align: right; font-variant-numer
 .wizard-steps { display: flex; gap: 6px; margin-bottom: 12px; }
 .ag-cell .badge { line-height: 18px; vertical-align: middle; white-space: nowrap; }
 .ag-cell button { padding: 2px 10px; line-height: 1.4; vertical-align: middle; }
+
+/* 3차 화면: 원장 정정 짝 · 차트 · 블록 읽기 보기 · 앵커 오버레이 */
+.ag-row.row-reversal { background: color-mix(in srgb, var(--danger) 22%, transparent) !important; }
+.ag-row.row-reversed { background: color-mix(in srgb, var(--warn) 25%, transparent) !important; }
+.uplot, .uplot .u-legend { color: var(--text); font-family: inherit; }
+.uplot .u-legend { font-size: 12px; }
+.blocks .block { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 8px; background: var(--surface); }
+.blocks .block.locked { border-left: 3px solid var(--text-2); }
+.blocks .block.human { border-left: 3px solid var(--primary); }
+.blocks .block .meta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--text-2); margin-bottom: 4px; }
+.blocks .block.highlight { outline: 2px solid var(--warn); }
+.page-thumb { position: relative; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.page-thumb .anchor-rect { position: absolute; border: 1.5px dashed var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); cursor: pointer; font-size: 10px; color: var(--primary); overflow: hidden; }
+.page-thumb .anchor-rect.active { border-style: solid; border-color: var(--warn); background: color-mix(in srgb, var(--warn) 22%, transparent); }
+.gtree { list-style: none; padding-left: 16px; margin: 0; }
+.gtree > li { padding: 3px 0; }
+.gtree .node { display: flex; gap: 8px; align-items: center; }
+.hash { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+.ag-row.row-replacement { background: color-mix(in srgb, var(--ok) 20%, transparent) !important; }

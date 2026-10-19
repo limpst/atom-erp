@@ -26,6 +26,7 @@ export const DEV_USERS: DevUser[] = [
   { id: id(8), name: '윤재무', roles: ['FIN'], note: '카드 명세서 · 검토 큐 · 정산' },
   { id: id(9), name: '서경영', roles: ['ADMIN'], note: '경영지원(전체 조회)' },
   { id: id(10), name: '문책임2', roles: ['PM'], note: '최종 승인자(직무 분리용 두 번째 PM)' },
+  { id: id(13), name: '시스템관리', roles: ['SYSADMIN'], note: '원가 회계 재오픈 · AI 모델 단계 전이(운영)' },
   // 고객 포털(/portal) — 고객사 2곳(테넌트 A · B). 직원이 아니다(합성 담당자)
   { id: id(11), name: '(고객A) 한빛 담당', roles: ['CUSTOMER'], clientName: '(합성) 한빛자산관리', note: '고객 포털 — 한빛자산관리' },
   { id: id(12), name: '(고객B) 푸른 담당', roles: ['CUSTOMER'], clientName: '(합성) 푸른시설공단', note: '고객 포털 — 푸른시설공단' },

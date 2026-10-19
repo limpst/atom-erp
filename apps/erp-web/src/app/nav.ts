@@ -30,7 +30,7 @@ export const NAV: NavGroup[] = [
     label: 'G1 현장·비전 AI',
     items: [
       { label: '현장조사 (관리)', module: 'FLD', path: '/fld', roles: ['PM', 'ENG', 'QA', 'EXEC', 'AUDITOR', 'ADMIN'] },
-      { label: 'AI Job · 모델', module: 'AIP' },
+      { label: 'AI Job · 모델 · 제안', module: 'AIP', path: '/aip', roles: ['EXEC', 'PM', 'ENG', 'QA', 'SYSADMIN', 'AUDITOR'] },
     ],
   },
   {
@@ -47,7 +47,11 @@ export const NAV: NavGroup[] = [
     label: 'G3 재무·회계·감사',
     items: [
       { label: '법인카드 검토 큐', module: 'FCD', path: '/fcd/cases' },
-      { label: '원가 기간', module: 'CST' },
+      { label: '법인카드 가져오기 · 중복', module: 'FCD', path: '/fcd/imports', roles: ['FIN', 'ADMIN', 'AUDITOR'] },
+      { label: '탐지 룰셋 (4-eyes)', module: 'FCD', path: '/fcd/rulesets', roles: ['FIN', 'AUDITOR', 'EXEC'] },
+      { label: '법인카드 목록', module: 'FCD', path: '/fcd/cards', roles: ['FIN', 'ADMIN', 'EXEC', 'AUDITOR'] },
+      { label: '원가 회계기간 · 대사', module: 'CST', path: '/cst/periods', roles: ['EXEC', 'ADMIN', 'FIN', 'AUDITOR', 'SYSADMIN'] },
+      { label: '원가 원장 · EVM', module: 'CST', path: '/cst/ledger', roles: ['EXEC', 'PM', 'ADMIN', 'FIN', 'AUDITOR'] },
     ],
   },
   {
@@ -63,6 +67,9 @@ export const NAV: NavGroup[] = [
     label: 'G5 인력·자원',
     items: [
       { label: '타임시트', module: 'HRQ', path: '/hrq/timesheets' },
+      { label: '인력 · 자격', module: 'HRQ', path: '/hrq/people', roles: ['EXEC', 'PM', 'QA', 'ADMIN', 'SYSADMIN', 'AUDITOR', 'ENG'] },
+      { label: '등록요건 · 예측', module: 'HRQ', path: '/hrq/compliance', roles: ['EXEC', 'SALES', 'PM', 'QA', 'ADMIN', 'SYSADMIN'] },
+      { label: 'HRQ 월 마감', module: 'HRQ', path: '/hrq/month-close', roles: ['EXEC', 'PM', 'ADMIN'] },
       { label: '장비 · 교정', module: 'EQP', path: '/eqp/equipment' },
       { label: '장비 예약 · 반출', module: 'EQP', path: '/eqp/reservations', roles: ['PM', 'ENG', 'ADMIN', 'EXEC'] },
     ],

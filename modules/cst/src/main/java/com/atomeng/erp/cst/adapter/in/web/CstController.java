@@ -233,6 +233,40 @@ class CstController {
         return evm.evaluate(projectId, asOf != null ? asOf : LocalDate.now(clock.withZone(SEOUL)), realCostVisible());
     }
 
+    /**
+     * EVM 추이(웹 차트) — 저장된 스냅샷(GET /evm 이 asOf 별로 기록) 읽기 전용. 실단가 권한이 없으면 실원가 파생 값
+     * (AC · CV · CPI · EAC · ETC · VAC · TCPI)을 가리고 표준단가 AC 로 계산한 CPI(cpiStd)만 준다.
+     */
+    @GetMapping("/projects/{projectId}/evm/snapshots")
+    @RequirePermission(value = "cst:evm:read", projectIdParam = "projectId")
+    public List<Map<String, Object>> evmSnapshots(@PathVariable UUID projectId,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                                  LocalDate from,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                                  LocalDate to) {
+        boolean real = realCostVisible();
+        return jdbc.evmSnapshots(projectId, from, to).stream().map(r -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("asOf", r.get("as_of"));
+            m.put("bac", r.get("bac"));
+            m.put("pv", r.get("pv"));
+            m.put("ev", r.get("ev"));
+            m.put("acStd", r.get("ac_std"));
+            m.put("sv", r.get("sv"));
+            m.put("spi", r.get("spi"));
+            BigDecimal ev = (BigDecimal) r.get("ev");
+            BigDecimal acStd = (BigDecimal) r.get("ac_std");
+            m.put("cpiStd", ev == null || acStd == null || acStd.signum() == 0 ? null
+                    : ev.divide(acStd, 3, java.math.RoundingMode.HALF_UP));
+            for (String k : List.of("ac", "cv", "cpi", "eac", "etc", "vac", "tcpi")) {
+                m.put(k, real ? r.get(k) : null);
+            }
+            m.put("acBasis", real ? "REAL" : "STANDARD");
+            m.put("alertLevel", r.get("alert_level"));
+            return m;
+        }).toList();
+    }
+
     @PostMapping("/projects/{projectId}/progress")
     @ResponseStatus(HttpStatus.CREATED)
     @RequirePermission(value = "cst:progress:write", projectIdParam = "projectId")
@@ -259,6 +293,27 @@ class CstController {
         });
         out.put("reconciliation", jdbc.latestReconciliation(p).orElse(null));
         return out;
+    }
+
+    /**
+     * 회계기간 목록(웹) — 마지막 인·일 대사 결과 포함, 읽기 전용. 파티션 선생성으로 미래 월 행도 있으므로
+     * 기본은 다음 달(Asia/Seoul)까지만, 최근 월부터.
+     */
+    @GetMapping("/periods")
+    @RequirePermission("cst:period:read")
+    public List<Map<String, Object>> periods(@RequestParam(required = false) String to,
+                                             @RequestParam(defaultValue = "24") int limit) {
+        String upTo = to != null ? CstErrors.period(to).value()
+                : java.time.YearMonth.now(clock.withZone(SEOUL)).plusMonths(1)
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM"));
+        return jdbc.periods(upTo, Math.max(1, Math.min(limit, 120)));
+    }
+
+    /** 한 회계월의 HRQ↔CST 인·일 대사 실행 이력(웹) — 읽기 전용 */
+    @GetMapping("/periods/{ym}/reconciliations")
+    @RequirePermission("cst:period:read")
+    public List<Map<String, Object>> reconciliations(@PathVariable String ym) {
+        return jdbc.reconciliations(CstErrors.period(ym).value());
     }
 
     @PostMapping("/periods/{ym}:close")

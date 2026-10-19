@@ -194,6 +194,13 @@ public class JobService {
         return db.get("job", id);
     }
 
+    /** 웹 목록(읽기 전용): 최근 Job — 범위 거르기는 호출자(AipAccess)가 한다 */
+    public List<Map<String, Object>> list(String status, String serviceCode, int limit) {
+        return db.jdbc().queryForList("""
+                SELECT * FROM aip.job WHERE (?::text IS NULL OR status = ?) AND (?::text IS NULL OR service_code = ?)
+                 ORDER BY queued_at DESC, id DESC LIMIT ?""", status, status, serviceCode, serviceCode, limit);
+    }
+
     public Map<String, Object> modelRow(UUID modelVersionId) {
         return db.get("model_version", modelVersionId);
     }

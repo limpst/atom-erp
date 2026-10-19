@@ -28,6 +28,55 @@ export interface CloseResult {
   mandays: { projectId: string; employeeId: string; grade: string; workType: string; mandays: number }[];
 }
 
+export type CredentialStatus = 'PENDING' | 'VALID' | 'EXPIRING' | 'EXPIRED' | 'REJECTED' | 'SUPERSEDED' | 'REVOKED';
+export const CRED_STATUS_LABEL: Record<CredentialStatus, string> = {
+  PENDING: '승인 대기', VALID: '유효', EXPIRING: '만료 임박', EXPIRED: '만료', REJECTED: '반려', SUPERSEDED: '대체됨', REVOKED: '취소',
+};
+/** GET /hrq/credentials — JDBC 맵(snake_case) */
+export interface CredentialRow {
+  id: string; employee_id: string; emp_no: string; employee_name: string; type_code: string; type_name: string;
+  has_expiry: boolean; cert_no: string | null; acquired_on: string; expires_on: string | null; status: CredentialStatus;
+  reject_reason: string | null; approved_by: string | null; approved_at: string | null; created_at: string;
+}
+export type Grade = 'JUNIOR' | 'INTER' | 'SENIOR' | 'MASTER';
+export const GRADE_LABEL: Record<Grade, string> = { JUNIOR: '초급', INTER: '중급', SENIOR: '고급', MASTER: '특급' };
+export interface ComplianceOutcome {
+  rule: { id: string; field: string; minGrade: Grade; minCount: number; requiredCredential: string | null; legalReference: string };
+  assignedEmpNos: string[]; shortage: number;
+}
+export interface ComplianceField { field: string; satisfied: boolean; outcomes: ComplianceOutcome[] }
+export interface ComplianceEvaluation { date: string; allSatisfied: boolean; fields: ComplianceField[] }
+export interface ComplianceForecast {
+  from: string; to: string; firstShortfall: string | null; shortage: Record<string, number>; series: ComplianceEvaluation[];
+}
+export interface MonthCloseRow {
+  year_month: string; status: 'OPEN' | 'CLOSED' | 'REOPENED'; total_mandays: number | null; closed_at: string | null;
+  closed_by: string | null; reopened_at: string | null; reopened_by: string | null; reopen_reason: string | null;
+}
+
+/** 등록요건 미달 인원 합계(분야 · 등급 전체) */
+export function totalShortage(e: ComplianceEvaluation): number {
+  return e.fields.reduce((a, f) => a + f.outcomes.reduce((b, o) => b + o.shortage, 0), 0);
+}
+export function totalRequired(e: ComplianceEvaluation): number {
+  return e.fields.reduce((a, f) => a + f.outcomes.reduce((b, o) => b + o.rule.minCount, 0), 0);
+}
+
+/** 자격 만료 칩 판정 — 오늘 기준 남은 일수(만료일 없음 = 무기한) */
+export function credentialChip(c: Pick<CredentialRow, 'status' | 'expires_on'>, today: string): {
+  label: string; tone: 'ok' | 'warn' | 'danger' | 'info' | undefined; daysLeft: number | null;
+} {
+  const days = c.expires_on ? Math.round((Date.parse(c.expires_on) - Date.parse(today)) / 86400000) : null;
+  if (c.status === 'PENDING') return { label: '승인 대기', tone: 'info', daysLeft: days };
+  if (c.status === 'REJECTED' || c.status === 'REVOKED' || c.status === 'SUPERSEDED') {
+    return { label: CRED_STATUS_LABEL[c.status], tone: undefined, daysLeft: days };
+  }
+  if (days === null) return { label: '유효 (무기한)', tone: 'ok', daysLeft: null };
+  if (days < 0 || c.status === 'EXPIRED') return { label: `만료 D+${Math.abs(days)}`, tone: 'danger', daysLeft: days };
+  if (days <= 90) return { label: `만료 임박 D-${days}`, tone: 'warn', daysLeft: days };
+  return { label: `유효 D-${days}`, tone: 'ok', daysLeft: days };
+}
+
 export const hrqApi = {
   employees: () => http.get<EmployeeRow[]>('/hrq/employees'),
   getWeek: (empId: string, isoWeek: string) => http.get<TimesheetRow[]>(`/hrq/timesheets/${empId}/weeks/${isoWeek}`),
@@ -40,6 +89,14 @@ export const hrqApi = {
     http.post<TimesheetRow>(`/hrq/timesheets/${id}:correct`, body, { idempotencyKey }),
   revisions: (timesheetKey: string) => http.get<TimesheetRow[]>(`/hrq/timesheets/keys/${timesheetKey}/revisions`),
   closeMonth: (yyyyMM: string) => http.post<CloseResult>(`/hrq/month-close/${yyyyMM}`, {}),
+  reopenMonth: (yyyyMM: string, reason: string) =>
+    http.post<MonthCloseRow>(`/hrq/month-close/${yyyyMM}:reopen`, { reason }),
+  monthCloses: () => http.get<MonthCloseRow[]>('/hrq/month-close'),
+  credentials: (status?: CredentialStatus) => http.get<CredentialRow[]>('/hrq/credentials', { status }),
+  approveCredential: (id: string) => http.post(`/hrq/credentials/${id}:approve`),
+  rejectCredential: (id: string, reason: string) => http.post(`/hrq/credentials/${id}:reject`, { reason }),
+  compliance: (date?: string) => http.get<ComplianceEvaluation>('/hrq/compliance', { date }),
+  forecast: (from?: string, to?: string) => http.get<ComplianceForecast>('/hrq/compliance:forecast', { from, to }),
 };
 
 /** ISO 주차 유틸 — '2026-W42' ↔ 월요일 */

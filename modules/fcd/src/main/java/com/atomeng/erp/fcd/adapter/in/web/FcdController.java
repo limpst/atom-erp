@@ -159,6 +159,13 @@ class FcdController {
         return imports.upload(file.getBytes(), file.getOriginalFilename(), profileCode, me().actorId());
     }
 
+    /** 가져오기 배치 목록(웹) — 읽기 전용 */
+    @GetMapping("/imports")
+    @RequirePermission("fcd:import:read")
+    public List<Map<String, Object>> batches(@RequestParam(defaultValue = "50") int limit) {
+        return imports.batches(Math.max(1, Math.min(limit, 200)));
+    }
+
     @GetMapping("/imports/{id}")
     @RequirePermission("fcd:import:read")
     public Map<String, Object> batch(@PathVariable UUID id) {

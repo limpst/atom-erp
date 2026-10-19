@@ -173,7 +173,7 @@ PG_HOST=localhost PG_APP_USER=postgres PG_APP_PASSWORD=... \
 # 요청 예: -H 'X-Actor-Id: <uuid>' -H 'X-Roles: SALES' -H 'Idempotency-Key: <uuid>'
 ```
 
-웹 프론트엔드(React · 1 · 2차 화면, 고객 포털 `/portal`)와 내장 DB 개발 서버:
+웹 프론트엔드(React · 1 · 2 · 3차 화면, 고객 포털 `/portal`)와 내장 DB 개발 서버:
 
 ```bash
 ./gradlew :apps:erp-server:devServer      # 내장 PostgreSQL + local-noauth + 합성 시드 → http://127.0.0.1:8081 (운영 금지)
@@ -508,6 +508,35 @@ dev 시드(`DevSeed` → `DevSeedRound2`)는 **API 로만**(직접 SQL 없음) �
 - RPT · QAR → PTL: A 고객 보고서 1판 납품 → 정정 2판 발행(1판 대체) → 2판 납품, B 고객 보고서 1건 납품, A 고객 서비스 요청 1건
 
 시험: `WebListQueryIntegrationTest`(도래 daysLeft · withinDays · 403, 교정 상태 판정 · 만료 목록, DEM 목록 · 일지 범위 403 · 404, FLD 회차 범위 403 · 사진 404).
+
+## 4-15. 웹 3차 화면용 읽기 API · dev 시드 확장 (HRQ · CST · FCD · AIP · RPT)
+
+웹 3차 화면(apps/erp-web — 인력 · 자격, 등록요건 예측, HRQ 월 마감, 원가 회계기간 · 대사, 원가 원장 · EVM 추이, 법인카드 가져오기 · 중복 · 룰셋 4-eyes · 카드, AI Job · 모델 · 제안 · 감사, 보고서 리비전 상세)에 꼭 필요한 **목록 조회만** 추가했습니다. 쓰기 API · 마이그레이션 · 권한 시드 변경 없음. 범위를 판정할 수 없는 역할은 거부합니다(CMN-05 실패하는 쪽으로 닫힘 — `scopeCheckedInService` 메서드는 행마다 서비스에서 거름).
+
+| API | 권한(기존) | 범위 · 내용 |
+|---|---|---|
+| `GET /api/v1/hrq/credentials?status=` | `hrq:employee:read` | ALL 역할 전체, SELF(ENG · LABELER)는 본인 자격만(SEC-HRQ-002 와 같은 규칙). 직원 · 자격 종류 이름, 만료일, 반려 사유 |
+| `GET /api/v1/hrq/month-close` | `hrq:timesheet:read` | 회사 전체 상태라 EXEC · PM · ADMIN 만, SELF 범위는 403 CORE-403-002 |
+| `GET /api/v1/cst/periods?to=&limit=` | `cst:period:read` | 회계기간 + 마지막 인·일 대사 결과. 파티션 선생성으로 미래 월 행이 있어 기본은 다음 달(Asia/Seoul)까지 |
+| `GET /api/v1/cst/periods/{ym}/reconciliations` | `cst:period:read` | HRQ↔CST 인·일 대사 실행 이력(불일치 상세 detail) |
+| `GET /api/v1/cst/projects/{id}/evm/snapshots?from=&to=` | `cst:evm:read` + projectIdParam | 저장된 EVM 스냅샷 추이. 실단가 권한(`cst:cost-real:read`)이 없으면 AC · CV · CPI · EAC · ETC · VAC · TCPI 를 가리고 표준 AC 기준 `cpiStd` 만 |
+| `GET /api/v1/fcd/imports?limit=` | `fcd:import:read` | 가져오기 배치 목록(원문 · 파일 내용 없음) |
+| `GET /api/v1/aip/jobs?status=&serviceCode=` | `aip:inference-job:read` | 단건과 같은 범위 — ALL 전체, PROJECT 는 투입 프로젝트 Job + 프로젝트 없는 본인 요청 Job(`AipAccess.allows` 로 행마다 거름) |
+| `GET /api/v1/aip/suggestions?status=` | `aip:suggestion:read` | 사진별 조회와 같은 범위 규칙, 결정(feedback) 정보 포함 |
+
+RPT 리비전 상세는 기존 API(`/revisions/{id}` · `/sections` · `/grade`(근거 · scopeTree) · `/anchors` · `/files/report.hwpx` · `/drawings/{동}/{층}.dxf`)만 씁니다.
+
+dev 서버 · 시드(`DevSeedRound3`, **API 로만**):
+
+- dev 사용자 `시스템관리`(SYSADMIN, D-013) — CST 재오픈 · AIP 단계 전이 · Job 운영
+- HRQ: 승인 대기 자격 2건(정참여 200일 뒤 만료 · 문책임 무기한), **지지난달 HRQ 월 마감 → CST 인·일 대사 MATCHED → CST 회계 마감**
+- CST: 문책임(MASTER) 지난주 타임시트 제출 · PM 승인 → PM 정정(8h → 6h) = 원장 정정 묶음(원 행 · REVERSAL · 정정 후), EVM 스냅샷 7개(6주 전부터 매주 `GET /evm?asOf=`)
+- FCD: 행 오류 배치(날짜 오류 · 금액 칸 `=1+2` — 확정 전), 매입 XLSX "(예시)한식당본점" → 채널 간 중복 확인 큐 1건, FIN 작성 룰셋 초안 `2026.6.0-dev`(2027-01-01 시행 — 승인돼도 현재 채점 영향 없음)
+- AIP: **dev 워커 대역 `DevAipWorker`**(테스트 소스셋, `@Primary` AipWorkerPort) — 평소 DISABLED(기존 dev 서버와 같음), 시드 동안만 켜서 균열 탐지 체인에 워커 계약 예시 응답(AipSamples)을 돌려줌 → Job 2건 성공 · 제안 2건(1건 수락) · 추론 감사 2행, 끈 뒤 대기 2 · 취소 1 · 마감 초과(DEAD) 1. 실제 vLLM · Python 워커 호출 없음
+
+시험: `WebListQueryRound3IntegrationTest`(자격 목록 ALL/SELF · 상태 422 · SALES 403, 월 마감 목록 ENG 403-002 · QA 403-001, 회계기간 다음 달까지 · 대사 · EVM 추이 실원가 마스킹 · PM 범위 403, FCD 목록 · EMPLOYEE 403, AIP Job 목록 PROJECT 범위 거름 · 상태 422 · FIN 403).
+
+알려 둘 점(설계 · 권한 시드 그대로 둠): SYSADMIN 은 `cst:period:read` · `aip:inference-job:read` 가 없어 회계기간 목록 · 모델 목록을 못 봅니다(재오픈은 월 직접 입력, 단계 전이 화면은 모델 목록 권한이 있는 역할과 함께 운영). 레지스트리 모델은 모두 Production 이라 대기 중인 승격 요청은 비어 있습니다(새 모델 버전 등록 API 없음 — 학습 파이프라인 범위).
 
 ## 5. 설계와 다른 점 (의도적 편차)
 

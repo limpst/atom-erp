@@ -61,6 +61,60 @@ export interface Grade {
   overridden: boolean; overrideReason: string | null; resultSha256: string; decidedBy: string | null;
   members: { buildingCode: string; floorCode: string; memberType: string; count: number; rating: string; score: number }[];
 }
+export interface Evidence {
+  indicator: string; value: number; unit: string; rating: string; threshold: number | null; defectIds: string[];
+}
+export interface GradeDetail extends Grade {
+  ruleSet: Record<string, string>;
+  members: (Grade['members'][number] & { weight: number; evidence: Evidence[] })[];
+  scopeTree: {
+    floorScores: { buildingCode: string; floorCode: string; score: number }[];
+    buildingScores: { buildingCode: string; score: number }[];
+    appliedFloorRules: unknown[];
+  } | null;
+}
+export interface Block {
+  blockId: string; kind: 'PARAGRAPH' | 'TABLE' | 'IMAGE' | 'HEADING' | string; text: string | null;
+  data: { rows?: string[][]; columns?: string[]; objectKey?: string; bound?: string[] } | null; locked: boolean;
+  textHash: string; source: 'AUTO' | 'HUMAN' | string;
+}
+export interface Section { sectionKey: string; title: string; orderNo: number; source: string; version: number; blocks: Block[] }
+export interface AnchorRect { page: number; x: number; y: number; w: number; h: number }
+export interface Anchor { blockId: string; sectionKey: string; kind: string; page: number; rects: AnchorRect[]; textHash: string }
+export interface AnchorsDoc { revisionId: string; source: 'ESTIMATED' | string; unit: string; pageCount: number; sha256: string; anchors: Anchor[] }
+export const INDICATOR_LABEL: Record<string, string> = {
+  crack_width_mm: '균열 최대폭', spall_m2_per_member: '박리 · 박락 면적(부재당)', rebar_exposure_ratio: '철근 노출 비율',
+};
+
+/** 등급 트리: 동 → 층 → 부재(근거) — scopeTree 점수 + member_rating 근거를 합친다 */
+export interface GradeTreeNode {
+  key: string; label: string; score: number | null; rating?: string; children: GradeTreeNode[]; evidence?: Evidence[];
+  weight?: number; count?: number;
+}
+export function gradeTree(g: GradeDetail): GradeTreeNode[] {
+  const floorScore = new Map((g.scopeTree?.floorScores ?? []).map((f) => [`${f.buildingCode}/${f.floorCode}`, f.score]));
+  const bScore = new Map((g.scopeTree?.buildingScores ?? []).map((b) => [b.buildingCode, b.score]));
+  const buildings = new Map<string, GradeTreeNode>();
+  for (const m of g.members) {
+    let b = buildings.get(m.buildingCode);
+    if (!b) {
+      b = { key: m.buildingCode, label: `동 ${m.buildingCode}`, score: bScore.get(m.buildingCode) ?? null, children: [] };
+      buildings.set(m.buildingCode, b);
+    }
+    const fk = `${m.buildingCode}/${m.floorCode}`;
+    let f = b.children.find((c) => c.key === fk);
+    if (!f) {
+      f = { key: fk, label: `층 ${m.floorCode}`, score: floorScore.get(fk) ?? null, children: [] };
+      b.children.push(f);
+    }
+    f.children.push({
+      key: `${fk}/${m.memberType}`, label: m.memberType, score: Number(m.score), rating: m.rating, children: [],
+      evidence: m.evidence, weight: Number(m.weight), count: m.count,
+    });
+  }
+  return [...buildings.values()];
+}
+
 export interface RenderResult { jobId: string; status: string; converter: string; pdfSha256: string; pageCount: number }
 
 export type ReviewStatus =
@@ -108,6 +162,12 @@ export const rptApi = {
   revision: (revId: string) => http.get<Revision>(`/rpt/revisions/${revId}`),
   compose: (revId: string) => http.post<Grade & { status: RevisionStatus }>(`/rpt/revisions/${revId}/compose`),
   grade: (revId: string) => http.get<Grade>(`/rpt/revisions/${revId}/grade`),
+  gradeDetail: (revId: string) => http.get<GradeDetail>(`/rpt/revisions/${revId}/grade`),
+  sections: (revId: string) => http.get<Section[]>(`/rpt/revisions/${revId}/sections`),
+  anchors: (revId: string) => http.get<AnchorsDoc>(`/rpt/revisions/${revId}/anchors`),
+  hwpxPath: (revId: string) => `/rpt/revisions/${revId}/files/report.hwpx`,
+  dxfPath: (revId: string, building: string, floor: string) =>
+    `/rpt/revisions/${revId}/drawings/${encodeURIComponent(building)}/${encodeURIComponent(floor)}.dxf`,
   /** PUT — If-Match 는 GET /revisions/{revId} 의 ETag 를 http 클라이언트가 자동으로 붙인다 */
   decideGrade: (revId: string, body: { finalGrade: SafetyGrade; reason?: string; evidenceDefectIds?: string[] }) =>
     http.put<Grade>(`/rpt/revisions/${revId}/grade/decision`, body, { etagFrom: `/rpt/revisions/${revId}` }),

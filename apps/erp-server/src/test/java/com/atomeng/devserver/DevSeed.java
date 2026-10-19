@@ -27,7 +27,7 @@ final class DevSeed {
     }
 
     static final UUID EXEC = user(1), SALES = user(2), SALES_LEAD = user(3), PM = user(4), ENG = user(5),
-            QA = user(6), AUDITOR = user(7), FIN = user(8), ADMIN = user(9), PM2 = user(10);
+            QA = user(6), AUDITOR = user(7), FIN = user(8), ADMIN = user(9), PM2 = user(10), SYSADMIN = user(13);
 
     private final String base;
     private final HttpClient http = HttpClient.newHttpClient();
@@ -48,7 +48,8 @@ final class DevSeed {
                 {SALES_LEAD, "D-003", "이영업팀장", "OTHER", null}, {PM, "D-004", "최책임", "ARCH", "SENIOR"},
                 {ENG, "D-005", "정참여", "ARCH", "INTER"}, {QA, "D-006", "한품질", "STRUCT", "SENIOR"},
                 {AUDITOR, "D-007", "오감사", "OTHER", null}, {FIN, "D-008", "윤재무", "OTHER", null},
-                {ADMIN, "D-009", "서경영", "OTHER", null}, {PM2, "D-010", "문책임", "CIVIL", "MASTER"}};
+                {ADMIN, "D-009", "서경영", "OTHER", null}, {PM2, "D-010", "문책임", "CIVIL", "MASTER"},
+                {SYSADMIN, "D-013", "시스템관리", "OTHER", null}};
         for (Object[] p : people) {
             Map<String, Object> b = map("id", p[0], "empNo", p[1], "name", p[2], "field", p[3],
                     "employmentType", "FULLTIME", "registeredField", p[4] != null, "hiredOn", "2020-03-02");
@@ -180,6 +181,8 @@ final class DevSeed {
         }
         // 6~10. 두 번째 화면 묶음(FAC · EQP · FLD · DEM · PTL) — 모두 API
         new DevSeedRound2(this, today, evidenceRoot).run(client, clientB, project);
+        // 11~15. 세 번째 화면 묶음(HRQ · CST · FCD · AIP) — 모두 API
+        new DevSeedRound3(this, today).run(project);
         log("완료 — 프로젝트 " + signed.get("projectNo").asText() + " (" + project + ")");
     }
 
@@ -272,6 +275,16 @@ final class DevSeed {
         return http.send(b.build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    /** 원문 본문(YAML 등) 요청 — Idempotency-Key 포함 */
+    HttpResponse<String> sendRaw(String method, String path, String body, String contentType, UUID actor, String roles)
+            throws Exception {
+        var b = HttpRequest.newBuilder(URI.create(base + path)).header("X-Actor-Id", actor.toString())
+                .header("X-Roles", roles).header("Accept", "application/json").header("Content-Type", contentType)
+                .header("Idempotency-Key", UUID.randomUUID().toString());
+        return http.send(b.method(method, HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
     /** 원시 바이트 PATCH(FLD tus 업로드) */
     HttpResponse<String> patchBytes(String path, byte[] bytes, Map<String, String> headers, UUID actor, String roles)
             throws Exception {
@@ -296,7 +309,7 @@ final class DevSeed {
         return body == null || body.isBlank() ? om.createObjectNode() : om.readTree(body);
     }
 
-    private JsonNode multipart(String path, String filename, byte[] content, UUID actor, String roles)
+    JsonNode multipart(String path, String filename, byte[] content, UUID actor, String roles)
             throws Exception {
         String boundary = "----atomdev" + UUID.randomUUID();
         var out = new java.io.ByteArrayOutputStream();

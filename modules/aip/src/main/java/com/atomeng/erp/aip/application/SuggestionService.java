@@ -135,6 +135,17 @@ public class SuggestionService {
                 attachmentId);
     }
 
+    /** 웹 목록(읽기 전용): 제안(상태별) + Job 요청자(범위 판정용) — 범위 거르기는 호출자(AipAccess)가 한다 */
+    public List<Map<String, Object>> list(String status, int limit) {
+        return db.jdbc().queryForList("""
+                SELECT s.id, s.job_id, s.project_id, s.photo_attachment_id, s.defect_type, s.crack_pattern, s.width_max_mm,
+                       s.width_mean_mm, s.width_uncert_mm, s.length_m, s.mm_per_px, s.scale_source, s.confidence,
+                       s.description, s.flags, s.status, s.created_at, j.requested_by AS job_requested_by,
+                       f.decision, f.reason_code, f.decided_by, f.decided_at
+                  FROM aip.suggestion s JOIN aip.job j ON j.id = s.job_id LEFT JOIN aip.feedback f ON f.suggestion_id = s.id
+                 WHERE (?::text IS NULL OR s.status = ?) ORDER BY s.created_at DESC, s.id LIMIT ?""", status, status, limit);
+    }
+
     public Map<String, Object> get(UUID id) {
         return db.get("suggestion", id);
     }

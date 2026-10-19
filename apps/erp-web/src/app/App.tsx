@@ -21,6 +21,16 @@ import { EquipmentPage } from '@/features/eqp/EquipmentPage';
 import { ReservationsPage } from '@/features/eqp/ReservationsPage';
 import { DemPage } from '@/features/dem/DemPage';
 import { FldAdminPage } from '@/features/fld/FldAdminPage';
+import { HrqPeoplePage } from '@/features/hrq/HrqPeoplePage';
+import { HrqCompliancePage } from '@/features/hrq/HrqCompliancePage';
+import { HrqMonthClosePage } from '@/features/hrq/HrqMonthClosePage';
+import { CstPeriodsPage } from '@/features/cst/CstPeriodsPage';
+import { CostLedgerPage } from '@/features/cst/CostLedgerPage';
+import { FcdImportsPage } from '@/features/fcd/FcdImportsPage';
+import { FcdRulesetsPage } from '@/features/fcd/FcdRulesetsPage';
+import { FcdCardsPage } from '@/features/fcd/FcdCardsPage';
+import { AipPage } from '@/features/aip/AipPage';
+import { RevisionDetailPage } from '@/features/rpt/RevisionDetailPage';
 import { PortalLayout } from '@/features/ptl/PortalLayout';
 import { PortalHomePage, PortalNotificationsPage, PortalReportsPage, PortalRequestsPage } from '@/features/ptl/PortalPages';
 
@@ -60,6 +70,16 @@ function Themed() {
           <Route path="eqp/reservations" element={<ReservationsPage />} />
           <Route path="dem" element={<DemPage />} />
           <Route path="fld" element={<FldAdminPage />} />
+          <Route path="hrq/people" element={<HrqPeoplePage />} />
+          <Route path="hrq/compliance" element={<HrqCompliancePage />} />
+          <Route path="hrq/month-close" element={<HrqMonthClosePage />} />
+          <Route path="cst/periods" element={<CstPeriodsPage />} />
+          <Route path="cst/ledger" element={<CostLedgerPage />} />
+          <Route path="fcd/imports" element={<FcdImportsPage />} />
+          <Route path="fcd/rulesets" element={<FcdRulesetsPage />} />
+          <Route path="fcd/cards" element={<FcdCardsPage />} />
+          <Route path="aip" element={<AipPage />} />
+          <Route path="reports/:id/revisions/:revId" element={<RevisionDetailPage />} />
           <Route path="*" element={<div className="empty">페이지를 찾을 수 없습니다</div>} />
         </Route>
         <Route path="portal" element={<PortalLayout />}>

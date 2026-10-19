@@ -5,10 +5,10 @@ import {
   hrqApi, isoWeekOf, shiftWeek, TS_STATUS_LABEL, weekDates, WORK_TYPE_LABEL, type TimesheetRow, type WorkType,
 } from '@/api/hrq';
 import { coreApi } from '@/api/core';
-import { newIdempotencyKey } from '@/api/http';
+import { newIdempotencyKey, ProblemError } from '@/api/http';
 import { useAuth } from '@/auth/auth';
 import { DEV_USERS } from '@/auth/devUsers';
-import { Badge, Card, ErrorBox, Field, fmtNum } from '@/components/ui';
+import { Badge, Banner, Card, ErrorBox, Field, fmtNum } from '@/components/ui';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const devName = new Map(DEV_USERS.map((u) => [u.id, u.name]));
@@ -319,6 +319,12 @@ function MyWeek({ week, projectName, projects }: { week: string; projectName: (i
             제출
           </button>
         </div>
+        {save.error instanceof ProblemError && save.error.code === 'HRQ-409-001' && !save.isPending && (
+          <Banner tone="danger" testId="ts-month-closed">
+            [HRQ-409-001] 마감된 월의 타임시트는 넣거나 고칠 수 없습니다(인·일 확정 · 원가 전기 차단). 경영지원(ADMIN)이 월 마감을
+            재오픈하거나, 확정 항목은 조정 정정 전표(다음 열린 월)로 처리합니다.
+          </Banner>
+        )}
         <p className="muted">PUT 은 열린 항목 전체를 교체합니다. 승인 · 마감된 항목은 정정(리비전)으로만 고칩니다.</p>
       </Card>
       <Card title="승인 · 마감 · 정정된 항목">

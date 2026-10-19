@@ -127,6 +127,29 @@ class AipController {
         return ResponseEntity.accepted().location(URI.create("/api/v1/aip/jobs/" + id)).body(body);
     }
 
+    /**
+     * Job 목록(웹, 읽기 전용) — 단건 조회와 같은 범위: ALL 역할은 전체, PROJECT 역할은 투입 프로젝트의 Job 과
+     * 프로젝트 없는 본인 요청 Job 만(AipAccess.allows 로 행마다 거름).
+     */
+    @GetMapping("/jobs")
+    @RequirePermission(value = "aip:inference-job:read", scopeCheckedInService = true)
+    List<Map<String, Object>> jobs(@RequestParam(required = false) String status,
+                                   @RequestParam(required = false) String serviceCode,
+                                   @RequestParam(defaultValue = "100") int limit) {
+        if (status != null && !status.matches("QUEUED|RUNNING|SUCCEEDED|FAILED|DEAD|PREEMPTED|CANCELLED")) {
+            throw new DomainException(AipCodes.INVALID, "status: QUEUED|RUNNING|SUCCEEDED|FAILED|DEAD|PREEMPTED|CANCELLED");
+        }
+        return jobs.list(status, serviceCode, Math.max(1, Math.min(limit, 500))).stream()
+                .filter(j -> access.allows("aip:inference-job:read", AipJdbc.uuid(j, "project_id"),
+                        AipJdbc.uuid(j, "requested_by")))
+                .map(j -> {
+                    Map<String, Object> v = view(j);
+                    v.put("requestedBy", j.get("requested_by"));
+                    v.put("requesterModule", j.get("requester_module"));
+                    return v;
+                }).toList();
+    }
+
     @GetMapping("/jobs/{id}")
     @RequirePermission(value = "aip:inference-job:read", scopeResolver = AipJobScopeResolver.class, resourceParam = "id")
     Map<String, Object> job(@PathVariable UUID id) {
@@ -199,6 +222,20 @@ class AipController {
         rows.forEach(r -> access.requireProject("aip:suggestion:read", AipJdbc.uuid(r, "project_id"),
                 AipJdbc.uuid(jobs.get(AipJdbc.uuid(r, "job_id")), "requested_by")));
         return AipJdbc.cleanAll(rows);
+    }
+
+    /** 제안 목록(웹, 읽기 전용) — 사진별 조회와 같은 범위 규칙으로 행마다 거름. status = SUGGESTED(대기) · ACCEPTED · … */
+    @GetMapping("/suggestions")
+    @RequirePermission(value = "aip:suggestion:read", scopeCheckedInService = true)
+    List<Map<String, Object>> suggestionList(@RequestParam(required = false) String status,
+                                             @RequestParam(defaultValue = "200") int limit) {
+        if (status != null && !status.matches("SUGGESTED|ACCEPTED|MODIFIED|REJECTED|EXPIRED")) {
+            throw new DomainException(AipCodes.INVALID, "status: SUGGESTED|ACCEPTED|MODIFIED|REJECTED|EXPIRED");
+        }
+        return AipJdbc.cleanAll(suggestions.list(status, Math.max(1, Math.min(limit, 500))).stream()
+                .filter(r -> access.allows("aip:suggestion:read", AipJdbc.uuid(r, "project_id"),
+                        AipJdbc.uuid(r, "job_requested_by")))
+                .toList());
     }
 
     @PostMapping("/suggestions/{id}/decision")

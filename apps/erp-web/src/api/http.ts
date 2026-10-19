@@ -76,6 +76,8 @@ export interface RequestOptions {
   etagFrom?: string;
   signal?: AbortSignal;
   accept?: string;
+  /** 응답 본문을 Blob 으로 받는다(파일 다운로드 — CSV BOM · HWPX · DXF 바이트 그대로) */
+  asBlob?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -160,7 +162,8 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
 
   let data: unknown = undefined;
   if (res.status !== 204) {
-    if (ct.includes('json')) data = await res.json();
+    if (opts.asBlob) data = await res.blob();
+    else if (ct.includes('json')) data = await res.json();
     else if (ct.startsWith('text/')) data = await res.text();
     else data = await res.blob();
   }
@@ -183,6 +186,8 @@ export const http = {
     request<T>('PUT', path, { ...opts, body }).then((r) => r.data),
   patch: <T>(path: string, body?: unknown, opts: Omit<RequestOptions, 'body'> = {}) =>
     request<T>('PATCH', path, { ...opts, body }).then((r) => r.data),
+  delete: <T>(path: string, opts: Omit<RequestOptions, 'body'> = {}) =>
+    request<T>('DELETE', path, opts).then((r) => r.data),
 };
 
 /** 목록 공통 응답 PageResponse (설계 9.1) */

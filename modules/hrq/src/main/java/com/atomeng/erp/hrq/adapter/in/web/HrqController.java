@@ -182,6 +182,21 @@ class HrqController {
         return Map.of("id", credentials.register(id, r.typeCode(), r.certNo(), r.acquiredOn(), r.expiresOn()));
     }
 
+    /**
+     * 자격 목록(웹 승인 큐 · 만료 칩) — 읽기 전용. hrq:employee:read 가 ALL 인 역할은 전체, SELF 범위(ENG · LABELER)는
+     * 본인 자격만(SEC-HRQ-002 와 같은 규칙).
+     */
+    @GetMapping("/credentials")
+    @RequirePermission(value = "hrq:employee:read", scopeCheckedInService = true)
+    public List<Map<String, Object>> credentialList(
+            @RequestParam(required = false) String status) {
+        if (status != null && !status.matches("PENDING|VALID|EXPIRING|EXPIRED|REJECTED|SUPERSEDED|REVOKED")) {
+            throw new DomainException("HRQ-422-001", "status: PENDING|VALID|EXPIRING|EXPIRED|REJECTED|SUPERSEDED|REVOKED");
+        }
+        UUID only = hasAny(EMPLOYEE_READ_ALL) ? null : actor.actorIdOrSystem();
+        return jdbc.credentialList(status, only);
+    }
+
     @PostMapping("/credentials/{id}:approve")
     @RequirePermission("hrq:credential:approve")
     public HrqJdbc.CredentialRow approve(@PathVariable UUID id) {
@@ -264,6 +279,19 @@ class HrqController {
     }
 
     // ------------------------------------------------------------ 월 마감
+    /**
+     * 월 마감 이력(웹) — 읽기 전용. 회사 전체 상태라 hrq:timesheet:read 가 ALL 인 역할(EXEC · PM · ADMIN)만,
+     * SELF 범위 역할은 거부(실패하는 쪽으로 닫음).
+     */
+    @GetMapping("/month-close")
+    @RequirePermission(value = "hrq:timesheet:read", scopeCheckedInService = true)
+    public List<Map<String, Object>> monthCloses() {
+        if (!hasAny(Role.EXEC, Role.PM, Role.ADMIN)) {
+            throw new DomainException(CoreErrors.OUT_OF_PROJECT_SCOPE, "월 마감 이력은 전체 범위 역할만 조회할 수 있습니다");
+        }
+        return jdbc.monthCloses();
+    }
+
     @PostMapping("/month-close/{yyyyMM}")
     @RequirePermission("hrq:month-close:write")
     public TimesheetService.CloseResult close(@PathVariable String yyyyMM) {

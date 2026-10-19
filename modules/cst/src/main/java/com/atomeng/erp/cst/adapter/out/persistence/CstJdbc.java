@@ -288,6 +288,36 @@ public class CstJdbc {
                 ON CONFLICT DO NOTHING""", id, ym, eventId, sourceHash, hrq, cst, diff, status, detailJson) == 1;
     }
 
+    /** 웹 목록: 회계기간 + 마지막 인·일 대사 결과(읽기 전용) */
+    public List<Map<String, Object>> periods(String toYm, int limit) {
+        return jdbc.queryForList("""
+                SELECT p.period_ym, p.status, p.closed_at, p.closed_by, p.reopened_at, p.reopened_by, p.reopen_reason,
+                       p.hrq_closed_at, r.status AS recon_status, r.diff_mandays, r.hrq_total_mandays, r.cst_total_mandays,
+                       r.created_at AS reconciled_at
+                  FROM cst.accounting_period p
+                  LEFT JOIN LATERAL (SELECT status, diff_mandays, hrq_total_mandays, cst_total_mandays, created_at
+                                       FROM cst.manday_reconciliation m WHERE m.period_ym = p.period_ym
+                                      ORDER BY created_at DESC LIMIT 1) r ON true
+                 WHERE p.period_ym <= ? ORDER BY p.period_ym DESC LIMIT ?""", toYm, limit);
+    }
+
+    /** 웹 목록: 한 회계월의 인·일 대사 실행 이력(최근부터) */
+    public List<Map<String, Object>> reconciliations(String ym) {
+        return jdbc.queryForList("""
+                SELECT id, period_ym, source_event_id, hrq_total_mandays, cst_total_mandays, diff_mandays, status,
+                       detail::text AS detail, created_at
+                  FROM cst.manday_reconciliation WHERE period_ym = ? ORDER BY created_at DESC""", ym);
+    }
+
+    /** 웹 목록: EVM 스냅샷 추이(as_of 오름차순) */
+    public List<Map<String, Object>> evmSnapshots(UUID projectId, LocalDate from, LocalDate to) {
+        return jdbc.queryForList("""
+                SELECT as_of, bac, pv, ev, ac, ac_std, cv, sv, cpi, spi, eac, etc, vac, tcpi, alert_level, computed_at
+                  FROM cst.evm_snapshot WHERE project_id = ? AND (?::date IS NULL OR as_of >= ?::date)
+                   AND (?::date IS NULL OR as_of <= ?::date) ORDER BY as_of LIMIT 400""",
+                projectId, d(from), d(from), d(to), d(to));
+    }
+
     public Optional<Map<String, Object>> latestReconciliation(String ym) {
         return jdbc.queryForList("""
                 SELECT id, period_ym, source_event_id, hrq_total_mandays, cst_total_mandays, diff_mandays, status,

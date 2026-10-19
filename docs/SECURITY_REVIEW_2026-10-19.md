@@ -3,17 +3,20 @@
 - 대상: `master` @ `e31e3f9` (12개 업무 모듈 + common/* + `services/aip-worker` + `deploy/keycloak`)
 - 방법: 코드 정독(컨트롤러 전 엔드포인트 · 서비스 · 마이그레이션/권한 시드 · 설정) — 모듈군별 6개 갈래로 나눠 검토 후 교차 확인. 모든 지적은 코드로 확인했고, 추측은 넣지 않았습니다.
 - 수정: 정책을 바꾸지 않는 명백한 버그만 고쳤습니다. 수정마다 회귀 시험을 붙였고 로컬 커밋만 했습니다(push 없음). 누가 승인할 수 있는지처럼 업무 정책에 해당하는 항목은 **정책 결정 필요**로 분류하고 권장안을 적었습니다.
+- **후속 수정(같은 날, 2차):** 정책이 아닌 미결 항목 CMN-05 · AIP-03 · AIP-06 · FLD-02 · CORE-01 나머지 · CMN-06 과, 요청받은 운영 기동 가드(CMN-04 · CMN-07 의 가드 부분)를 고쳤습니다(§1 커밋 `853954a` ~ `444aad2`). 아래 표의 상태는 2차 수정 반영본입니다.
 - 파일 경로는 저장소 루트 기준입니다. `…/` 는 `src/main/java/com/atomeng/erp/{mod}/` 를 줄인 표기입니다. 줄 번호는 검토 시점(`e31e3f9`) 기준입니다.
 
 ## 0. 요약
 
 | 심각도 | 건수 | 수정 완료 | 일부 수정 | 정책 결정 필요 | 미수정(버그 · 후속) |
 |---|---:|---:|---:|---:|---:|
-| High | 12 | 7 | 0 | 4 | 1 |
-| Medium | 41 | 17 | 2 | 17 | 5 |
-| Low | 29 | 10 | 1 | 11 | 7 |
+| High | 12 | 8 | 0 | 4 | 0 |
+| Medium | 41 | 23 | 3 | 15 | 0 |
+| Low | 29 | 11 | 1 | 11 | 6 |
 | Info | 8 | 1 | 0 | 2 | 5 |
-| **합계** | **90** | **35** | **3** | **34** | **18** |
+| **합계** | **90** | **43** | **4** | **32** | **11** |
+
+(1차 검토 직후: 수정 35 · 일부 3 · 정책 34 · 미수정 18. 2차에서 AIP-03 · CMN-05 · CMN-06 · FLD-02 · AIP-06 · CORE-01 · FLD-05 수정, CMN-04 정책→수정, CMN-07 정책→일부 수정(기동 가드만), AIP-07 미수정→일부 수정.)
 
 집계 기준:
 - 중복 표기(SAL-01 = CMN-01, PTL-02 = DEM-01)는 한 번만 셉니다.
@@ -21,6 +24,7 @@
 - "미수정" 열에는 조치가 필요 없는 Info 1건(RPT-09)이 포함됩니다.
 
 **구조적 근본 원인 (CMN-05).** `RequirePermissionAspect` 는 `projectIdParam` 이 지정된 경우에만 PROJECT · CLIENT 범위를 검사합니다. SELF 범위는 아예 검사하지 않습니다(`common/common-identity/…/authz/RequirePermissionAspect.java:53`). 그래서 범위 검사를 서비스가 직접 하지 않은 엔드포인트는 **조용히 ALL 로 넓어집니다**. 이번 IDOR 대부분(DEM 일지, FCD 정산서, HRQ 리비전 · 직원 목록, AIP 무프로젝트 작업, FLD lock-check, CUSTOMER 의 RPT 접근)이 이 원인에서 나왔습니다.
+→ **2차에서 수정(`853954a`)**: 범위가 ALL 이 아니면 `projectIdParam` · `scopeResolver` · `scopeCheckedInService = true` 중 하나가 있어야 하고, 없으면 403 `CORE-403-002`. `PermissionScopeDeclarationTest` 가 non-ALL 권한을 쓰는 모든 컨트롤러 메서드(실제 마이그레이션 시드 기준)를 전수 검사합니다.
 
 **테넌트 격리(PTL RLS)는 양호합니다.**
 - `set_config(…, true)` 와 `SET LOCAL ROLE` 은 트랜잭션 범위로만 적용됩니다. 트랜잭션 밖에서 호출하면 실패하는 쪽으로 닫혀 있습니다.
@@ -42,6 +46,11 @@
 | `67da56a` | RPT-01 CLIENT 범위는 발행본만(초안 404) · RPT-02 다른 고객 시설물/건물 스냅샷 거부 · RPT-03 결함망도 PNG 크기 상한 · RPT-06 Content-Disposition 빌더 · QAR-02 재배정 QA 승인 SoD · QAR-03 수동 배정 검토자 프로필 확인 · QAR-04/05 승인 후 waiver · 코멘트 상태 변경 거부 | `RptSecurityRegressionTest`(2), `QarIntegrationTest.securityReviewRegressions`, `DefectMapPngBoundsTest` |
 | `c71708e` | HRQ-04 타임시트 리비전 IDOR · HRQ-05 SELF 범위 직원 목록 · FAC-01 층 범위 무한 루프 · CORE-03 개인 고객 감사 PII 마스킹 · CORE-01(일부) 업로드 확정은 생성자만 · 골든 패스 PAN 스캔의 PNU 오탐 제거 | `HrqIntegrationTest`, `FacAclMergeNodeIntegrationTest`, `AuditPiiIntegrationTest`, `AttachmentIntegrationTest` |
 
+| `853954a` | **CMN-05** aspect 실패하는 쪽으로 닫기 · `ScopeResolver` SPI(없는 자원 404) · AIP Job 조회/이벤트/취소 해석기 · 서비스 검사를 확인한 RPT · QAR · FLD · DEM · AIP · FCD · HRQ · PTL 108개 엔드포인트 `scopeCheckedInService` 명시 · SAL 영업기회 · EQP 장비(프로젝트 없는 자원) PM PROJECT 범위는 403(SAL-05 결정 대기) | `PermissionScopeDeclarationTest`, `PermissionFailClosedTest`(3) |
+| `abbe1b7` | **CORE-01** 소유자 → 프로젝트 해석(`AttachmentOwnerResolver`: FLD 회차 · DEM 업무 패키지) + 투입/감리자 확인 · 크기 상한 50MB(신고 · 실제) · MIME 허용 목록 + 매직 바이트 · 실제 크기 기록 · 썸네일 1억 화소 상한 · DEM 증거 체인 범위 = 등록 패키지 / **FLD-02** 사진 50MB · 사용자당 열린 세션 20 · 만료 세션 410 · 만료 정리 스케줄러 · PATCH 본문 읽기 전 상한 · 조립 원본 매직 바이트 / **FLD-05** 다른 회차 defectId 거부 · 다른 회차 existingPhotoId 비노출 | `AttachmentIntegrationTest`(+2), `DemIntegrationTest`(보강), `FldIntegrationTest`(+2), `MediaSnifferAndThumbnailerTest`(2) |
+| `0c1b4d1` | **AIP-03** 입력 첨부 소속 프로젝트 · sha 확인, 사진 작업 projectId · 첨부 필수, 워커 이미지는 서버 저장 원본(해시 재확인 · 15MB), 웹 `imageB64 · prompt · labels · model · findingModel` 422 / **AIP-06** HMAC-SHA256 서명(타임스탬프 ±300초 · nonce 재전송 차단 · `compare_digest`), 비밀 32바이트 미만 · 미설정이면 ERP 기동 실패 · 워커는 전부 401, 워커 주소는 루프백 + `allowed-hosts` 정확 일치만 · 리다이렉트 금지, OpenAPI 계약에 `AtomHmac` 기록 | `AipIntegrationTest`(+1), `AipWorkerContractTest`(+1 · 서명 검증), `AipWorkerLiveContractTest`(+1 실워커 401 · 재전송 · 변조), pytest `test_auth.py`(9) |
+| `444aad2` | **CMN-06** JWT `aud` 검증(`atom.security.audiences`, 기본 `atom-erp-api`, OIDC 모드에서 비면 기동 실패) · 두 realm 에 audience 매퍼 · `deploy/keycloak/README.md`(cid/eid 속성 관리자 전용 요구) / **CMN-04** prod·production 프로필 + `atom.security.enabled=false` 기동 거부 / **CMN-07** prod·production 프로필 + tmpdir 증거 저장소 기동 거부 | `ProductionGuardsAndAudienceTest`(3), `EvidenceProdGuardTest`, `KeycloakRealmExportTest.audienceMapper` |
+
 전체 빌드 결과는 §9 를 보세요.
 
 ## 2. 정책 결정 필요 (요약 · 권장안)
@@ -54,7 +63,7 @@
 | AIP-02 | High | CANARY 의 `trafficPct` 를 클라이언트가 100 까지 지정 → EXEC 승인 없이 전체 트래픽 | canary ≤ 25%. 그 이상은 EXEC 승인 필수 |
 | AIP-01b | Medium | 같은 사람이 QA 와 EXEC 두 역할로 두 승인을 모두 채움 | `exec_approved_by ≠ approved_by` 강제 |
 | SAL-03 | Medium | 수동 단계 이동으로 BID_APPROVED · WON 을 우회 · `sal:opportunity:approve` 미사용 · 견적 없는 계약 | →BID_APPROVED 는 `sal:opportunity:approve` 필요, →WON 은 견적 수락 전이로만, 기회 연결 계약은 `estimateId` 필수 |
-| SAL-05 | Medium | PM 의 PROJECT 범위 `sal:opportunity:*` · `eqp:equipment:*` 가 사실상 ALL(자원에 프로젝트가 없음) | 읽기는 ALL 로 명시, PM 의 `opportunity:update` 삭제 |
+| SAL-05 | Medium | PM 의 PROJECT 범위 `sal:opportunity:*` · `eqp:equipment:*` 가 사실상 ALL(자원에 프로젝트가 없음). **2차(CMN-05) 이후 이 12개 엔드포인트는 PM 에게 403**(판정할 프로젝트가 없어 실패하는 쪽으로 닫힘) — 결정 전까지 ALL 역할만 사용 | 읽기는 ALL 로 명시, PM 의 `opportunity:update` 삭제(시드 변경 후 `PermissionScopeDeclarationTest.FAIL_CLOSED_PENDING_POLICY` 에서 제거) |
 | SAL-06 | Low | 다중 역할(SALES+EXEC) 본인 할인 · 계약 승인, EXEC 가 직접 발행하면 승인 기록 없음 | `approver ≠ created_by`. 한도는 발행자가 아니라 작성자 기준으로 |
 | EQP-01 | Medium | 예약 취소는 누구나, PM 본인 예약을 본인이 승인, 아무 프로젝트로 예약 · 반출 | 취소는 신청자 또는 승인 역할, 승인자 ≠ 신청자 + 해당 프로젝트 PM, 예약 · 반출은 PROJECT 범위 |
 | EQP-02 | Medium | 클라이언트가 보낸 `outAt`/`inAt` 로 검교정 판정과 사용일수(원가) 결정 → 소급 반출로 만료 장비 사용 | 서버 시각 기준, 오프라인 허용 오차 ≤ 72h, 미래 금지 |
@@ -80,12 +89,12 @@
 | CORE-02 | Medium | PM 이 자신을 RESP 로 지정하거나 투입 기간을 연장 | RESP 지정은 ALL 범위만, PM 은 PART/QA/SUPPORT 만, 본인 제외 |
 | CST-01 | Low | 예산 결재에 maker-checker 없음, DRAFT 를 바로 승인 가능(현재 작성자는 SYSTEM 뿐) | `approver ≠ created_by/updated_by`, SUBMITTED 만 승인 |
 | CST-02 | Low | 단가 소급(마감 기간 포함)을 한 사람이 처리 | `validFrom` 은 열린 기간만, 또는 결재 단계 |
-| CMN-04 | Medium | `atom.security.enabled=false` (헤더 위조 인증)를 운영에서 켤 수 있음 | 운영 프로필(`prod` 등)을 정의하고, 그 프로필이면 false 를 기동 거부 |
-| CMN-07 | Medium | 증거 저장소 기본값이 `${java.io.tmpdir}`, WORM 은 모사 | 운영은 `atom.evidence.local-root` 필수 + S3/MinIO Object Lock 어댑터 |
+| CMN-04 | Medium | ~~`atom.security.enabled=false` 를 운영에서 켤 수 있음~~ → **2차 수정**(`prod`·`production` 프로필이면 기동 거부). 남은 결정: 운영 배포가 이 프로필 이름을 반드시 쓰도록 배포 절차에 명시 | 배포 스크립트에서 `SPRING_PROFILES_ACTIVE=prod` 고정 |
+| CMN-07 | Medium | 증거 저장소 기본값이 `${java.io.tmpdir}`, WORM 은 모사 — **2차: 운영 프로필에서 tmpdir(미설정 포함) 기동 거부는 수정**, 남은 것은 실제 WORM 저장소 선택 | S3/MinIO Object Lock 어댑터 |
 | CMN-09 | Low | 멱등 재반환이 권한 재검사 없이 24h 동안 저장 응답을 반환 | 재반환 전 권한 재확인, 또는 상태 · 자원 id 만 저장 |
 | CMN-14 | Low | outbox 한 구독자가 실패하면 같은 이벤트의 모든 구독자가 함께 재시도 · DLQ | 구독자별 전달 · 재시도(후속 설계) |
 | PTL-03 | Low | 다운로드마다 동기 워터마크(메모리 전량) — 반복 다운로드로 DoS | `MemoryUsageSetting` 임시파일 + 고객사별 속도 제한 또는 비동기(202) |
-| FLD-02b | Medium | 업로드 수치 한도(최대 크기 · 세션 수) | 예: 사진 50MB · 사용자당 열린 세션 20 (§8 FLD-02 참조) |
+| FLD-02b | Medium | 업로드 수치 한도(최대 크기 · 세션 수) — 2차에서 **권장 예시값을 기본값으로 넣고 설정으로 뺐습니다**(`atom.fld.upload.max-file-bytes` 50MB · `max-open-sessions-per-user` 20 · `session-ttl` 7일, `atom.attachment.max-bytes` 50MB). 수치 확정만 남음 | 현장 기기 최대 원본 크기 확인 후 확정 |
 | AIP-08 | Info | 라벨 판정자 ≠ 라벨러(라벨 제출 API 가 생기면) | 생길 때 강제 |
 
 ## 3. 공통 · 플랫폼 (CMN)
@@ -94,10 +103,10 @@
 |---|---|---|---|---|---|
 | CMN-01 | High | 모든 요청 본문 BigDecimal: SAL `FeeRuleSet.java:46,56`, `FeeEngine.java:79-94`, `ContractService.java:97,102`, `QualificationScorer.java:97` 등 | SALES 가 `{"unitPrice":"1e999999999"}` 를 보내면 `@PositiveOrZero` 를 통과하고, `setScale(0)` 이 10^999,999,999 자리 정수를 만들어 CPU 를 수 분 점유하거나 OOM | `common-web/…/json/BoundedBigDecimalModule` — 역직렬화에서 \|scale\|≤50 · 유효숫자≤64 밖이면 400 | **수정** `c123573` |
 | CMN-02 | Medium | `common-web/…/idempotency/CachedBodyRequest.java:20` | 멱등 키를 붙인 POST 본문을 `readAllBytes()` 로 무제한 적재 → 토큰만 있으면(CUSTOMER 포함) 수 GB 본문으로 힙 고갈 | `atom.idempotency.max-body-bytes`(기본 51MB = multipart 상한) 초과 시 413 `CORE-413-001`. Content-Length 와 실제 읽은 양 모두 검사 | **수정** `c123573` |
-| CMN-05 | Medium(구조) | `RequirePermissionAspect.java:53` | `projectIdParam` 이 없거나 SELF 범위면 바로 통과 → 서비스가 직접 검사하지 않으면 PROJECT/CLIENT/SELF 권한이 ALL 로 넓어짐(이번 IDOR 들의 근본 원인) | 실패하는 쪽으로 닫기: 범위가 ALL 이 아닌데 `projectIdParam` 이 없으면 기동 시 · 호출 시 거부. 서비스에서 검사하는 엔드포인트는 `@RequirePermission(scopeCheckedBy=SERVICE)` 같은 명시 표식 | 미수정(설계 변경 — 다음 단계 권장 1순위) |
-| CMN-04 | Medium | `IdentityAutoConfiguration.java:115-124`, `application.yml:155-162` | `ATOM_SECURITY_ENABLED=false` 만으로 `X-Roles: SYSADMIN` 헤더 위조 인증이 켜짐. 막는 장치 없음 | 정책 결정 필요(§2) | 정책 |
-| CMN-06 | Medium | `deploy/keycloak/atom-portal-realm.json:30`, `IdentityAutoConfiguration.java:92` | 포털 `cid` 클레임이 사용자 속성 `client_id` 에서 매핑됨. 사용자가 그 속성을 편집할 수 있으면 고객사를 바꿀 수 있음. JWT `aud`/`azp` 검증 없음. 운영 realm 에 localhost redirect URI 가 있음 | realm user profile 에서 `client_id` 를 admin 전용으로, audience 검증기 추가, localhost redirect 제거 | 미수정(realm 변경 · KeycloakRealmExportTest 동반) |
-| CMN-07 | Medium | `common-evidence/…/EvidenceAutoConfiguration.java:19` | 운영에서도 증거 · 발행본이 tmp 에 저장될 수 있고, OS 정리 · 로컬 사용자가 삭제 · 변경 가능 | 정책(§2) | 정책 |
+| CMN-05 | Medium(구조) | `RequirePermissionAspect.java:53` | `projectIdParam` 이 없거나 SELF 범위면 바로 통과 → 서비스가 직접 검사하지 않으면 PROJECT/CLIENT/SELF 권한이 ALL 로 넓어짐(이번 IDOR 들의 근본 원인) | 실패하는 쪽으로 닫기 + `ScopeResolver` SPI + `scopeCheckedInService` 명시 + 전수 검사 시험 | **수정** `853954a` |
+| CMN-04 | Medium | `IdentityAutoConfiguration.java:115-124`, `application.yml:155-162` | `ATOM_SECURITY_ENABLED=false` 만으로 `X-Roles: SYSADMIN` 헤더 위조 인증이 켜짐. 막는 장치 없음 | 운영 프로필 기동 가드(`ProductionGuards`): `prod`·`production` 프로필 + `atom.security.enabled=false` 면 기동 실패 | **수정** `444aad2` |
+| CMN-06 | Medium | `deploy/keycloak/atom-portal-realm.json:30`, `IdentityAutoConfiguration.java:92` | 포털 `cid` 클레임이 사용자 속성 `client_id` 에서 매핑됨. 사용자가 그 속성을 편집할 수 있으면 고객사를 바꿀 수 있음. JWT `aud`/`azp` 검증 없음. 운영 realm 에 localhost redirect URI 가 있음 | `AudienceValidator`(aud ∋ `atom-erp-api`, OIDC 모드 필수) + realm audience 매퍼 + `deploy/keycloak/README.md` 에 `client_id`/`employee_id` 관리자 전용 User Profile 요구 · 배포 확인 절차. realm 의 User Profile 적용과 localhost redirect 제거는 운영 realm 에서 수행(문서화) | **수정** `444aad2` |
+| CMN-07 | Medium | `common-evidence/…/EvidenceAutoConfiguration.java:19` | 운영에서도 증거 · 발행본이 tmp 에 저장될 수 있고, OS 정리 · 로컬 사용자가 삭제 · 변경 가능 | 운영 프로필 + tmpdir(미설정 기본값 포함) 증거 저장소 기동 거부 수정. Object Lock 어댑터는 정책(§2) | **일부 수정** `444aad2` |
 | CMN-08 | Low | `application.yml:144`, `IdentityAutoConfiguration.java:100-102` | `/actuator/metrics` · `prometheus` 를 인증된 누구나(CUSTOMER 포함) 조회 | health 외 `/actuator/**` 는 SYSADMIN 또는 별도 관리 포트 | 미수정 |
 | CMN-09 | Low | `IdempotencyFilter.java:146` | 권한이 회수된 사용자도 24h 안에는 저장 응답(PII 포함 가능)을 재반환받음. PTL `:download` 는 비 JSON 이라 재반환하면 빈 200(기능 버그) | 정책(§2) + 바이너리 응답 엔드포인트 제외 | 정책 |
 | CMN-10 | Low | `common-events/…/OutboxRelay.java:183-196,135` | `map()` 이 점유 전에 예외(잘못된 headers.actorId)를 내면 그 행이 매번 다시 선택되어 outbox 전체가 정지 | 행 단위로 매핑 오류를 잡아 id 로 `outbox_dead` 로 이동 | 미수정(현재는 내부 발행만이라 발생 경로 없음) |
@@ -140,7 +149,7 @@
 | HRQ-04 | Medium | `HrqController.java:235-239` | `hrq:timesheet:read` 가 SELF 범위인 ENG · LABELER 가 `timesheetKey`(CST 원장 sourceId 로 노출됨)로 남의 근무 이력을 열람 | 행을 읽은 뒤 `requireSelfOr(employeeId, EXEC, PM, ADMIN)` | **수정** `c71708e` |
 | HRQ-05 | Medium | `HrqController.java:118-122` | SELF 범위 ENG · LABELER 가 전 직원 이름 · 사번 · 고용형태 · 입사일 · 퇴사(예정)일을 조회 | SELF 범위면 본인 행만 | **수정** `c71708e` |
 | FAC-01 | Medium | `fac/…/LocationNodeController.java:36`, `LocationNodeService.java:89-91` | `floorTo=2147483647` → `lvl++` 오버플로로 무한 루프 + 반복마다 DB 조회 · 메모리 적재 → JVM 전체 중단 | 층 -20..300, 노드 약 20만 상한 → 422 `FAC-422-003` | **수정** `c71708e` |
-| CORE-01 | Medium | `core/…/AttachmentService.java:83-155`, `AttachmentController.java:27-36`, `common-evidence/…/Thumbnailer.java:23` | (a) `ownerModule/Type/Id` · `chainScope` 미확인 → 다른 프로젝트 증거 해시 체인에 가짜 증거를 덧붙임, (b) 크기 상한 · 실제 크기 비교 없음, (c) MIME 은 클라이언트 신고값, 썸네일 `ImageIO.read` 픽셀 상한 없음(압축 폭탄), (d) 다른 사람이 업로드를 complete | (d) 생성자만 complete — **수정** `c71708e`. (a)(b)(c) 는 소유자 → 프로젝트 해석 · 매직바이트 판별 · 픽셀 상한이 필요(실제 크기 비교는 기존 클라이언트가 대략값을 보내 API 계약 변경) | **일부 수정** |
+| CORE-01 | Medium | `core/…/AttachmentService.java:83-155`, `AttachmentController.java:27-36`, `common-evidence/…/Thumbnailer.java:23` | (a) `ownerModule/Type/Id` · `chainScope` 미확인 → 다른 프로젝트 증거 해시 체인에 가짜 증거를 덧붙임, (b) 크기 상한 · 실제 크기 비교 없음, (c) MIME 은 클라이언트 신고값, 썸네일 `ImageIO.read` 픽셀 상한 없음(압축 폭탄), (d) 다른 사람이 업로드를 complete | (a) 소유자 해석기(FLD 회차 · DEM 패키지 → 프로젝트) + 투입 인원/활성 감리자만 422 `CORE-422-013` (b) 신고 · 실제 크기 50MB 상한 413, 실제 크기 기록(신고값 일치 강제는 계약 변경이라 안 함) (c) MIME 허용 목록 + :complete 매직 바이트 422 `CORE-422-014`, 썸네일 디코드 전 1억 화소 상한 · 서브샘플링 (d) 생성자만 complete | **수정** `c71708e` · `abbe1b7` |
 | CORE-02 | Medium | `ProjectController.java:77-86`, `ProjectService.java:105-121` | PART 로 투입된 PM 이 자기를 RESP 로 지정(pm_id 변경)하거나 기간을 연장 | 정책(§2) | 정책 |
 | HRQ-06 | Medium | `CredentialService.java:58-73`, `EmployeeService.changeGrade` | ADMIN 이 본인 자격증 등록 · 승인, 본인 등급 상향(노임단가 · 등록요건에 영향) | 정책(§2) | 정책 |
 | CORE-03 | Low | `core/…/ClientService.java:61-69` | 개인(INDIVIDUAL) 고객의 이름 · 사업자번호 · 주소가 감사 스냅샷에 마스킹 없이 저장 | `PiiMasking` 적용 | **수정** `c71708e` |
@@ -227,17 +236,17 @@
 | DEM-02 · 03 | Medium | `V0029__dem_seed.sql:45-68`, `SupervisorService.java:62-126`, `DailyLogService.java:531-553`, `StructuralService.java:172-188,337-355` | §2 참조 | 정책 | 정책 |
 | DEM-04 | Medium | `EvidenceService.java:60-91` | 아무 첨부(다른 모듈 · 프로젝트)나 증거로 등록, sha 가 같으면 다른 패키지 사진 정보를 반환 | 첨부가 `owner_module='DEM'` 이고 업로더가 본인이어야 함, 다른 패키지 중복은 409 `DEM-409-008`(정보 비노출) | **수정** `d210d5a` |
 | FLD-01 | Medium | `SyncService.java:188-193,222-225,960` | 클라이언트 HLC `wallMs` 를 먼 미래로 보내면 모든 LWW 에서 이기고 `successor()` 자릿수가 넘쳐 정렬이 깨짐(경고만 남김) | push 는 서버 시각 + 24h(`atom.fld.sync.maxFutureSkew`) 를 넘으면 REJECTED `HLC_IN_FUTURE`, resolve 는 서버 HLC 사용 | **수정** `d210d5a` |
-| FLD-02 | Medium | `PhotoUploadService.java:94-95,140-145,188,205`, `FldController.java:238` | 신고 `sizeBytes` 상한 · 세션 수 상한 없음, PATCH 에서 `expires_at` 미검사, 만료 세션 정리 없음, `@RequestBody byte[]` 를 5MB 검사 전에 전부 메모리로 읽음 → TEMP 디스크 · 힙 고갈 | 최대 크기 · 세션 수(수치는 정책), 만료 거부 + 정리 스케줄러, 컨테이너 수준 본문 상한 | 미수정 |
+| FLD-02 | Medium | `PhotoUploadService.java:94-95,140-145,188,205`, `FldController.java:238` | 신고 `sizeBytes` 상한 · 세션 수 상한 없음, PATCH 에서 `expires_at` 미검사, 만료 세션 정리 없음, `@RequestBody byte[]` 를 5MB 검사 전에 전부 메모리로 읽음 → TEMP 디스크 · 힙 고갈 | 사진 50MB 413 `FLD-413-002` · 사용자당 열린 세션 20 → 429 `FLD-429-001` · 만료 세션 PATCH 410 `FLD-410-001` · `FldUploadJanitor`(만료 → EXPIRED, 임시 청크 삭제) · PATCH 본문은 Content-Length · 읽은 양 모두 청크 상한(5MB) 안에서만 읽음 · 수치는 설정(FLD-02b) | **수정** `abbe1b7` |
 | FLD-03 | Low | `FldController.java:132-137` → `SurveyService.java:165` | 비투입 PM 이 다른 프로젝트 구역의 결함 코드 · 충돌 · 사진 id 를 조회 | `requireProject("fld:zone:lock")` | **수정** `d210d5a` |
 | FLD-04 | Low | `SyncService.java:236-241` | opId 가 전역이라 남의 opId 를 재사용하면 그 사람의 결과(defectId · seq · conflictId)를 받음 | 같은 행위자 · 같은 라운드만 재반환, 아니면 REJECTED `OP_ID_IN_USE` | **수정** `d210d5a` |
-| FLD-05 | Low | `PhotoUploadService.java:106-108,117-122` | `defectId` 를 라운드와 대조하지 않고 MIME 을 신뢰, 해시 충돌 시 다른 프로젝트 `existingPhotoId` 노출 | 결함 소속 확인 · 매직바이트 · 다른 프로젝트 id 비노출 | 미수정 |
+| FLD-05 | Low | `PhotoUploadService.java:106-108,117-122` | `defectId` 를 라운드와 대조하지 않고 MIME 을 신뢰, 해시 충돌 시 다른 프로젝트 `existingPhotoId` 노출 | 다른 회차 defectId 422 · 조립 원본 매직 바이트 ≠ 신고 MIME 이면 REJECTED(422 `FLD-422-004`) · 다른 회차 사진이면 existingPhotoId 비노출 | **수정** `abbe1b7` |
 | AIP-01 | High | `aip/…/ModelRegistryService.java:81-89`, `AipController.java:225-229` | 승인 역할을 본문(`{"role":"EXEC"}`)에서 받아 QA 혼자 QA · EXEC 두 승인을 채우고, 기존 승인도 덮어씀 | 본문 역할이 호출자의 실제 역할이 아니면 403, 이미 있는 승인 덮어쓰기는 409 `AIP-409-002` (동일인 두 승인 금지는 AIP-01b 정책) | **수정** `d210d5a` |
 | AIP-02 | High | `ModelRegistryService.java:126`, `ModelStage.java:43-48` | SHADOW→CANARY 에서 `trafficPct=100` | 정책(§2) | 정책 |
-| AIP-03 | High | `AipController.java:97-104`, `JobService.java:101-115`, `JobExecutor.java:76-87`, `SuggestionService.java:58-72,116` | `inputs[0].attachmentId` 는 아무 첨부나 받고(소유 · sha 확인 없음), 실제 분석은 클라이언트가 보낸 `params.imageB64` 로 함. `prompt` · `labels` 로 결과를 조종 → 다른 프로젝트 사진에 가짜 "균열 검출" 제안을 붙이고, projectId=null 이면 본인이 채택해 학습 큐로 보냄 | 이미지는 서버가 첨부에서 읽고, sha · 프로젝트 소속을 확인하고, `prompt/labels/model` 재정의를 거부하고, 사진 작업은 projectId 필수 | 미수정(작업 실행 경로 재설계 — 우선 처리 권장) |
+| AIP-03 | High | `AipController.java:97-104`, `JobService.java:101-115`, `JobExecutor.java:76-87`, `SuggestionService.java:58-72,116` | `inputs[0].attachmentId` 는 아무 첨부나 받고(소유 · sha 확인 없음), 실제 분석은 클라이언트가 보낸 `params.imageB64` 로 함. `prompt` · `labels` 로 결과를 조종 → 다른 프로젝트 사진에 가짜 "균열 검출" 제안을 붙이고, projectId=null 이면 본인이 채택해 학습 큐로 보냄 | Job 생성 때 입력 첨부 소속 프로젝트(core `AttachmentReadApi` + 소유자 해석) = Job 프로젝트 · sha = 기록 해시, 사진 작업은 projectId · 첨부 필수. 워커 이미지는 언제나 서버 저장 원본(`JobImageLoader`, 해시 재확인 · 15MB), `params.imageB64` 는 무시 · 보관 안 함, 웹 요청의 `imageB64 · prompt · labels · model · findingModel` 은 422. FLD 동기 분석도 같은 경로 | **수정** `0c1b4d1` |
 | AIP-04 | Medium | `JobService.java:95-99,129-148`, 인덱스 `V0031:66` | 작업 멱등 키가 전역 → 다른 사용자가 같은 키를 쓰면 남의 jobId · 상태를 받음 | 웹 요청 충돌은 409 `AIP-409-003`, jobId 비노출(인덱스는 전역 그대로 — RPT/QAR 업무 키 공유에 의존, 코드 주석으로 남김) | **일부 수정** `d210d5a` |
 | AIP-05 | Medium | `AipAccess.java:46-47`, `AipController.java:118,188` | projectId 가 없는 작업 · 제안을 PROJECT 범위 PM/ENG 누구나 읽기 · 취소 · 결정 | 요청자 또는 ALL 범위만 | **수정** `d210d5a` |
-| AIP-06 | Medium | `services/aip-worker/src/atomeng_aip/app.py`(인증 없음, 127.0.0.1 바인딩은 docstring 에만), `HttpAipWorkerClient.java:35-41`(10/8 · 172.16/12 · 192.168/16 허용) | 워커가 LAN 에 바인딩되면 같은 망의 누구나 `/internal/v1/*` 로 vLLM 작업을 실행 | 공유 bearer 토큰(또는 mTLS) FastAPI 의존성, 토큰 없이 루프백이 아닌 주소에 바인딩하면 기동 거부 | 미수정 |
-| AIP-07 | Medium | `schemas.py:33,59,87-88`, `vision/synth.py:97-103`, `JobExecutor.java:56-61,103` | `imageB64` 길이 상한 없음, `cv2.imdecode` 픽셀 상한 없음(압축 폭탄), 클라이언트 `model` 이 레지스트리 라우팅을 우회해 감사 출처가 틀어짐 | base64 15MB 상한, 디코드 전 크기 확인, 항상 `route.modelName()` 사용 | 미수정 |
+| AIP-06 | Medium | `services/aip-worker/src/atomeng_aip/app.py`(인증 없음, 127.0.0.1 바인딩은 docstring 에만), `HttpAipWorkerClient.java:35-41`(10/8 · 172.16/12 · 192.168/16 허용) | 워커가 LAN 에 바인딩되면 같은 망의 누구나 `/internal/v1/*` 로 vLLM 작업을 실행 | ERP: 모든 워커 요청 HMAC-SHA256 서명(`WorkerRequestSigner`), 비밀(`ATOM_AIP_WORKER_SECRET`) 32바이트 미만 · 미설정이면 기동 실패, 워커 주소는 루프백 + `atom.aip.worker.allowed-hosts` 정확 일치만(사설망 대역 허용 삭제) · 리다이렉트 금지. 워커: `auth.py` 미들웨어(health 제외) — `compare_digest` · ±300초 · nonce 재전송 차단 · 비밀 없으면 전부 401 `AIP-401-001`, OpenAPI 계약 `AtomHmac` | **수정** `0c1b4d1` |
+| AIP-07 | Medium | `schemas.py:33,59,87-88`, `vision/synth.py:97-103`, `JobExecutor.java:56-61,103` | `imageB64` 길이 상한 없음, `cv2.imdecode` 픽셀 상한 없음(압축 폭탄), 클라이언트 `model` 이 레지스트리 라우팅을 우회해 감사 출처가 틀어짐 | 워커로 가는 이미지는 서버 원본(15MB 상한) · 웹 `model`/`prompt`/`labels` 재정의 422 · `findingModel` 고정 · `maskB64` 15MB 상한. 워커 `cv2.imdecode` 픽셀 상한은 미수정 | **일부 수정** `0c1b4d1` |
 | AIP-08 | Info | `SuggestionService.java:253` | 라벨 판정자 ≠ 라벨러 | 정책(§2) | 정책 |
 
 **확인 결과 양호**
@@ -254,15 +263,24 @@
 
 ## 9. 빌드 · 시험
 
-- 병합한 뒤 `JAVA_HOME=<PyCharm JBR> ./gradlew build` 결과: **BUILD SUCCESSFUL**. 시험 848개 중 실패 0, 건너뜀 1(PostGIS 서버가 있을 때만 실행). 검토 전 822개에서 회귀 시험이 늘었습니다.
-- `services/aip-worker` 는 수정하지 않아 Python 시험은 다시 돌리지 않았습니다.
+- 1차: `./gradlew build` **BUILD SUCCESSFUL**, 시험 848개 실패 0 · 건너뜀 1.
+- **2차(`444aad2` 기준): `JAVA_HOME=<PyCharm JBR> ./gradlew build` BUILD SUCCESSFUL — 시험 866개 중 실패 0, 건너뜀 1(PostGIS).** 실워커 계약 시험(`AipWorkerLiveContractTest`, .venv 의 uvicorn 을 시험 동안만 127.0.0.1 에 띄움)이 Java 서명을 실제 Python 검증기로 확인합니다.
+- `services/aip-worker`: `uv run pytest` **50 passed**(1차 41 + 인증 9). `uv run python tools/export_openapi.py` 로 `contract/openapi.json` 재기록.
+- 2차에서 고친 기존 시험(버그에 기대던 부분만):
+  - `AuthzProbeController` 의 역할 프로브 2개(`cst:expense:create` EMPLOYEE=SELF, `aip:label-task:create` LABELER=SELF)는 범위 판정 수단이 없어 이제 403 → 역할만 보는 프로브라 `scopeCheckedInService = true` 를 붙임.
+  - `AttachmentIntegrationTest` · `DemIntegrationTest` 는 임의 UUID 를 `chainScope` 로 써서 아무 체인에나 첨부를 붙였음(CORE-01(a) 그 자체) → 실제 FLD 회차 · DEM 업무 패키지와 투입/감리자로 바꿈.
+  - `AipIntegrationTest` 는 소유자 없는 합성 첨부 행 + 클라이언트 `imageB64` 로 분석했음(AIP-03 그 자체) → 프로젝트 회차 첨부 + 저장 원본으로 바꾸고, 감사 `imageSha256` 대신 입력 참조 sha 를 확인.
+  - `AipWorkerContractTest` · `AipWorkerLiveContractTest` · Python `conftest.py` · `test_live_vllm.py` 는 서명 · 서버 원본 이미지에 맞춰 클라이언트 생성 방식만 바꿈.
+  - `KeycloakRealmExportTest.claimNames` 는 클레임 이름이 없는 audience 매퍼를 건너뜀.
+- 운영 배포 시 꼭 할 일(추가): `ATOM_AIP_WORKER_SECRET`(32바이트 이상, ERP · 워커 같은 값), `ATOM_SECURITY_AUDIENCES`(realm 매퍼와 같은 값), `SPRING_PROFILES_ACTIVE=prod` + `atom.evidence.local-root`(영구 경로), Keycloak User Profile 에서 `client_id` · `employee_id` 관리자 전용(`deploy/keycloak/README.md`).
 - 운영 배포 시 꼭 할 일: **`atom.fcd.token-hmac.v1` 에 32바이트 이상 비밀 키 주입**(FCD-01). 주입하지 않으면 OIDC 모드 기동이 실패합니다.
 
 ## 10. 다음 단계 권장 순서
 
-1. **CMN-05 권한 aspect 를 실패하는 쪽으로 닫기.** 범위가 ALL 이 아닌데 검사 수단이 없는 엔드포인트를 기동 시 · 호출 시 거부해, 이번 같은 IDOR 의 재발을 구조적으로 막습니다.
-2. **PTL-01 정책 확정.** CUSTOMER 가 내부 API 를 쓰지 못하게 하고 포털로만 받게 합니다.
-3. **AIP-03** 이미지 출처를 서버가 정하도록 하고, **AIP-06** 워커 인증을 붙입니다.
-4. **HRQ-01 · HRQ-02** 타임시트 승인 · 정정 정책을 확정합니다(원가에 직접 영향).
-5. **FLD-02** 업로드 한도와 정리 작업을 추가합니다.
-6. **CORE-01 (a)(b)(c)** 첨부 소유 · 크기 · MIME · 픽셀 상한을 추가합니다.
+2차에서 1 · 3 · 5 · 6(CMN-05 · AIP-03 · AIP-06 · FLD-02 · CORE-01)을 마쳤습니다. 남은 순서:
+
+1. **PTL-01 정책 확정.** CUSTOMER 가 내부 API 를 쓰지 못하게 하고 포털로만 받게 합니다.
+2. **HRQ-01 · HRQ-02** 타임시트 승인 · 정정 정책을 확정합니다(원가에 직접 영향).
+3. **SAL-05** 결정 — 지금은 PM 이 영업기회 · 장비 엔드포인트 12개에서 403 입니다(실패하는 쪽으로 닫힘).
+4. **AIP-02 · AIP-01b** 모델 승격 정책, **AIP-07** 나머지(워커 `cv2.imdecode` 픽셀 상한).
+5. 미수정 Low/Info(CMN-08 · 10 · 11 · 12 · 13, FCD-08, RPT-04 · 05 · 08, SAL-08).

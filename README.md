@@ -159,7 +159,7 @@ cd services/aip-worker
 uv sync                                   # Python 3.12 · atomeng_common(../../../atom-common) 경로 의존
 uv run pytest -q                          # 단위 · 계약 시험(로컬 vLLM 이 꺼져 있으면 실서버 시험은 skip)
 uv run python tools/export_openapi.py     # 계약(contract/openapi.json) 다시 기록 — Java 계약 시험이 이 파일을 읽음
-uv run uvicorn atomeng_aip.app:app --host 127.0.0.1 --port 8090   # ERP 연결: ATOM_AIP_WORKER_URL=http://127.0.0.1:8090
+ATOM_AIP_WORKER_SECRET=<32바이트 이상> uv run uvicorn atomeng_aip.app:app --host 127.0.0.1 --port 8090   # ERP 연결: ATOM_AIP_WORKER_URL=http://127.0.0.1:8090 + 같은 ATOM_AIP_WORKER_SECRET (HMAC 서명, 보안 검토 AIP-06)
 uv run python ../../tools/aip_golden_gen.py   # 측정 골든(Java MeasureGoldenTest) 다시 생성
 ```
 

@@ -86,14 +86,24 @@ public class RevisionSupport {
         Map<String, Object> rev = rpt.lock("report_revision", revId);
         Map<String, Object> report = rpt.lock("report", RptJdbc.uuid(rev, "report_id"));
         access.requireProject(permission, RptJdbc.uuid(report, "project_id"));
-        return new Ctx(rev, report);
+        Ctx c = new Ctx(rev, report);
+        if (access.isClientScope(permission) && !c.status().isFrozen()) {
+            // SEC-RPT-02: 고객(CLIENT 범위)에게 미발행 리비전은 존재 자체를 드러내지 않는다
+            throw new DomainException(RptCodes.NOT_FOUND, "리비전을 찾을 수 없습니다");
+        }
+        return c;
     }
 
     public Ctx read(UUID revId, String permission) {
         Map<String, Object> rev = rpt.get("report_revision", revId);
         Map<String, Object> report = rpt.get("report", RptJdbc.uuid(rev, "report_id"));
         access.requireProject(permission, RptJdbc.uuid(report, "project_id"));
-        return new Ctx(rev, report);
+        Ctx c = new Ctx(rev, report);
+        if (access.isClientScope(permission) && !c.status().isFrozen()) {
+            // SEC-RPT-02: 고객(CLIENT 범위)에게 미발행 리비전은 존재 자체를 드러내지 않는다
+            throw new DomainException(RptCodes.NOT_FOUND, "리비전을 찾을 수 없습니다");
+        }
+        return c;
     }
 
     public void requireStatus(Ctx c, ReportStatus... allowed) {

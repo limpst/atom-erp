@@ -139,6 +139,8 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         pm = hrqEmployee("책임기술자", "ARCH", "SENIOR");
         eng = hrqEmployee("참여기술자", "ARCH", "INTER");
         qa = hrqEmployee("품질검토자", "ARCH", "SENIOR");
+        // QA 검토자 등록(qar.reviewer_profile) — 수동 배정도 활성 검토자 프로필이 있어야 한다(보안 검토 SEC-QAR-02)
+        jdbc.update("INSERT INTO qar.reviewer_profile(employee_id) VALUES (?) ON CONFLICT DO NOTHING", qa);
 
         // ------------------------------------------------------------ 1. SAL
         step("1 SAL 기회 → 계약 → 프로젝트 · 예산 초안");

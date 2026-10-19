@@ -49,10 +49,13 @@ public class SnapshotService {
     private final CalibrationValidityPort calibration;
     private final OutboxPublisher outbox;
     private final FldSurveyQuery fldQuery;
+    private final FacilityOwnershipGuard ownership;
 
     public SnapshotService(RevisionSupport sup, RuleTableService rules, RptStorage storage,
-                           CalibrationValidityPort calibration, OutboxPublisher outbox, FldSurveyQuery fldQuery) {
+                           CalibrationValidityPort calibration, OutboxPublisher outbox, FldSurveyQuery fldQuery,
+                           FacilityOwnershipGuard ownership) {
         this.fldQuery = fldQuery;
+        this.ownership = ownership;
         this.sup = sup;
         this.rpt = sup.jdbc();
         this.rules = rules;
@@ -84,6 +87,9 @@ public class SnapshotService {
                 "SELECT id FROM rpt.report_revision WHERE report_id = ? AND rev_no = ?", reportId, report.get("current_rev"));
         Ctx c = sup.lock(RptJdbc.uuid(cur, "id"), "rpt:report:create");
         sup.requireStatus(c, ReportStatus.DRAFT, ReportStatus.SNAPSHOT_FROZEN, ReportStatus.COMPOSING);
+        if (input.buildings() != null) {
+            input.buildings().forEach(b -> ownership.requireSameClient(c.projectId(), b.buildingId()));   // SEC-RPT-04
+        }
 
         Map<String, Object> watermarks = new LinkedHashMap<>();
         watermarks.put("fld", "request-body");

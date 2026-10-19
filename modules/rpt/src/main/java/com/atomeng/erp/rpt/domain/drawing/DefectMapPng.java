@@ -24,6 +24,9 @@ public final class DefectMapPng {
 
     public record Png(byte[] bytes, int widthPx, int heightPx) {}
 
+    /** 높이 상한 = 가로 × 4 (SEC-RPT-01) */
+    static final int MAX_ASPECT = 4;
+
     private DefectMapPng() {}
 
     public static Png render(List<Defect> input, int widthPx) {
@@ -37,7 +40,8 @@ public final class DefectMapPng {
             List<double[]> pts = new ArrayList<>();
             if (d.polyline() != null) {
                 for (List<BigDecimal> p : d.polyline()) {
-                    if (p != null && p.size() >= 2 && p.get(0) != null && p.get(1) != null) {
+                    if (p != null && p.size() >= 2 && p.get(0) != null && p.get(1) != null
+                            && Double.isFinite(p.get(0).doubleValue()) && Double.isFinite(p.get(1).doubleValue())) {
                         pts.add(new double[] {p.get(0).doubleValue(), p.get(1).doubleValue()});
                     }
                 }
@@ -63,8 +67,10 @@ public final class DefectMapPng {
         maxY += pad;
         final double x0 = minX;
         final double yTop = maxY;
-        final double scale = widthPx / (maxX - minX);
-        int heightPx = Math.max(200, (int) Math.ceil((maxY - minY) * scale));
+        // SEC-RPT-01: 세로로 긴 좌표(예: Y 범위 1e9 mm)는 가로 축척만 쓰면 높이가 수억 px 가 되어 OOM.
+        // 높이를 가로의 MAX_ASPECT 배로 묶고, 두 축 중 더 작은 축척을 같이 쓴다(가로 · 세로 비율 유지).
+        final double scale = Math.min(widthPx / (maxX - minX), (double) widthPx * MAX_ASPECT / (maxY - minY));
+        int heightPx = Math.min(widthPx * MAX_ASPECT, Math.max(200, (int) Math.ceil((maxY - minY) * scale)));
         BufferedImage img = new BufferedImage(widthPx, heightPx, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
         try {

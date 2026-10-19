@@ -32,8 +32,11 @@ public class ReportService {
     private final RptAccess access;
     private final RptProperties props;
     private final AuditLog audit;
+    private final FacilityOwnershipGuard ownership;
 
-    public ReportService(RevisionSupport sup, RptAccess access, RptProperties props, AuditLog audit) {
+    public ReportService(RevisionSupport sup, RptAccess access, RptProperties props, AuditLog audit,
+                         FacilityOwnershipGuard ownership) {
+        this.ownership = ownership;
         this.sup = sup;
         this.rpt = sup.jdbc();
         this.access = access;
@@ -44,6 +47,7 @@ public class ReportService {
     @Transactional
     public Map<String, Object> create(CreateReport c) {
         access.requireProject("rpt:report:create", c.projectId());
+        ownership.requireSameClient(c.projectId(), c.facilityId());   // SEC-RPT-04
         ReportType type;
         try {
             type = ReportType.valueOf(c.reportType());
@@ -101,14 +105,34 @@ public class ReportService {
     public Map<String, Object> get(UUID reportId) {
         Map<String, Object> r = rpt.get("report", reportId);
         access.requireProject("rpt:report:read", RptJdbc.uuid(r, "project_id"));
+        if (access.isClientScope("rpt:report:read")) {
+            return clientView(reportId).orElseThrow(() -> new DomainException(RptCodes.NOT_FOUND, "보고서를 찾을 수 없습니다"));
+        }
         return report(reportId);
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> list(UUID projectId) {
         access.requireProject("rpt:report:read", projectId);
+        boolean client = access.isClientScope("rpt:report:read");
         return rpt.jdbc().queryForList("SELECT id FROM rpt.report WHERE project_id = ? AND deleted_at IS NULL "
-                + "ORDER BY created_at", projectId).stream().map(m -> report(RptJdbc.uuid(m, "id"))).toList();
+                + "ORDER BY created_at", projectId).stream()
+                .map(m -> client ? clientView(RptJdbc.uuid(m, "id")).orElse(null) : report(RptJdbc.uuid(m, "id")))
+                .filter(java.util.Objects::nonNull).toList();
+    }
+
+    /** SEC-RPT-02: 고객(CLIENT 범위) 보기 — 발행 리비전만, 발행본이 없으면 보고서 자체를 숨긴다 */
+    @SuppressWarnings("unchecked")
+    java.util.Optional<Map<String, Object>> clientView(UUID id) {
+        Map<String, Object> v = report(id);
+        List<Map<String, Object>> published = ((List<Map<String, Object>>) v.get("revisions")).stream()
+                .filter(rv -> ReportStatus.valueOf(String.valueOf(rv.get("status"))).isFrozen()).toList();
+        if (published.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        v.put("revisions", published);
+        v.put("currentRevisionId", published.get(published.size() - 1).get("id"));
+        return java.util.Optional.of(v);
     }
 
     Map<String, Object> report(UUID id) {

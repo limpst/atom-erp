@@ -555,4 +555,61 @@ class QarIntegrationTest extends IntegrationTestBase {
         JsonNode denied = submit(UUID.fromString(created.get("id").asText()), 409);
         assertThat(violationCodes(denied)).contains("QAR_REVISION_NOT_LOCKED");
     }
+
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 회귀
+
+    @Test
+    @DisplayName("SEC-QAR-01~04: 프로필 없는 직원 수동 배정 422 · 재배정된 전 QA 의 최종 승인 SoD 409 · 승인 후 waiver 409 · 승인 후 코멘트 답변 409")
+    void securityReviewRegressions() throws Exception {
+        Prepared p = prepare(null, true);
+        JsonNode r = toQaReviewing(p.rev());
+        UUID id = UUID.fromString(r.get("id").asText());
+        UUID round1 = roundId(r);
+
+        // SEC-QAR-02: 활성 검토자 프로필이 없는 직원은 QA 로 수동 배정할 수 없다
+        UUID outsider = flow.employee("QAR-NOPROFILE");
+        JsonNode np = call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + outsider + "\"}"), qa1, "QA", 422);
+        assertThat(np.get("reason").asText()).isEqualTo("NOT_A_REVIEWER");
+
+        // QA 겸 PM 인 X 를 QA 로 배정했다가 다른 QA 로 재배정
+        UUID x = flow.employee("QAR-QAPM");
+        jdbc.update("INSERT INTO qar.reviewer_profile(employee_id) VALUES (?)", x);
+        flow.member(p.project(), x, "PART");
+        call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + x + "\"}"), qa1, "QA", 201);
+        call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + qa1 + "\"}"), qa1, "QA", 201);
+        assertThat(assignee(review(id))).isEqualTo(qa1);
+
+        JsonNode opinion = opinionSection(p.rev()).get("blocks").get(0);
+        int start = opinion.get("text").asText().indexOf(DEFAULT_OPINION_PHRASE);
+        JsonNode minor = call(json(post("/api/v1/qar/rounds/" + round1 + "/comments"), objectMapper.writeValueAsString(Map.of(
+                "severity", "MINOR", "issueCode", "QI-STYLE", "body", "표 번호 명시", "anchor", Map.of("type", "TEXT_RANGE",
+                        "blockId", opinion.get("blockId").asText(), "start", start,
+                        "end", start + DEFAULT_OPINION_PHRASE.length(), "quote", DEFAULT_OPINION_PHRASE)))), qa1, "QA", 201);
+        answerMissing(round1, "QA", qa1, "QA");
+        assertThat(call(json(post("/api/v1/qar/rounds/" + round1 + "/decision").header("If-Match", etag(id)),
+                "{\"decision\":\"PASS\"}"), qa1, "QA", 200).get("status").asText()).isEqualTo("PENDING_APPROVAL");
+
+        // SEC-QAR-01: 재배정으로 빠진 전 QA 검토자(X)는 최종 승인자가 될 수 없다
+        JsonNode sod = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), x, "PM", 409);
+        assertThat(violationCodes(sod)).contains("QAR_SOD_VIOLATION");
+        assertThat(call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm, "PM", 200)
+                .get("status").asText()).isEqualTo("APPROVED");
+
+        // SEC-QAR-03: 승인 완료 뒤에는 WARNING 결과라도 예외 승인(waiver)을 붙일 수 없다
+        UUID run = jdbc.queryForObject("SELECT id FROM qar.autocheck_run WHERE round_id = ? LIMIT 1", UUID.class, round1);
+        UUID warn = UUID.randomUUID();
+        jdbc.update("INSERT INTO qar.autocheck_result(id, round_id, run_id, rule_id, severity, message) "
+                + "VALUES (?, ?, ?, 'AC-TXT-002', 'WARNING', '합성 경고')", warn, round1, run);
+        JsonNode late = call(json(post("/api/v1/qar/autocheck-results/" + warn + "/waiver"), "{\"reason\":\"늦은 사유\"}"),
+                pm, "PM", 409);
+        assertThat(late.get("code").asText()).isEqualTo("QAR-409-001");
+
+        // SEC-QAR-04: 승인 완료 검토의 코멘트는 답변 · 상태 변경 불가
+        JsonNode closed = call(json(post("/api/v1/qar/comments/" + minor.get("id").asText() + "/replies"),
+                "{\"action\":\"ANSWER\",\"body\":\"늦은 답변\"}"), pm, "PM", 409);
+        assertThat(closed.get("code").asText()).isEqualTo("QAR-409-006");
+    }
 }

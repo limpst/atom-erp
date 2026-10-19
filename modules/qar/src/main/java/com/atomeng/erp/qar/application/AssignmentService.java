@@ -156,6 +156,14 @@ public class AssignmentService {
                     "직무 분리 위반: 작성자 · 섹션 편집 이력자는 이 라운드 QA 검토자가 될 수 없습니다(" + ex.get(assigneeId) + ")")
                     .with("reason", "QAR_SOD_VIOLATION").with("sodRule", ex.get(assigneeId));
         }
+        // SEC-QAR-02: 수동 배정 대상도 그 단계의 활성 검토자 프로필이어야 한다(자동 배정 후보와 같은 기준)
+        Integer profiles = qar.jdbc().queryForObject(
+                "SELECT count(*) FROM qar.reviewer_profile WHERE employee_id = ? AND step_code = ? AND active",
+                Integer.class, assigneeId, step);
+        if (profiles == null || profiles == 0) {
+            throw new DomainException(QarCodes.INVALID, "활성 QA 검토자 프로필이 없는 직원은 배정할 수 없습니다")
+                    .with("reason", "NOT_A_REVIEWER");
+        }
         qar.jdbc().update("""
                 UPDATE qar.review_assignment SET completed_at = now(), decision = 'REASSIGNED'
                  WHERE round_id = ? AND step_code = ? AND completed_at IS NULL""", roundId, step);
@@ -183,10 +191,17 @@ public class AssignmentService {
         return out;
     }
 
-    /** 이 라운드에서 QA 단계를 맡았던 모든 사람(재배정 포함) — 승인자 SoD */
+    /**
+     * 이 검토(모든 라운드)에서 QA 단계를 맡았던 모든 사람(재배정 포함) — 승인자 SoD.
+     * 보안 검토 2026-10-19 SEC-QAR-01: 이전에는 재배정된 QA 와 이전 라운드 QA 가 빠져 있어, QA 로 검토한 뒤
+     * 재배정되거나 다음 라운드로 넘어가면 같은 사람이 최종 승인할 수 있었다.
+     */
     Set<UUID> qaAssignees(UUID roundId) {
-        return new LinkedHashSet<>(qar.jdbc().queryForList("SELECT assignee_id FROM qar.review_assignment WHERE round_id = ? "
-                + "AND step_code = 'QA_REVIEW' AND decision IS DISTINCT FROM 'REASSIGNED'", UUID.class, roundId));
+        return new LinkedHashSet<>(qar.jdbc().queryForList("""
+                SELECT DISTINCT a.assignee_id FROM qar.review_assignment a
+                  JOIN qar.review_round r ON r.id = a.round_id
+                 WHERE a.step_code = 'QA_REVIEW'
+                   AND r.review_id = (SELECT review_id FROM qar.review_round WHERE id = ?)""", UUID.class, roundId));
     }
 
     private static double round4(double v) {

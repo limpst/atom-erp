@@ -147,7 +147,12 @@ public class CommentService {
     public Map<String, Object> reply(UUID commentId, ReplyAction action, String body) {
         Map<String, Object> c = qar.lock("review_comment", commentId);
         Map<String, Object> round = sup.round(QarJdbc.uuid(c, "round_id"));
-        sup.reviewFor(QarJdbc.uuid(round, "review_id"), "qar:thread:create", false);
+        Map<String, Object> review = sup.reviewFor(QarJdbc.uuid(round, "review_id"), "qar:thread:create", false);
+        // SEC-QAR-04: 이월로 닫힌 지난 라운드 코멘트 · 승인 완료 검토의 코멘트는 상태를 바꿀 수 없다
+        if (ReviewStatus.valueOf(QarJdbc.str(review, "status")) == ReviewStatus.APPROVED
+                || QarJdbc.integer(review, "current_round") != QarJdbc.integer(round, "round_no")) {
+            throw new DomainException(QarCodes.COMMENT_STATE, "현재 라운드의 진행 중인 검토 코멘트만 답변 · 상태 변경할 수 있습니다");
+        }
         UUID actor = sup.actorId();
         boolean isCommentAuthor = actor.equals(QarJdbc.uuid(c, "author_id"));
         if (CommentStatus.commentAuthorOnly(action)) {

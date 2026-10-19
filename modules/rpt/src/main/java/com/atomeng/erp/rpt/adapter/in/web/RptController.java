@@ -20,12 +20,14 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -221,7 +223,8 @@ class RptController {
     @RequirePermission("rpt:report:read")
     public ResponseEntity<byte[]> dxf(@PathVariable UUID revId, @PathVariable String building, @PathVariable String floor) {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/dxf"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + building + "-" + floor + ".dxf\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()   // SEC-RPT-03: RFC 6266 인코딩
+                        .filename(building + "-" + floor + ".dxf", StandardCharsets.UTF_8).build().toString())
                 .body(compose.drawingDxf(revId, building, floor));
     }
 

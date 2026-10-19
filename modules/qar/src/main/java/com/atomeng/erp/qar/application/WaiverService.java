@@ -31,7 +31,12 @@ public class WaiverService {
     public Map<String, Object> addReason(UUID resultId, String reason) {
         Map<String, Object> result = qar.get("autocheck_result", resultId);
         Map<String, Object> round = sup.round(QarJdbc.uuid(result, "round_id"));
-        sup.reviewFor(QarJdbc.uuid(round, "review_id"), "qar:waiver:create", true);
+        Map<String, Object> review = sup.reviewFor(QarJdbc.uuid(round, "review_id"), "qar:waiver:create", true);
+        // SEC-QAR-03: 승인 완료된 검토 · 지난 라운드의 자동검사 결과에는 예외 사유를 더 붙일 수 없다
+        if ("APPROVED".equals(QarJdbc.str(review, "status"))
+                || QarJdbc.integer(review, "current_round") != QarJdbc.integer(round, "round_no")) {
+            throw new DomainException(QarCodes.STATE, "승인 완료된 검토이거나 현재 라운드가 아닌 결과에는 예외 승인을 할 수 없습니다");
+        }
         String sev = QarJdbc.str(result, "severity");
         if (!"WARNING".equals(sev)) {
             throw new DomainException(QarCodes.WAIVER_NOT_ALLOWED, "WARNING 결과만 예외 승인할 수 있습니다(현재 " + sev + ")")

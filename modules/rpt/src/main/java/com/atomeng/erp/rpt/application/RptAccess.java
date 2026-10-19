@@ -34,6 +34,18 @@ public class RptAccess {
         this.clock = clock;
     }
 
+    /**
+     * 호출자의 이 권한 범위가 CLIENT(포털 고객) 인가. SEC-RPT-02: 고객에게는 발행(PUBLISHED · DELIVERED · SUPERSEDED)
+     * 리비전만 보여야 한다 — 초안 · 검토 중 렌더 · 등급 결정 근거 · 편집자 정보는 내부 자료.
+     */
+    public boolean isClientScope(String permission) {
+        AtomPrincipal p = AtomAuthentication.currentPrincipal().orElse(null);
+        if (p == null) {
+            return false;
+        }
+        return registry.scopeFor(p.roles(), permission).map(s -> s == PermissionScope.CLIENT).orElse(false);
+    }
+
     public void requireProject(String permission, UUID projectId) {
         AtomPrincipal p = AtomAuthentication.currentPrincipal().orElse(null);
         if (p == null) {

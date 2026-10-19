@@ -3,8 +3,9 @@ package com.atomeng.erp.sal.api;
 import java.util.UUID;
 
 /**
- * 구독 계약(스텁) — 상대 모듈(PTL 09)이 아직 없어 SAL 쪽에 payload 를 고정한다(FAC ReportPublishedContract 와 같은 방식).
- * PTL 구현 시 그쪽 api 로 옮기고 계약 테스트로 호환을 확인한다.
+ * 구독 계약 — PTL(09) 발행 이벤트의 payload 를 SAL 쪽에 고정한다(FAC ReportPublishedContract 와 같은 방식).
+ * PTL 이 sal::api 에 의존하므로(견적 · 서명 요청 구독) 이 계약을 ptl::api 로 옮기면 모듈 순환이 생긴다 → SAL 에 두고,
+ * 실제 PTL 발행 레코드(ptl::api PtlEvents.ServiceRequestSubmitted)와의 호환은 계약 테스트(apps PtlSalContractTest)가 확인한다.
  */
 public final class SalSubscriptionContracts {
 

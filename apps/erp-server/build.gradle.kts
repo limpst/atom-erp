@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":modules:rpt"))
     implementation(project(":modules:qar"))
     implementation(project(":modules:dem"))
+    implementation(project(":modules:ptl"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))
@@ -40,4 +41,5 @@ dependencies {
     testImplementation(libs.archunit)
     testImplementation("org.apache.poi:poi-ooxml:5.4.1")   // FCD 통합 테스트: 합성 XLSX 명세서 생성
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.apache.pdfbox:pdfbox:3.0.5")   // PTL 통합 테스트: 워터마크 PDF 검사(TC-PTL-04)
 }

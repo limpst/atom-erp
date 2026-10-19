@@ -22,7 +22,7 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem", "ptl");
         // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
         ApplicationModule cst = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
@@ -66,7 +66,7 @@ class ModularityTests {
     }
 
     @Test
-    @DisplayName("01-IMPL: sal 은 core::api · fac::api 만 참조, 다른 업무 모듈 → sal 참조 0건(CST 는 이벤트 계약만)")
+    @DisplayName("01-IMPL: sal 은 core::api · fac::api 만 참조, 다른 업무 모듈 → sal 은 PTL 의 sal::api 만(CST 는 이벤트 계약만)")
     void salBoundary() {
         ApplicationModule sal = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("sal")).findFirst().orElseThrow();
@@ -81,8 +81,14 @@ class ModularityTests {
                         "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..")
                 .check(classes);
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-                .that().resideOutsideOfPackage("com.atomeng.erp.sal..")
+                .that().resideOutsideOfPackages("com.atomeng.erp.sal..", "com.atomeng.erp.ptl..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.sal..")
+                .check(classes);
+        // 09 PTL 은 sal::api(SalEvents · SalQueryApi · 구독 계약)만 — sal 내부 0건
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideInAPackage("com.atomeng.erp.ptl..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.sal.application..",
+                        "com.atomeng.erp.sal.domain..", "com.atomeng.erp.sal.adapter..")
                 .check(classes);
     }
 
@@ -149,6 +155,29 @@ class ModularityTests {
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideOutsideOfPackage("com.atomeng.erp.dem..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.dem..")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("09-IMPL Step 1: ptl 은 core::api · fac::api · rpt::api · sal::api 만 참조, 다른 업무 모듈 → ptl 0건(SAL 과는 이벤트 계약만)")
+    void ptlBoundary() {
+        ApplicationModule ptl = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("ptl")).findFirst().orElseThrow();
+        assertThat(ptl.getNamedInterfaces().getByName("api")).isPresent();
+        var classes = new com.tngtech.archunit.core.importer.ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideInAPackage("com.atomeng.erp.ptl..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                        "com.atomeng.erp.fcd..", "com.atomeng.erp.eqp..", "com.atomeng.erp.qar..", "com.atomeng.erp.dem..",
+                        "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
+                        "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..",
+                        "com.atomeng.erp.rpt.application..", "com.atomeng.erp.rpt.domain..", "com.atomeng.erp.rpt.adapter..",
+                        "com.atomeng.erp.sal.application..", "com.atomeng.erp.sal.domain..", "com.atomeng.erp.sal.adapter..")
+                .check(classes);
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackage("com.atomeng.erp.ptl..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.ptl..")
                 .check(classes);
     }
 

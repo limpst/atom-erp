@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * SAL 구독 (설계 01 B6): {@code fac.inspection.due-approaching}(fac::api) → 점검 도래 리드(BR-SAL-007, TC-SAL-020),
- * {@code ptl.service-request.submitted}(스텁 계약 — PTL 미구현) → 포털 리드. core.processed_event 로 이벤트 단위 멱등,
+ * {@code ptl.service-request.submitted}(PTL 발행, 계약 sal::api SalSubscriptionContracts) → 포털 리드. core.processed_event 로 이벤트 단위 멱등,
  * 업무 키 단위 중복은 부분 유니크 인덱스(ON CONFLICT DO NOTHING)로 한 번 더 막는다.
  */
 @Component

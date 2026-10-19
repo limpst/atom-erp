@@ -23,7 +23,8 @@ import org.springframework.test.context.TestPropertySource;
  * 운영 모드(atom.security.enabled=true) 보안 체인 스텁 검증 — Keycloak 없이 기동되고(issuer 지연 조회),
  * 토큰 없는 요청은 401 problem+json, 인증된 주체는 통과.
  */
-@TestPropertySource(properties = "atom.security.enabled=true")
+@TestPropertySource(properties = {"atom.security.enabled=true",
+        "atom.fcd.token-hmac.v1=test-only-oidc-mode-hmac-key-0123456789abcdef"})
 class SecurityOidcModeTest extends IntegrationTestBase {
 
     @Test

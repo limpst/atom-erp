@@ -38,13 +38,34 @@ public class CardService {
     private final byte[] key;
     private final int keyVersion;
 
+    /** 소스에 공개된 개발용 키 — 헤더 인증(개발/테스트) 모드에서만 허용 (보안 검토 SEC-003) */
+    static final String DEV_KEY = "dev-only-not-a-secret-v1";
+    /** 운영 키 최소 길이(바이트). 앞6 · 뒤4 가 저장되므로 키가 약하면 가운데 자리 전수 대입으로 PAN 복원 가능 */
+    static final int MIN_KEY_BYTES = 32;
+
     public CardService(JdbcTemplate jdbc, AuditLog audit,
-                       @Value("${atom.fcd.token-hmac.v1:dev-only-not-a-secret-v1}") String key,
-                       @Value("${atom.fcd.token-key-version:1}") int keyVersion) {
+                       @Value("${atom.fcd.token-hmac.v1:" + DEV_KEY + "}") String key,
+                       @Value("${atom.fcd.token-key-version:1}") int keyVersion,
+                       @Value("${atom.security.enabled:true}") boolean securityEnabled) {
+        requireUsableKey(key, securityEnabled);
         this.jdbc = jdbc;
         this.audit = audit;
         this.key = key.getBytes(StandardCharsets.UTF_8);
         this.keyVersion = keyVersion;
+    }
+
+    /**
+     * 운영 모드(OIDC, atom.security.enabled=true)에서 개발용 기본 키 · 짧은 키로 기동하면 실패시킨다.
+     * 기본 키는 소스에 공개되어 있어 DB · 백업 열람자가 card_token + 앞6 · 뒤4 로 PAN 을 복원할 수 있다.
+     */
+    static void requireUsableKey(String key, boolean securityEnabled) {
+        if (!securityEnabled) {
+            return; // 개발/테스트 헤더 인증 모드: 합성 데이터만 사용
+        }
+        if (key == null || DEV_KEY.equals(key) || key.getBytes(StandardCharsets.UTF_8).length < MIN_KEY_BYTES) {
+            throw new IllegalStateException("atom.fcd.token-hmac.v1 미설정 또는 개발용/짧은 키(" + MIN_KEY_BYTES
+                    + "바이트 미만)입니다 — 운영 모드에서는 Vault secret/fcd/token-hmac/v1 값을 주입해야 합니다");
+        }
     }
 
     public CardToken tokenize(char[] pan) {

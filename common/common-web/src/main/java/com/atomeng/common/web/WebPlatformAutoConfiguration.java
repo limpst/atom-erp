@@ -2,6 +2,7 @@ package com.atomeng.common.web;
 
 import com.atomeng.common.core.actor.CurrentActor;
 import com.atomeng.common.web.idempotency.IdempotencyFilter;
+import com.atomeng.common.web.json.BoundedBigDecimalModule;
 import com.atomeng.common.web.idempotency.IdempotencyProperties;
 import com.atomeng.common.web.idempotency.IdempotencyPurgeJob;
 import com.atomeng.common.web.idempotency.IdempotencyStore;
@@ -33,6 +34,12 @@ public class WebPlatformAutoConfiguration {
     @ConditionalOnMissingBean
     Clock atomClock() {
         return Clock.systemUTC();
+    }
+
+    /** 요청 본문 BigDecimal 지수 · 정밀도 상한 (SEC-001, Spring Boot 가 Module 빈을 ObjectMapper 에 등록) */
+    @Bean
+    BoundedBigDecimalModule boundedBigDecimalModule() {
+        return new BoundedBigDecimalModule();
     }
 
     @Bean

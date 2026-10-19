@@ -15,9 +15,24 @@ final class CachedBodyRequest extends HttpServletRequestWrapper {
 
     private final byte[] body;
 
-    CachedBodyRequest(HttpServletRequest request) throws IOException {
+    /** 본문이 상한을 넘을 때 */
+    static final class TooLargeException extends IOException {
+        TooLargeException(long limit) {
+            super("request body exceeds " + limit + " bytes");
+        }
+    }
+
+    CachedBodyRequest(HttpServletRequest request, long maxBytes) throws IOException {
         super(request);
-        this.body = request.getInputStream().readAllBytes();
+        long declared = request.getContentLengthLong();
+        if (declared > maxBytes) {
+            throw new TooLargeException(maxBytes);
+        }
+        byte[] read = request.getInputStream().readNBytes((int) Math.min(Integer.MAX_VALUE - 8, maxBytes + 1));
+        if (read.length > maxBytes) {
+            throw new TooLargeException(maxBytes); // Content-Length 없이(chunked) 보낸 큰 본문
+        }
+        this.body = read;
     }
 
     byte[] body() {

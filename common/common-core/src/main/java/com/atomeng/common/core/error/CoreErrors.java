@@ -28,6 +28,8 @@ public final class CoreErrors {
     public static final String IDEMPOTENCY_KEY_REUSED = "CORE-422-009";
     /** field-app 등 필수 클라이언트가 Idempotency-Key 없이 POST. 설계 9.4 */
     public static final String IDEMPOTENCY_KEY_REQUIRED = "CORE-428-001";
+    /** 멱등 키 요청 본문이 상한(atom.idempotency.max-body-bytes)을 넘음 (보안 검토 SEC-002) */
+    public static final String PAYLOAD_TOO_LARGE = "CORE-413-001";
     /** 수정 요청에 If-Match 누락. */
     public static final String IF_MATCH_REQUIRED = "CORE-428-002";
     public static final String INTERNAL_ERROR = "CORE-500-001";

@@ -212,6 +212,42 @@ class IdempotencyIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.code").value("CORE-401-001"));
     }
 
+    @Test
+    @DisplayName("보안 검토 SEC-002: 멱등 키 POST 본문이 상한(51MB) 초과 → 413 CORE-413-001, 키 행 미생성(힙 고갈 방지)")
+    void oversizedIdempotentBodyIs413() throws Exception {
+        UUID actor = actor();
+        String key = UUID.randomUUID().toString();
+        byte[] huge = new byte[51 * 1024 * 1024 + 1];
+        java.util.Arrays.fill(huge, (byte) ' ');
+        mvc.perform(as(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(CLIENTS)
+                        .contentType(MediaType.APPLICATION_JSON).content(huge), actor, "SALES")
+                        .header("Idempotency-Key", key))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("CORE-413-001"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.idempotency_key WHERE actor_id = ? AND key = ?",
+                Integer.class, actor, key)).isZero();
+    }
+
+    @Test
+    @DisplayName("보안 검토 SEC-001: 요청 본문 BigDecimal 지수 폭탄(1e999999999) → 400, 정상 금액은 통과")
+    void bigDecimalExponentBombRejected() throws Exception {
+        record Amount(java.math.BigDecimal v) {}
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> objectMapper.readValue("{\"v\":\"1e999999999\"}", Amount.class))
+                .isInstanceOf(com.fasterxml.jackson.databind.exc.InvalidFormatException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> objectMapper.readValue("{\"v\":1e-999999999}", Amount.class))
+                .isInstanceOf(com.fasterxml.jackson.databind.exc.InvalidFormatException.class);
+        assertThat(objectMapper.readValue("{\"v\":123456789012345.67}", Amount.class).v())
+                .isEqualByComparingTo("123456789012345.67");
+        assertThat(objectMapper.readValue("{\"v\":\"0.075\"}", Amount.class).v()).isEqualByComparingTo("0.075");
+        // HTTP 경로: SAL 대가 산정 본문의 단가 지수 폭탄 → 400(CPU 점유 없이 즉시)
+        mvc.perform(as(postJson("/api/v1/sal/fee-calculations",
+                        "{\"asOfDate\":\"2026-03-01\",\"expenses\":[{\"unitPrice\":\"1e999999999\",\"quantity\":1}]}"),
+                        actor(), "SALES"))
+                .andExpect(status().isBadRequest());
+    }
+
     private static String hashOf(String path, String json) {
         return Hashing.sha256Hex("POST\n" + path + "\n"
                 + CanonicalJson.canonicalize(json.getBytes(StandardCharsets.UTF_8)));

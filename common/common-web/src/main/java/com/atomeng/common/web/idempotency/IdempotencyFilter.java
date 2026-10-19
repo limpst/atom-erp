@@ -87,7 +87,14 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             return;
         }
         UUID actorId = actor.get().actorId();
-        var cached = new CachedBodyRequest(req);
+        CachedBodyRequest cached;
+        try {
+            cached = new CachedBodyRequest(req, props.maxBodyBytes());
+        } catch (CachedBodyRequest.TooLargeException e) {
+            problems.write(req, res, CoreErrors.PAYLOAD_TOO_LARGE,
+                    "멱등 키 요청 본문이 상한(%d바이트)을 넘습니다".formatted(props.maxBodyBytes()));
+            return;
+        }
         String target = req.getRequestURI() + (req.getQueryString() == null ? "" : "?" + req.getQueryString());
         String requestHash = Hashing.sha256Hex(
                 req.getMethod().toUpperCase() + "\n" + target + "\n" + CanonicalJson.canonicalize(cached.body()));

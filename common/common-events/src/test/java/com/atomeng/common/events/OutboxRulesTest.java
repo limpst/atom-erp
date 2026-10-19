@@ -27,7 +27,7 @@ class OutboxRulesTest {
             "rpt.report.published", "fac.inspection.due-approaching", "hrq.credential.expired",
             "core.project.created", "fac.inspection.overdue", "fac.grade.critical-detected",
             "eqp.calibration.due-soon", "eqp.calibration.expired", "eqp.equipment.checked-out",
-            "sal.contract.ready-to-sign", "sal.estimate.issued", "sal.bid-notice.collected", "sal.opportunity.stage-changed"})
+            "sal.contract.ready-to-sign", "fld.ai-suggestion.discrepancy", "fld.survey.completed", "sal.estimate.issued", "sal.bid-notice.collected", "sal.opportunity.stage-changed"})
     @DisplayName("설계 10.1 v0.3: 정식 이벤트명은 {mod}.{aggregate}.{과거형} 규칙 통과")
     void validNames(String name) {
         assertThat(EventNames.requireValid(name)).isEqualTo(name);

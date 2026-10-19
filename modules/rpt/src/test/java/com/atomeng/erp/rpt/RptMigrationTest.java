@@ -65,7 +65,7 @@ class RptMigrationTest {
     @DisplayName("Step 1: rpt 테이블 17개 · 템플릿 1종 · rule 6세트(3종 × 2025.1/2026.1) · 세부 권한 시드")
     void schemaAndSeeds() {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'rpt' "
-                + "AND table_type = 'BASE TABLE'", Long.class)).isEqualTo(17L);
+                + "AND table_type = 'BASE TABLE'", Long.class)).isEqualTo(18L);   // 17 + V6_0_3 field_survey_completion
         assertThat(jdbc.queryForObject("SELECT count(*) FROM rpt.rule_set WHERE status = 'DEPLOYED'", Long.class))
                 .isEqualTo(6L);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM rpt.template_version WHERE status = 'DEPLOYED'", Long.class))

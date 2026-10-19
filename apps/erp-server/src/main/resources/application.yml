@@ -10,10 +10,10 @@ spring:
       minimum-idle: 5
   flyway:
     enabled: true
-    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem,ptl,aip
+    schemas: core,fac,hrq,eqp,cst,fcd,sal,rpt,qar,dem,ptl,aip,fld
     create-schemas: true
     # 모듈별 버전 대역(core V1_x, fac V2_x …). PostGIS 의존 DDL 은 postgis 프로필에서 추가
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fld
     validate-on-migrate: true
   jpa:
     open-in-view: false
@@ -23,7 +23,7 @@ spring:
       hibernate.jdbc.time_zone: UTC
       hibernate.default_batch_fetch_size: 100
   messages:
-    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors,messages/dem-errors,messages/ptl-errors,messages/aip-errors
+    basename: messages/core-errors,messages/fac-errors,messages/hrq-errors,messages/eqp-errors,messages/cst-errors,messages/fcd-errors,messages/sal-errors,messages/rpt-errors,messages/qar-errors,messages/dem-errors,messages/ptl-errors,messages/aip-errors,messages/fld-errors
     fallback-to-system-locale: false
   servlet:
     multipart:
@@ -115,6 +115,17 @@ atom:
     suggestion:
       accept-sample-rate: 0.2            # BR-AIP-012 ① 수락 약한 양성 표본
       expire-days: 30
+  fld:
+    sync:
+      max-ops: 500                       # B4 push 배치 상한
+      visibility-window: 2s              # 05-IMPL Step 10 가시성 지연 창(커밋 지연 대응) — 최장 push 트랜잭션보다 길게
+      clock-drift-warn: 5m               # A8-5 / TC-FLD-015 기기 시계 드리프트 경고
+      geometry-conflict-window: 5m       # B7.2 기하 동시 변경 충돌 창
+    upload:
+      max-chunk-bytes: 5242880           # FR-FLD-017 5MB 청크
+      session-ttl: 7d
+    ai:
+      discrepancy-ratio: 2.0             # A8-8 AI ↔ 사람 균열폭 2배 이상 → fld.ai-suggestion.discrepancy(QAR)
   dem:
     log-lock:
       enabled: true
@@ -136,7 +147,7 @@ spring:
     activate:
       on-profile: postgis
   flyway:
-    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration-ext
+    locations: classpath:db/migration/core,classpath:db/migration/fac,classpath:db/migration/hrq,classpath:db/migration/eqp,classpath:db/migration/cst,classpath:db/migration/fcd,classpath:db/migration/sal,classpath:db/migration/rpt,classpath:db/migration/qar,classpath:db/migration/dem,classpath:db/migration/ptl,classpath:db/migration/aip,classpath:db/migration/fld,classpath:db/migration-ext
     out-of-order: true   # ext(V1_1, V2_99)는 기본 경로와 버전 대역이 섞이므로 허용
 
 ---

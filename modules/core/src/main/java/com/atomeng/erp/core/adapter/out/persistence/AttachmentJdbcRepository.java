@@ -97,4 +97,11 @@ public class AttachmentJdbcRepository {
     private static Instant inst(Timestamp t) {
         return t == null ? null : t.toInstant();
     }
+
+    /** 저장된 원본 위치 · 기록 해시 (삭제 제외) — [bucket, objectKey, sha256] */
+    public Optional<String[]> stored(UUID attachmentId) {
+        return jdbc.query("SELECT bucket, object_key, sha256 FROM core.attachment WHERE id = ? AND deleted_at IS NULL",
+                (rs, i) -> new String[] {rs.getString(1), rs.getString(2), rs.getString(3).trim()}, attachmentId)
+                .stream().findFirst();
+    }
 }

@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":modules:dem"))
     implementation(project(":modules:ptl"))
     implementation(project(":modules:aip"))
+    implementation(project(":modules:fld"))
     implementation(project(":common:common-core"))
     implementation(project(":common:common-web"))
     implementation(project(":common:common-identity"))

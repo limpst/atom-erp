@@ -64,9 +64,9 @@ class RptController {
                     BigDecimal lengthM, BigDecimal areaM2, UUID equipmentId, LocalDate measuredOn,
                     List<List<BigDecimal>> polyline, @Size(max = 2000) String note) {}
 
-    /** 합성 FLD export(FLD 공개 API 전까지 요청 본문) */
+    /** 결함 = fldRoundId(fld::api 조사 결과) 또는 요청 본문(합성 FLD export) 중 하나. 동 · 부재 그룹은 요청 본문 */
     record FreezeRequest(@Size(max = 300) String facilityName, @NotNull List<@Valid BuildingIn> buildings,
-                         @NotNull List<@Valid GroupIn> memberGroups, List<@Valid DefectIn> defects) {
+                         @NotNull List<@Valid GroupIn> memberGroups, List<@Valid DefectIn> defects, UUID fldRoundId) {
 
         SnapshotDocument document() {
             return new SnapshotDocument("1", null,
@@ -149,7 +149,7 @@ class RptController {
     @PostMapping("/reports/{id}/snapshots")
     @RequirePermission("rpt:report:create")
     public ResponseEntity<Map<String, Object>> freeze(@PathVariable UUID id, @Valid @RequestBody FreezeRequest r) {
-        return ResponseEntity.status(201).body(snapshots.freeze(id, r.document(), r.facilityName()));
+        return ResponseEntity.status(201).body(snapshots.freeze(id, r.document(), r.facilityName(), r.fldRoundId()));
     }
 
     @PostMapping("/reports/{id}/revisions")

@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":modules:fac"))    // fac::api(ReportPublishedContract — rpt.report.published 계약)
     implementation(project(":modules:eqp"))    // eqp::api(CalibrationValidityPort — BR-RPT-003 사전검증)
     implementation(project(":modules:aip"))    // aip::api(AipJobApi — AI 소견 초안 동기 Job, 설계 11 v0.3 B6)
+    implementation(project(":modules:fld"))    // fld::api(FldSurveyQuery — 스냅샷 결함 원천, 06-IMPL Step 3)
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-json")

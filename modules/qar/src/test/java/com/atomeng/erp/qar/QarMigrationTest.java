@@ -66,7 +66,7 @@ class QarMigrationTest {
     @DisplayName("Step 1: qar 테이블 18개 · 워크플로우 2종 · 규칙 세트 2개 × 규칙 15종 · 체크리스트 10문항 · 세부 권한")
     void schemaAndSeeds() {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'qar' "
-                + "AND table_type = 'BASE TABLE'", Long.class)).isEqualTo(18L);
+                + "AND table_type = 'BASE TABLE'", Long.class)).isEqualTo(19L);   // 18 + V7_0_2 fld_ai_discrepancy
         assertThat(jdbc.queryForObject("SELECT count(*) FROM qar.workflow_def WHERE status = 'DEPLOYED'", Long.class))
                 .isEqualTo(2L);
         assertThat(jdbc.queryForList("SELECT rs.version || ':' || count(d.*) FROM qar.autocheck_rule_set rs "

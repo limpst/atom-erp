@@ -4,6 +4,7 @@ import com.atomeng.common.core.UuidV7;
 import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.events.OutboxPublisher;
 import com.atomeng.erp.eqp.api.CalibrationValidityPort;
+import com.atomeng.erp.fld.api.FldSurveyQuery;
 import com.atomeng.erp.rpt.adapter.out.persistence.RptJdbc;
 import com.atomeng.erp.rpt.api.RptEvents;
 import com.atomeng.erp.rpt.application.RevisionSupport.Ctx;
@@ -47,9 +48,11 @@ public class SnapshotService {
     private final RptStorage storage;
     private final CalibrationValidityPort calibration;
     private final OutboxPublisher outbox;
+    private final FldSurveyQuery fldQuery;
 
     public SnapshotService(RevisionSupport sup, RuleTableService rules, RptStorage storage,
-                           CalibrationValidityPort calibration, OutboxPublisher outbox) {
+                           CalibrationValidityPort calibration, OutboxPublisher outbox, FldSurveyQuery fldQuery) {
+        this.fldQuery = fldQuery;
         this.sup = sup;
         this.rpt = sup.jdbc();
         this.rules = rules;
@@ -60,12 +63,64 @@ public class SnapshotService {
 
     @Transactional
     public Map<String, Object> freeze(UUID reportId, SnapshotDocument input, String facilityName) {
+        return freeze(reportId, input, facilityName, null);
+    }
+
+    /** FLD 결함 유형(A1.3) → RPT 상태평가 결함 유형. 표에 없는 유형(COR · HCB · DEF · TLT · DMG · FIN)은 스냅샷 제외 + 워터마크 기록 */
+    static final Map<String, String> FLD_DEFECT_TYPES = Map.of("CRK", "CRACK", "SPA", "SPALL", "SPL", "SPALL",
+            "RBX", "REBAR_EXPOSURE", "EFF", "EFFLORESCENCE", "LEK", "LEAK");
+    /** FAC 부재 유형 → RPT 부재 유형(STAIR · ETC · 미연결 = 미분류 → VAL-MEMBER-UNCLASSIFIED, BR-FLD-001) */
+    static final Map<String, String> FAC_MEMBER_TYPES = Map.of("COL", "COLUMN", "GIR", "BEAM", "BEAM", "BEAM",
+            "SLAB", "SLAB", "WALL", "WALL", "FDN", "FOUNDATION");
+
+    /**
+     * fldRoundId 가 있으면 결함은 요청 본문 대신 fld::api {@link FldSurveyQuery#export} 에서 읽는다(06-IMPL Step 3 "요청 본문 → 모듈 API").
+     * 동 · 부재 그룹(부재 수)은 FAC/HRQ 공개 API 전까지 요청 본문. 측정값은 FLD 확정 값만(잠정 · AI 미수락 제외).
+     */
+    @Transactional
+    public Map<String, Object> freeze(UUID reportId, SnapshotDocument input, String facilityName, UUID fldRoundId) {
         Map<String, Object> report = rpt.lock("report", reportId);
         Map<String, Object> cur = rpt.jdbc().queryForMap(
                 "SELECT id FROM rpt.report_revision WHERE report_id = ? AND rev_no = ?", reportId, report.get("current_rev"));
         Ctx c = sup.lock(RptJdbc.uuid(cur, "id"), "rpt:report:create");
         sup.requireStatus(c, ReportStatus.DRAFT, ReportStatus.SNAPSHOT_FROZEN, ReportStatus.COMPOSING);
 
+        Map<String, Object> watermarks = new LinkedHashMap<>();
+        watermarks.put("fld", "request-body");
+        if (fldRoundId != null) {
+            if (!input.defects().isEmpty()) {
+                throw new DomainException(RptCodes.INVALID, "defects 와 fldRoundId 를 함께 줄 수 없습니다");
+            }
+            FldSurveyQuery.RoundSummary round = fldQuery.round(fldRoundId)
+                    .orElseThrow(() -> new DomainException(RptCodes.INVALID, "FLD 조사 회차 없음: " + fldRoundId));
+            if (!round.projectId().equals(c.projectId())) {
+                throw new DomainException(RptCodes.INVALID, "보고서 프로젝트의 조사 회차가 아닙니다");
+            }
+            FldSurveyQuery.SurveyExport ex = fldQuery.export(fldRoundId);
+            List<Defect> defects = new ArrayList<>();
+            List<String> skipped = new ArrayList<>();
+            List<SnapshotDocument.Building> blds = input.buildings();
+            for (FldSurveyQuery.DefectExport d : ex.defects()) {
+                String type = FLD_DEFECT_TYPES.get(d.typeCode());
+                if (type == null) {
+                    skipped.add(d.code());
+                    continue;
+                }
+                String bcode = blds.stream().filter(b -> d.buildingId().equals(b.buildingId()))
+                        .map(SnapshotDocument.Building::code).findFirst()
+                        .orElse(blds.size() == 1 ? blds.get(0).code() : null);
+                defects.add(new Defect(d.code(), bcode, d.floorCode(),
+                        d.memberType() == null ? null : FAC_MEMBER_TYPES.get(d.memberType()), d.memberCode(), type,
+                        d.widthMm(), d.lengthM(), d.areaM2(), d.widthEquipmentId(), d.widthMeasuredOn(), null, d.memo()));
+            }
+            input = new SnapshotDocument(input.schemaVersion(), input.meta(), input.buildings(), input.memberGroups(),
+                    defects);
+            watermarks.put("fld", "fld::api");
+            watermarks.put("roundId", fldRoundId.toString());
+            watermarks.put("roundStatus", round.status());
+            watermarks.put("asOfSeq", ex.asOfSeq());
+            watermarks.put("skippedDefects", skipped);
+        }
         String fc = RptJdbc.str(report, "facility_class");
         var inspection = RptJdbc.localDate(report.get("inspection_date"));
         RuleTableService.Resolved pinned = rules.resolve(fc, inspection);
@@ -86,7 +141,7 @@ public class SnapshotService {
                                          source_watermarks, rule_set_versions, defect_count, blocking_count, frozen_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?)""",
                 snapId, reportId, c.revId(), ver, key, sha, new String(json, java.nio.charset.StandardCharsets.UTF_8),
-                RptJdbc.json(Map.of("fld", "request-body")), RptJdbc.json(pinned.tables().pinned()),
+                RptJdbc.json(watermarks), RptJdbc.json(pinned.tables().pinned()),
                 doc.defects().size(), blocking, sup.actorId());
         for (Issue i : issues) {
             rpt.jdbc().update("""
@@ -114,6 +169,7 @@ public class SnapshotService {
         v.put("snapshotVer", ver);
         v.put("sha256", sha);
         v.put("ruleSetVersions", pinned.tables().pinned());
+        v.put("sourceWatermarks", watermarks);
         v.put("defectCount", doc.defects().size());
         v.put("blockingCount", blocking);
         v.put("status", RptJdbc.str(rpt.get("report_revision", c.revId()), "status"));

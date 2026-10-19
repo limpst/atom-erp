@@ -11,6 +11,7 @@ import com.atomeng.common.evidence.HashChain;
 import com.atomeng.common.evidence.ObjectStorage;
 import com.atomeng.erp.core.adapter.out.persistence.AttachmentJdbcRepository;
 import com.atomeng.erp.core.adapter.out.persistence.AttachmentJdbcRepository.Upload;
+import com.atomeng.erp.core.api.AttachmentIngestApi;
 import com.atomeng.erp.core.api.AttachmentStoredEvent;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,7 +44,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </ol>
  */
 @Service
-public class AttachmentService {
+public class AttachmentService implements AttachmentIngestApi {
 
     private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
     private static final Duration PRESIGN_TTL = Duration.ofMinutes(15);
@@ -151,6 +152,43 @@ public class AttachmentService {
         });
         storage.delete(u.tempBucket(), u.tempKey());
         return stored;
+    }
+
+    /**
+     * core::api {@link AttachmentIngestApi} — 서버가 조립한 원본(FLD 이어 올리기)을 presign 과 같은 업로드 세션으로 temp 에 쓰고
+     * :complete 로 확정한다(해시 재계산 · WORM · 체인 · outbox 는 동일 경로).
+     */
+    @Override
+    public Ingested ingest(IngestCommand c, java.util.function.Supplier<InputStream> content) {
+        PresignResult p = presign(new PresignCommand(c.fileName(), c.mimeType(), c.sizeBytes(), c.sha256(),
+                c.capturedAt(), c.ownerModule(), c.ownerType(), c.ownerId(), c.chainScope()));
+        try (InputStream in = content.get()) {
+            storage.put(Buckets.TEMP_UPLOAD, p.tempKey(), in, c.mimeType());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Stored s = complete(p.uploadId());
+        return new Ingested(s.attachmentId(), s.bucket(), s.objectKey(), s.sha256(), s.prevHash(), s.chainHash(),
+                s.chainScope());
+    }
+
+    @Override
+    public java.util.Optional<ObjectCheck> verifyObject(UUID attachmentId) {
+        return repo.stored(attachmentId).map(a -> {
+            String actual;
+            try (InputStream in = storage.get(a[0], a[1])) {
+                actual = HashChain.sha256(in);
+            } catch (IOException | RuntimeException e) {
+                actual = null;   // 원본 유실도 불일치
+            }
+            return new ObjectCheck(attachmentId, a[2], actual, a[2].equals(actual));
+        });
+    }
+
+    @Override
+    public ChainCheck checkChain(UUID chainScope) {
+        ChainReport r = verifyChain(chainScope);
+        return new ChainCheck(r.chainScope(), r.valid(), r.length(), r.brokenAt(), r.reason());
     }
 
     /** 체인 검증: GENESIS 1개에서 시작해 끊김·분기·변조 없이 모든 고리를 지나야 valid */

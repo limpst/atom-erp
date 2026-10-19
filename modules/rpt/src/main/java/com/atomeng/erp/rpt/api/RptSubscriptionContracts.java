@@ -1,5 +1,6 @@
 package com.atomeng.erp.rpt.api;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -14,5 +15,14 @@ public final class RptSubscriptionContracts {
     public record QarReviewDecided(UUID reviewId, UUID revisionId, UUID decidedBy, String comment) {
         public static final String APPROVED = "qar.review.approved";
         public static final String REJECTED = "qar.review.rejected";
+    }
+
+    /**
+     * fld.survey.completed (설계 05 v0.2 B6.2) — 조사 회차의 모든 구역 잠금 → 보고서 작성 가능 신호 · 스냅샷 원천 워터마크.
+     * 생산자 fld::api FldEvents.SurveyCompleted 와 필드가 같아야 한다(FldContractTest).
+     */
+    public record FldSurveyCompleted(UUID roundId, UUID projectId, UUID buildingId, int roundNo, String surveyType,
+                                     int zoneCount, int defectCount, long lastSeq, LocalDate completedOn) {
+        public static final String TYPE = "fld.survey.completed";
     }
 }

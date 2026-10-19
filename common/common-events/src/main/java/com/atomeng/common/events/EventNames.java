@@ -31,9 +31,10 @@ public final class EventNames {
 
     /**
      * 과거형이 아닌 정식 상태 서술 이벤트명(설계서에 고정된 것만):
-     * due-soon(설계 04 B6), ready-to-sign(설계 01 v0.3 B6 sal.contract.ready-to-sign)
+     * due-soon(설계 04 B6), ready-to-sign(설계 01 v0.3 B6 sal.contract.ready-to-sign),
+     * discrepancy(설계 05 v0.2 B6.2 fld.ai-suggestion.discrepancy — 명사형 상태 서술)
      */
-    private static final Pattern STATE = Pattern.compile("^(due-soon|ready-to-sign)$");
+    private static final Pattern STATE = Pattern.compile("^(due-soon|ready-to-sign|discrepancy)$");
 
     private static final Pattern IRREGULAR = Pattern.compile(
             "^(sent|paid|made|done|built|set|run|won|lost|held|written|drawn|taken|given|sold|bought|begun|"

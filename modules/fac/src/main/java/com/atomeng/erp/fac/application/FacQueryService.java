@@ -71,6 +71,26 @@ class FacQueryService implements FacQueryApi {
                         date(rs, "due_date"), rs.getString("status")), buildingId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LocationNode> locationNode(UUID nodeId) {
+        return jdbc.query("""
+                WITH RECURSIVE up AS (
+                    SELECT id, parent_id, node_type, code, 0 AS depth FROM fac.location_node WHERE id = ?
+                    UNION ALL
+                    SELECT p.id, p.parent_id, p.node_type, p.code, up.depth + 1
+                      FROM fac.location_node p JOIN up ON p.id = up.parent_id WHERE up.depth < 20)
+                SELECT n.id, n.building_id, n.parent_id, n.node_type, n.member_type, n.code, n.name, n.floor_level,
+                       n.deleted_at IS NOT NULL AS deleted, n.replaced_by_id,
+                       (SELECT code FROM up WHERE node_type = 'FLOOR' ORDER BY depth LIMIT 1) AS floor_code
+                  FROM fac.location_node n WHERE n.id = ?""",
+                (rs, i) -> new LocationNode(rs.getObject("id", UUID.class), rs.getObject("building_id", UUID.class),
+                        rs.getObject("parent_id", UUID.class), rs.getString("node_type"), rs.getString("member_type"),
+                        rs.getString("code"), rs.getString("name"), (Integer) intOrNull(rs, "floor_level"),
+                        rs.getString("floor_code"), rs.getBoolean("deleted"), rs.getObject("replaced_by_id", UUID.class)),
+                nodeId, nodeId).stream().findFirst();
+    }
+
     private static BuildingSummary summary(ResultSet rs, int i) throws SQLException {
         return new BuildingSummary(rs.getObject("id", UUID.class), rs.getObject("owner_client_id", UUID.class),
                 rs.getString("name"), rs.getString("dong_name"), rs.getString("road_address"), rs.getString("structure_nm"),

@@ -22,7 +22,7 @@ class ModularityTests {
     @DisplayName("Step1: ApplicationModules.verify() — 실제 코드베이스 모듈 경계 위반 0")
     void verifiesModularStructure() {
         modules.verify();
-        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem", "ptl", "aip");
+        assertThat(modules.stream().map(m -> m.getIdentifier().toString())).contains("core", "fac", "hrq", "eqp", "cst", "fcd", "sal", "rpt", "qar", "dem", "ptl", "aip", "fld");
         // cst 는 core::api · hrq::api · fac::api 공개 타입만 참조(package-info allowedDependencies) — 위반 시 verify() 실패
         ApplicationModule cst = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("cst")).findFirst().orElseThrow();
@@ -201,10 +201,41 @@ class ModularityTests {
                 .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.aip.application..",
                         "com.atomeng.erp.aip.domain..", "com.atomeng.erp.aip.adapter..")
                 .check(classes);
-        // 소비자는 RPT(AI 소견 초안) · QAR(AI 검토)뿐
+        // 소비자는 RPT(AI 소견 초안) · QAR(AI 검토) · FLD(사진 균열 정밀 분석)뿐
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-                .that().resideOutsideOfPackages("com.atomeng.erp.aip..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..")
+                .that().resideOutsideOfPackages("com.atomeng.erp.aip..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..",
+                        "com.atomeng.erp.fld..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.aip..")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("05-IMPL: fld 는 core::api · fac::api · eqp::api · aip::api 만 참조, 다른 모듈 → fld 는 fld::api 만(RPT 스냅샷 · QAR 사진)")
+    void fldBoundary() {
+        ApplicationModule fld = modules.stream()
+                .filter(m -> m.getIdentifier().toString().equals("fld")).findFirst().orElseThrow();
+        assertThat(fld.getNamedInterfaces().getByName("api")).isPresent();
+        var classes = new com.tngtech.archunit.core.importer.ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideInAPackage("com.atomeng.erp.fld..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                        "com.atomeng.erp.fcd..", "com.atomeng.erp.sal..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..",
+                        "com.atomeng.erp.dem..", "com.atomeng.erp.ptl..",
+                        "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
+                        "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..",
+                        "com.atomeng.erp.eqp.application..", "com.atomeng.erp.eqp.domain..", "com.atomeng.erp.eqp.adapter..",
+                        "com.atomeng.erp.aip.application..", "com.atomeng.erp.aip.domain..", "com.atomeng.erp.aip.adapter..")
+                .check(classes);
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackage("com.atomeng.erp.fld..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.fld.application..",
+                        "com.atomeng.erp.fld.domain..", "com.atomeng.erp.fld.adapter..")
+                .check(classes);
+        // FAC · CST 는 fld 를 참조하지 않는다(이벤트 계약만) — fld::api 소비자는 RPT · QAR
+        com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackages("com.atomeng.erp.fld..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.fld..")
                 .check(classes);
     }
 

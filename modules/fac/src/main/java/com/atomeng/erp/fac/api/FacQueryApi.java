@@ -27,6 +27,17 @@ public interface FacQueryApi {
     /** 진행 중 점검 도래(DONE · LOST · CANCELLED 제외) */
     record InspectionDue(UUID buildingId, String inspectionType, LocalDate dueDate, String status) {}
 
+    /**
+     * 위치 계층 노드(05 FLD 결함 위치 참조 · 06 RPT 부재 그룹). floorCode = 가장 가까운 FLOOR 조상(자기 자신 포함) 코드,
+     * memberType = FAC 부재 유형(COL · GIR · BEAM · SLAB · WALL · FDN · STAIR · ETC, 노드가 MEMBER 일 때), deleted = 논리 삭제됨,
+     * replacedById = 삭제 시 지정된 대체 노드.
+     */
+    record LocationNode(UUID nodeId, UUID buildingId, UUID parentId, String nodeType, String memberType, String code,
+                        String name, Integer floorLevel, String floorCode, boolean deleted, UUID replacedById) {}
+
+    /** 위치 노드(삭제된 노드도 deleted=true 로 돌려준다 — 호출자가 거부 판단) */
+    Optional<LocationNode> locationNode(UUID nodeId);
+
     /** 고객사가 소유한 시설물(병합 · 삭제 제외), 이름순 */
     List<BuildingSummary> buildingsOwnedBy(UUID clientId);
 

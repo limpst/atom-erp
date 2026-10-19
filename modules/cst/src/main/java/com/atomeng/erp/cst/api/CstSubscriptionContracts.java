@@ -49,4 +49,13 @@ public final class CstSubscriptionContracts {
         public record EstimateLine(String lineType, String workItem, String grade, BigDecimal manDays,
                                    BigDecimal unitPrice, BigDecimal quantity, BigDecimal amount) {}
     }
+
+    /**
+     * fld.survey.completed (설계 05 v0.2 B6.2) — 조사 회차의 모든 구역 잠금 → 진척 마일스톤 "현장조사 완료".
+     * 생산자 fld::api FldEvents.SurveyCompleted 와 필드가 같아야 한다(FldContractTest). CST 는 fld 모듈에 의존하지 않는다.
+     */
+    public record FldSurveyCompleted(UUID roundId, UUID projectId, UUID buildingId, int roundNo, String surveyType,
+                                     int zoneCount, int defectCount, long lastSeq, LocalDate completedOn) {
+        public static final String TYPE = "fld.survey.completed";
+    }
 }

@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":modules:core"))   // core::api — Modulith 가 api 외 참조를 차단
     implementation(project(":modules:rpt"))    // rpt::api(RptRevisionQuery · RptSubscriptionContracts)
     implementation(project(":modules:aip"))    // aip::api(AipJobApi — AI 검토 동기 Job, 설계 11 v0.3 B6)
+    implementation(project(":modules:fld"))    // fld::api(FldSurveyQuery — AC-PHO-001 · 002 사진 원천)
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-json")

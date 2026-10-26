@@ -32,16 +32,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  */
 class PermissionScopeDeclarationTest extends IntegrationTestBase {
 
-    /**
-     * 범위 판정 수단을 일부러 두지 않은 엔드포인트 — 자원(영업기회 · 장비)에 프로젝트가 없어 PROJECT 범위를 판정할 수 없다.
-     * aspect 가 PROJECT 범위 호출자(PM)를 403 으로 거부하고 ALL 범위만 통과시킨다(실패하는 쪽으로 닫힘).
-     * PM 에게 이 자원을 열어 줄지는 정책 결정 SAL-05 (권장: 읽기는 시드에서 ALL 로 명시) — 정책이 정해지면 시드를 바꾸고 여기서 뺀다.
-     */
-    static final java.util.Set<String> FAIL_CLOSED_PENDING_POLICY = java.util.Set.of(
-            "SalController#opportunities", "SalController#opportunity", "SalController#move",
-            "SalController#history", "SalController#addActivity", "SalController#activities",
-            "EqpController#register", "EqpController#list", "EqpController#get", "EqpController#change",
-            "EqpController#scan", "EqpController#validity");
+    // SAL-05 결정(V0042): PM 의 sal:opportunity:read · eqp:equipment:read 는 ALL, 수정 · 등록 권한은 삭제 →
+    // 예전 "판정 수단 없이 실패하는 쪽으로 닫힌" 12개 엔드포인트(FAIL_CLOSED_PENDING_POLICY)는 더 이상 없다. 예외 목록 없음.
 
     @Autowired
     PermissionRegistry registry;
@@ -79,10 +71,6 @@ class PermissionScopeDeclarationTest extends IntegrationTestBase {
             boolean declared = !rp.projectIdParam().isEmpty()
                     || rp.scopeResolver() != ScopeResolver.None.class
                     || rp.scopeCheckedInService();
-            if (!declared && FAIL_CLOSED_PENDING_POLICY.contains(
-                    m.getDeclaringClass().getSimpleName() + "#" + m.getName())) {
-                continue;
-            }
             if (!declared) {
                 violations.add(where);
                 continue;

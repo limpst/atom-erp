@@ -69,9 +69,9 @@ class EqpIntegrationTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         admin = actor();
-        pm = actor();
-        eng = actor();
-        qa = actor();
+        pm = employee("EQP-PM");
+        eng = employee("EQP-ENG");
+        qa = employee("EQP-QA");
         clock.reset();
         jdbc.execute("TRUNCATE core.outbox_event, core.outbox_dead");
     }
@@ -87,11 +87,28 @@ class EqpIntegrationTest extends IntegrationTestBase {
         return LocalDate.now(clock.withZone(SEOUL));
     }
 
+    /** 합성 직원(core.employee) — 투입(project_member) FK 대상 */
+    private UUID employee(String prefix) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성 직원', DATE '2020-01-01', ?, ?)", id, prefix + "-" + id.toString().substring(0, 8), id, id);
+        return id;
+    }
+
+    private void member(UUID project, UUID employee, String role) {
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, ?, ?, ?)", project, employee, role, today().minusDays(30), today().plusDays(400));
+    }
+
+    /** 합성 프로젝트 — EQP-01(예약 · 반출 PROJECT 범위)에 맞춰 pm(RESP) · eng(PART) 투입 */
     private UUID project() throws Exception {
         UUID client = createClient(actor(), "합성발주처-eqp-" + UUID.randomUUID());
         var r = mvc.perform(as(postJson("/api/v1/core/projects", "{\"name\":\"합성 EQP 프로젝트\",\"serviceType\":"
                 + "\"PRECISE_DIAG\",\"clientId\":\"" + client + "\"}"), pm, "PM")).andExpect(status().isCreated()).andReturn();
-        return UUID.fromString(json(r).get("id").asText());
+        UUID id = UUID.fromString(json(r).get("id").asText());
+        member(id, pm, "RESP");
+        member(id, eng, "PART");
+        return id;
     }
 
     private UUID register(String type, String extra) throws Exception {
@@ -295,7 +312,8 @@ class EqpIntegrationTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM eqp.checkout WHERE equipment_id = ?", Integer.class, expiring))
                 .isZero();
 
-        String ovr = "{\"projectId\":\"%s\",\"reason\":\"합성: 교정기관 일정 지연, 재교정 예약됨\",\"validFrom\":\"%s\",\"validTo\":\"%s\"}";
+        String ovr = "{\"projectId\":\"%s\",\"requestedBy\":\"" + eng
+                + "\",\"reason\":\"합성: 교정기관 일정 지연, 재교정 예약됨\",\"validFrom\":\"%s\",\"validTo\":\"%s\"}";
         mvc.perform(as(postJson("/api/v1/eqp/equipment/" + expiring + "/calibration-overrides",
                 ovr.formatted(prj, today(), today().plusDays(7))), qa, "QA"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EQP-400-002"));
@@ -400,8 +418,8 @@ class EqpIntegrationTest extends IntegrationTestBase {
         // HTTP: 첫 예약 201 → 겹침 409 + 대체(alt) → 승인 → 취소 → 같은 기간 재예약 201
         LocalDate f = today().plusDays(100);
         String body = "{\"equipmentId\":\"%s\",\"projectId\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}";
-        var created = mvc.perform(as(postJson("/api/v1/eqp/reservations", body.formatted(id, prjA, f, f.plusDays(2))), pm,
-                "PM")).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("REQUESTED")).andReturn();
+        var created = mvc.perform(as(postJson("/api/v1/eqp/reservations", body.formatted(id, prjA, f, f.plusDays(2))), eng,
+                "ENG")).andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("REQUESTED")).andReturn();
         String rid = json(created).get("id").asText();
         var conflict = mvc.perform(as(postJson("/api/v1/eqp/reservations", body.formatted(id, prjB, f.plusDays(2),
                         f.plusDays(4))), eng, "ENG")).andExpect(status().isConflict())
@@ -515,7 +533,7 @@ class EqpIntegrationTest extends IntegrationTestBase {
                 VALUES (gen_random_uuid(), 'EQUIP_DAILY', ?, 120000, DATE '2000-01-01', '합성 손료', gen_random_uuid())""",
                 code);
         var res = mvc.perform(as(postJson("/api/v1/eqp/reservations", ("{\"equipmentId\":\"%s\",\"projectId\":\"%s\","
-                + "\"from\":\"%s\",\"to\":\"%s\"}").formatted(id, prj, today(), today().plusDays(3))), pm, "PM"))
+                + "\"from\":\"%s\",\"to\":\"%s\"}").formatted(id, prj, today(), today().plusDays(3))), eng, "ENG"))
                 .andExpect(status().isCreated()).andReturn();
         String rid = json(res).get("id").asText();
         mvc.perform(as(postJson("/api/v1/eqp/reservations/" + rid + ":approve", "{}"), pm, "PM")).andExpect(status().isOk());
@@ -657,7 +675,7 @@ class EqpIntegrationTest extends IntegrationTestBase {
                 + "\"track\":%s}";
         String inside = "[[127.002,37.502,30],[127.005,37.505,60],[127.008,37.508,45]]";
         String outside = "[[127.002,37.502,30],[127.015,37.505,60],[127.008,37.508,45]]";
-        UUID pilot = UUID.randomUUID();
+        UUID pilot = eng;   // EQP-03: 조종자 = 요청자 본인
 
         var in = mvc.perform(as(postJson("/api/v1/eqp/drones/" + drone + "/flight-logs",
                 flight.formatted(prj, approval, pilot, start, end, inside)), eng, "ENG")).andExpect(status().isCreated())
@@ -681,16 +699,17 @@ class EqpIntegrationTest extends IntegrationTestBase {
                         flight.formatted(prj, approval, pilot, late, lateEnd, inside)), eng, "ENG"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.outsideApprovalPeriod").value(true));
 
+        // 다른 조종자 대리 등록은 ADMIN 만(EQP-03)
         UUID expiredPilot = UUID.randomUUID();
         pilots.markInvalid(expiredPilot);
         mvc.perform(as(postJson("/api/v1/eqp/drones/" + drone + "/flight-logs",
-                        flight.formatted(prj, approval, expiredPilot, start, end, inside)), eng, "ENG"))
+                        flight.formatted(prj, approval, expiredPilot, start, end, inside)), admin, "ADMIN"))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("EQP-422-004"))
                 .andExpect(jsonPath("$.reason").value("HRQ_LICENSE_INVALID"));
         UUID outagePilot = UUID.randomUUID();
         pilots.markFailing(outagePilot);
         mvc.perform(as(postJson("/api/v1/eqp/drones/" + drone + "/flight-logs",
-                        flight.formatted(prj, approval, outagePilot, start, end, inside)), eng, "ENG"))
+                        flight.formatted(prj, approval, outagePilot, start, end, inside)), admin, "ADMIN"))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("EQP-422-005"));
         String afterInsurance = today().plusDays(101).atTime(10, 0).atZone(SEOUL).toInstant().toString();
         String afterInsuranceEnd = today().plusDays(101).atTime(10, 30).atZone(SEOUL).toInstant().toString();

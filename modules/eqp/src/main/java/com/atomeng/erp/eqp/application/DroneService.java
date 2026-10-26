@@ -51,9 +51,11 @@ public class DroneService {
     private final AuditLog audit;
     private final CurrentActor actor;
     private final ObjectMapper om;
+    private final EqpAccess access;
 
     public DroneService(EqpJdbc eqp, PilotQualificationPort pilots, OutboxPublisher outbox, AuditLog audit,
-                        CurrentActor actor, ObjectMapper om) {
+                        CurrentActor actor, ObjectMapper om, EqpAccess access) {
+        this.access = access;
         this.eqp = eqp;
         this.pilots = pilots;
         this.outbox = outbox;
@@ -125,6 +127,15 @@ public class DroneService {
     @Transactional
     public Map<String, Object> logFlight(UUID equipmentId, Flight f) {
         UUID by = actor.actorIdOrSystem();
+        // EQP-03: 조종자 = 요청자 본인. 다른 조종자 대리 등록은 ADMIN 만(웹 요청이 아닌 시스템 실행은 지정값 그대로)
+        UUID pilotId = f.pilotId() == null ? by : f.pilotId();
+        if (access.principal().isPresent() && !pilotId.equals(by)
+                && !access.hasRole(com.atomeng.common.identity.Role.ADMIN)) {
+            throw new DomainException(EqpErrors.PILOT_NOT_REQUESTER,
+                    "비행기록 조종자(pilotId)는 요청자 본인이어야 합니다(대리 등록은 ADMIN)");
+        }
+        f = new Flight(f.projectId(), f.approvalId(), pilotId, f.startedAt(), f.endedAt(), f.track(), f.maxAltM(),
+                f.rawLogAttachmentId());
         Map<String, Object> profile = profile(equipmentId);
         if (f.startedAt() == null || f.endedAt() == null || !f.endedAt().isAfter(f.startedAt())) {
             throw new DomainException(EqpErrors.INVALID, "비행 시각 오류(종료 > 시작)");

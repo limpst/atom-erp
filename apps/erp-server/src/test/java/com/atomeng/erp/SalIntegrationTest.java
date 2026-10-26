@@ -677,4 +677,143 @@ class SalIntegrationTest extends IntegrationTestBase {
         post("/api/v1/sal/bid-notices:collect", map("from", "2026-10-01T00:00:00Z", "to", "2026-10-02T00:00:00Z"),
                 sales, "SALES").andExpect(status().isForbidden());
     }
+
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 정책 결정(권장안) 회귀
+
+    @Test
+    @DisplayName("SAL-03: SALES 의 →BID_APPROVED 403 SAL-403-001 · EXEC :approve-bid 200, 수동 →WON 409 SAL-409-012, "
+            + "영업 기회 계약에 estimateId 없음 422 SAL-422-013")
+    void sal03StageControls() throws Exception {
+        UUID client = createClient(sales, "합성발주처-sal03-" + UUID.randomUUID());
+        JsonNode o = json(post("/api/v1/sal/opportunities", map("source", "G2B", "clientId", client, "serviceType",
+                "PRECISE_DIAG", "title", "합성 입찰 공고", "ownerId", sales), sales, "SALES")
+                .andExpect(status().isCreated()).andReturn());
+        UUID bid = UUID.fromString(o.get("id").asText());
+        long v = o.get("version").asLong();
+        v = json(postIfMatch("/api/v1/sal/opportunities/" + bid + ":move", map("toStage", "QUALIFYING"), v, sales,
+                "SALES").andExpect(status().isOk()).andReturn()).get("version").asLong();
+        v = json(postIfMatch("/api/v1/sal/opportunities/" + bid + ":move", map("toStage", "BIDDING"), v, sales, "SALES")
+                .andExpect(status().isOk()).andReturn()).get("version").asLong();
+        postIfMatch("/api/v1/sal/opportunities/" + bid + ":move", map("toStage", "BID_APPROVED"), v, sales, "SALES")
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SAL-403-001"));
+        postIfMatch("/api/v1/sal/opportunities/" + bid + ":approve-bid", Map.of(), v, sales, "SALES")
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-001"));
+        postIfMatch("/api/v1/sal/opportunities/" + bid + ":approve-bid", map("note", "합성 품의 승인"), v, exec, "EXEC")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.stage").value("BID_APPROVED"));
+
+        // 수동 →WON 금지(견적 수락으로만)
+        UUID opp = proposingOpportunity(client, "PRECISE_DIAG");
+        long ov = get("/api/v1/sal/opportunities/" + opp, sales, "SALES").get("version").asLong();
+        ov = json(postIfMatch("/api/v1/sal/opportunities/" + opp + ":move", map("toStage", "NEGOTIATING"), ov, sales,
+                "SALES").andExpect(status().isOk()).andReturn()).get("version").asLong();
+        postIfMatch("/api/v1/sal/opportunities/" + opp + ":move", map("toStage", "WON"), ov, sales, "SALES")
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SAL-409-012"));
+        assertThat(get("/api/v1/sal/opportunities/" + opp, sales, "SALES").get("stage").asText()).isEqualTo("NEGOTIATING");
+
+        // 견적 수락으로 WON → 계약은 estimateId 필수
+        UUID[] w = wonWithAcceptedEstimate();
+        BigDecimal offer = get("/api/v1/sal/estimates/" + w[1], sales, "SALES").get("offerAmount").decimalValue();
+        Map<String, Object> noEstimate = contractBody(w[0], null, "PRIVATE_SECTOR", offer);
+        noEstimate.remove("estimateId");
+        post("/api/v1/sal/contracts", noEstimate, sales, "SALES").andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("SAL-422-013"));
+        post("/api/v1/sal/contracts", contractBody(w[0], w[1], "PRIVATE_SECTOR", offer), sales, "SALES")
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("SAL-05: PM 은 영업기회 · 장비 목록/단건/이력/활동 · 스캔 · 유효성 조회 200(ALL), 기회 이동 · 활동 추가 · "
+            + "장비 등록/수정 403")
+    void sal05PmReadsAllNoWrites() throws Exception {
+        UUID pm = employee("PM");
+        UUID client = createClient(sales, "합성발주처-sal05-" + UUID.randomUUID());
+        UUID opp = proposingOpportunity(client, "PRECISE_DIAG");
+        mvc.perform(as(MockMvcRequestBuilders.get("/api/v1/sal/opportunities"), pm, "PM")).andExpect(status().isOk());
+        JsonNode o = get("/api/v1/sal/opportunities/" + opp, pm, "PM");
+        get("/api/v1/sal/opportunities/" + opp + "/history", pm, "PM");
+        get("/api/v1/sal/opportunities/" + opp + "/activities", pm, "PM");
+        postIfMatch("/api/v1/sal/opportunities/" + opp + ":move", map("toStage", "NEGOTIATING"),
+                o.get("version").asLong(), pm, "PM").andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CORE-403-001"));
+        post("/api/v1/sal/opportunities/" + opp + "/activities", map("type", "NOTE", "summary", "합성 메모"), pm, "PM")
+                .andExpect(status().isForbidden());
+
+        post("/api/v1/eqp/equipment", map("typeCode", "MSR-CRK", "serialNo", "SYN-SAL05-" + UUID.randomUUID()), pm, "PM")
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-001"));
+        JsonNode eq = json(post("/api/v1/eqp/equipment", map("typeCode", "MSR-CRK", "serialNo",
+                "SYN-SAL05-" + UUID.randomUUID()), admin, "ADMIN").andExpect(status().isCreated()).andReturn());
+        String eqId = eq.get("id").asText();
+        mvc.perform(as(MockMvcRequestBuilders.get("/api/v1/eqp/equipment?size=5"), pm, "PM")).andExpect(status().isOk());
+        get("/api/v1/eqp/equipment/" + eqId, pm, "PM");
+        get("/api/v1/eqp/equipment/" + eqId + "/validity", pm, "PM");
+        mvc.perform(as(MockMvcRequestBuilders.patch("/api/v1/eqp/equipment/" + eqId)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"model\":\"x\"}")
+                        .header("If-Match", "\"v0\""), pm, "PM"))
+                .andExpect(status().isForbidden());
+        String token = json(post("/api/v1/eqp/equipment/" + eqId + "/labels", map("rotate", false), admin, "ADMIN")
+                .andExpect(status().isOk()).andReturn()).get("token").asText();
+        get("/api/v1/eqp/scan/" + token, pm, "PM");
+    }
+
+    @Test
+    @DisplayName("SAL-06: 다중 역할(SALES+EXEC) 작성자는 본인 할인 승인 403 SAL-403-002 · 작성자 한도(EXEC 제외 5%) 적용, "
+            + "EXEC 가 남의 7% 견적을 직접 발행해도 작성자 한도라 PENDING_APPROVAL → 다른 사람 승인 기록 후 ISSUED, "
+            + "계약 작성자 본인 결재 403")
+    void sal06AuthorBasedLimitAndSoD() throws Exception {
+        UUID dual = employee("영업임원");
+        UUID client = createClient(sales, "합성발주처-sal06-" + UUID.randomUUID());
+        UUID opp = proposingOpportunity(client, "PRECISE_DIAG");
+        // (1) SALES+EXEC 작성 20% → 본인 발행해도 PENDING(작성자 한도 = SALES 5%), 본인 승인 403, 다른 EXEC 승인 → ISSUED
+        JsonNode e20 = createEstimate(opp, "0.20", dual, "SALES,EXEC");
+        assertThat(e20.get("authorDiscountLimit").decimalValue()).isEqualByComparingTo("0.05");
+        UUID id20 = UUID.fromString(e20.get("id").asText());
+        JsonNode p20 = issue(id20, dual, "SALES,EXEC");
+        assertThat(p20.get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        postIfMatch("/api/v1/sal/estimates/" + id20 + ":approve-discount", map("decision", "APPROVE"),
+                p20.get("version").asLong(), dual, "SALES,EXEC").andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("SAL-403-002"));
+        JsonNode ok20 = json(postIfMatch("/api/v1/sal/estimates/" + id20 + ":approve-discount", map("decision", "APPROVE"),
+                p20.get("version").asLong(), exec, "EXEC").andExpect(status().isOk()).andReturn());
+        assertThat(ok20.get("approvedBy").asText()).isEqualTo(exec.toString());
+        assertThat(issue(id20, dual, "SALES,EXEC").get("status").asText()).isEqualTo("ISSUED");
+
+        // (2) SALES 작성 7% → EXEC 가 직접 :issue 해도 작성자 한도(5%) 기준 PENDING, 승인 기록 후에만 ISSUED
+        UUID opp2 = proposingOpportunity(client, "PRECISE_DIAG");
+        UUID id7 = UUID.fromString(createEstimate(opp2, "0.07", sales, "SALES").get("id").asText());
+        JsonNode p7 = issue(id7, exec, "EXEC");
+        assertThat(p7.get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        assertThat(p7.get("discountLimit").decimalValue()).isEqualByComparingTo("0.05");
+        assertThat(events("sal.estimate.issued")).hasSize(1);   // (1) 의 발행 1건만
+        JsonNode a7 = json(postIfMatch("/api/v1/sal/estimates/" + id7 + ":approve-discount", map("decision", "APPROVE"),
+                p7.get("version").asLong(), exec, "EXEC").andExpect(status().isOk()).andReturn());
+        JsonNode i7 = issue(id7, exec, "EXEC");
+        assertThat(i7.get("status").asText()).isEqualTo("ISSUED");
+        assertThat(i7.get("approvedBy").asText()).isEqualTo(exec.toString()).isNotEqualTo(i7.get("createdBy").asText());
+        assertThat(a7.get("createdBy").asText()).isEqualTo(sales.toString());
+
+        // (3) 계약: SALES+EXEC 가 등록한 계약을 본인이 결재 403, 다른 EXEC 200
+        UUID[] w = wonWithAcceptedEstimate();
+        BigDecimal offer = get("/api/v1/sal/estimates/" + w[1], sales, "SALES").get("offerAmount").decimalValue();
+        JsonNode c = json(post("/api/v1/sal/contracts", contractBody(w[0], w[1], "PRIVATE_SECTOR", offer), dual,
+                "SALES,EXEC").andExpect(status().isCreated()).andReturn());
+        postIfMatch("/api/v1/sal/contracts/" + c.get("id").asText() + ":approve", Map.of(), c.get("version").asLong(),
+                dual, "SALES,EXEC").andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SAL-403-002"));
+        postIfMatch("/api/v1/sal/contracts/" + c.get("id").asText() + ":approve", Map.of(), c.get("version").asLong(),
+                exec, "EXEC").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("SAL-08: 운영 프로필(prod · production)에서 투입 가능성 검사 스텁 생성 → 기동 실패, 그 밖 프로필은 OK")
+    void sal08StubForbiddenInProd() {
+        for (String profile : List.of("prod", "production")) {
+            var env = new org.springframework.core.env.StandardEnvironment();
+            env.setActiveProfiles(profile);
+            assertThatThrownBy(() -> new com.atomeng.erp.sal.adapter.out.hrq.StubAssignmentFeasibilityAdapter(env))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("SAL-08");
+        }
+        var dev = new org.springframework.core.env.StandardEnvironment();
+        dev.setActiveProfiles("local-noauth");
+        assertThat(new com.atomeng.erp.sal.adapter.out.hrq.StubAssignmentFeasibilityAdapter(dev)
+                .check(UUID.randomUUID(), null, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 12, 1)).ok()).isTrue();
+    }
 }

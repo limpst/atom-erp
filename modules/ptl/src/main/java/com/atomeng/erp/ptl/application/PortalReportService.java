@@ -37,10 +37,12 @@ public class PortalReportService {
     private final PdfWatermarker watermarker;
     private final AuditLog audit;
     private final Clock clock;
+    private final PortalDownloadRateLimiter rateLimiter;
 
     public PortalReportService(JdbcTemplate jdbc, PortalRls rls, PortalAccessLog accessLog,
                                RptPublishedDocumentQuery rptDocs, PdfWatermarker watermarker, AuditLog audit,
-                               Clock clock) {
+                               Clock clock, PortalDownloadRateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
         this.jdbc = jdbc;
         this.rls = rls;
         this.accessLog = accessLog;
@@ -74,6 +76,7 @@ public class PortalReportService {
 
     @Transactional
     public Download download(PortalAccess.Customer c, UUID id, String clientIp) {
+        rateLimiter.acquire(c.customerId());   // PTL-03 고객사별 속도 제한(워터마크 작업 전에)
         Map<String, Object> row = rls.asCustomer(c.customerId(), () -> find(id));
         if (row == null) {
             throw hidden(c, id);

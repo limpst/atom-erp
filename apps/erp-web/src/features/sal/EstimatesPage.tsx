@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColDef } from 'ag-grid-community';
 import { toast } from 'sonner';
 import {
-  ESTIMATE_STATUS_LABEL, salApi, STAGE_LABEL, STAGE_NEXT, type Estimate, type EstimateStatus, type FeeCalcRequest,
+  ESTIMATE_STATUS_LABEL, salApi, STAGE_LABEL, STAGE_NEXT, SYSTEM_ONLY_STAGES, type Estimate, type EstimateStatus, type FeeCalcRequest,
   type FeeCalcResult, type Opportunity, type OpportunityStage,
 } from '@/api/sal';
 import { coreApi } from '@/api/core';
@@ -88,6 +88,14 @@ export function EstimatesPage() {
     mutationFn: (to: OpportunityStage) => salApi.moveOpportunity(opp!, { toStage: to, ownerId: opp!.ownerId ?? session?.actorId }),
     onSuccess: (o) => {
       toast.success(`단계 → ${STAGE_LABEL[o.stage]}`);
+      refresh();
+    },
+  });
+
+  const approveBid = useMutation({
+    mutationFn: () => salApi.approveBid(opp!),
+    onSuccess: (o) => {
+      toast.success(`입찰 품의 승인 → ${STAGE_LABEL[o.stage]}`);
       refresh();
     },
   });
@@ -209,14 +217,21 @@ export function EstimatesPage() {
             </>
           }
           actions={
-            hasRole('SALES') &&
-            STAGE_NEXT[opp.stage]
-              .filter((s) => s !== 'LOST')
-              .map((s) => (
-                <button key={s} onClick={() => move.mutate(s)} disabled={move.isPending}>
-                  → {STAGE_LABEL[s]}
+            <>
+              {hasRole('SALES') &&
+                STAGE_NEXT[opp.stage]
+                  .filter((s) => s !== 'LOST' && !SYSTEM_ONLY_STAGES.includes(s))
+                  .map((s) => (
+                    <button key={s} onClick={() => move.mutate(s)} disabled={move.isPending}>
+                      → {STAGE_LABEL[s]}
+                    </button>
+                  ))}
+              {hasRole('EXEC') && opp.stage === 'BIDDING' && (
+                <button onClick={() => approveBid.mutate()} disabled={approveBid.isPending} data-testid="approve-bid">
+                  입찰 품의 승인
                 </button>
-              ))
+              )}
+            </>
           }
         >
           <h3>견적 버전</h3>
@@ -349,7 +364,7 @@ export function EstimatesPage() {
             <Kpi label="제시 금액" value={fmtMoney(e.offerAmount)} />
             <Kpi label="부가세" value={fmtMoney(e.vat)} />
             <Kpi label="유효기한" value={e.validUntil} />
-            <Kpi label="할인 한도(발행자)" value={e.discountLimit == null ? '—' : `${fmtNum(e.discountLimit * 100)}%`} />
+            <Kpi label="할인 한도(작성자)" value={e.discountLimit == null ? '—' : `${fmtNum(e.discountLimit * 100)}%`} />
             <Kpi label="승인자" value={e.approvedBy ? e.approvedBy.slice(-4) : '—'} />
             <Kpi label="요율" value={e.ruleVersion} />
           </div>
@@ -357,6 +372,10 @@ export function EstimatesPage() {
             <div className="card" style={{ marginTop: 12 }}>
               {e.approvedBy ? (
                 <p>임원 승인 완료 — 영업이 다시 발행하면 ISSUED 가 됩니다.</p>
+              ) : hasRole('EXEC') && e.createdBy && e.createdBy === session?.actorId ? (
+                <p className="muted" data-testid="approve-discount-self">
+                  본인이 작성한 견적은 승인할 수 없습니다(직무 분리) — 다른 임원의 승인이 필요합니다.
+                </p>
               ) : hasRole('EXEC') ? (
                 <div className="row">
                   <strong>할인 승인 (EXEC, If-Match v{e.version})</strong>

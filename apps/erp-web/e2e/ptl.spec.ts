@@ -50,6 +50,12 @@ test('PTL 고객 A/B 테넌트 격리 + 대체 배너 + 워터마크 다운로�
   const cross = await portalFetch(page, `/api/v1/ptl/reports/${idB}`);
   expect(cross.status).toBe(404);
   expect(cross.body.code).toBe('PTL-404-001');
+  // PTL-01: 포털 계정으로 내부 API(발행본 원본 · 프로젝트 등) 직접 호출 → 403 CORE-403-010
+  for (const internal of ['/api/v1/rpt/reports', '/api/v1/core/projects']) {
+    const r = await portalFetch(page, internal);
+    expect(r.status).toBe(403);
+    expect(r.body.code).toBe('CORE-403-010');
+  }
 
   // 최신본 워터마크 다운로드
   const [download] = await Promise.all([

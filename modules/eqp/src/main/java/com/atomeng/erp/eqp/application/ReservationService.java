@@ -40,9 +40,11 @@ public class ReservationService {
     private final AlternativeFinder alternatives;
     private final CurrentActor actor;
     private final TransactionTemplate tx;
+    private final EqpAccess access;
 
     public ReservationService(EqpJdbc eqp, CalibrationValidityService validity, AlternativeFinder alternatives,
-                              CurrentActor actor, TransactionTemplate tx) {
+                              CurrentActor actor, TransactionTemplate tx, EqpAccess access) {
+        this.access = access;
         this.eqp = eqp;
         this.validity = validity;
         this.alternatives = alternatives;
@@ -54,6 +56,8 @@ public class ReservationService {
         if (from == null || to == null || to.isBefore(from)) {
             throw new DomainException(EqpErrors.INVALID, "예약 기간 오류: from ≤ to");
         }
+        // EQP-01: 예약은 PROJECT 범위 — 신청자는 그 프로젝트 투입 인원(ALL 범위 역할은 통과)
+        access.requireProject("eqp:reservation:create", projectId);
         UUID by = actor.actorIdOrSystem();
         EquipmentRow e = eqp.get(equipmentId);
         // 단일 판정기: 시작일 무효(만료 · 고장 · 키트) → 사유별 409, 종료일 무효(기간 중 만료) → BR-EQP-002 거부
@@ -100,12 +104,17 @@ public class ReservationService {
         return view(id);
     }
 
-    /** REQUESTED → CONFIRMED (PM · ADMIN) */
+    /**
+     * REQUESTED → CONFIRMED. EQP-01: 승인자 ≠ 신청자, 승인자는 예약 프로젝트에 투입된 PM(PROJECT 범위) 또는 ALL 범위 역할(ADMIN).
+     */
     public Map<String, Object> approve(UUID id) {
         return move(id, Set.of("REQUESTED"), "CONFIRMED", true);
     }
 
-    /** REQUESTED · CONFIRMED → CANCELLED — EXCLUDE 조건에서 빠져 슬롯이 자동으로 풀린다 */
+    /**
+     * REQUESTED · CONFIRMED → CANCELLED — EXCLUDE 조건에서 빠져 슬롯이 자동으로 풀린다.
+     * EQP-01: 신청자 본인 또는 그 프로젝트의 승인 권한자(eqp:reservation:approve 범위 안)만.
+     */
     public Map<String, Object> cancel(UUID id) {
         return move(id, Set.of("REQUESTED", "CONFIRMED"), "CANCELLED", false);
     }
@@ -113,12 +122,28 @@ public class ReservationService {
     private Map<String, Object> move(UUID id, Set<String> from, String to, boolean approver) {
         UUID by = actor.actorIdOrSystem();
         tx.executeWithoutResult(s -> {
-            var cur = eqp.jdbc().queryForList("SELECT status FROM eqp.reservation WHERE id = ? FOR UPDATE", String.class, id);
+            var cur = eqp.jdbc().queryForList("SELECT status, project_id, requested_by FROM eqp.reservation "
+                    + "WHERE id = ? FOR UPDATE", id);
             if (cur.isEmpty()) {
                 throw new DomainException(EqpErrors.NOT_FOUND, "예약 없음: " + id);
             }
-            if (!from.contains(cur.get(0))) {
-                throw new DomainException(EqpErrors.STATE, "예약 상태 전이 불가: %s → %s".formatted(cur.get(0), to));
+            UUID project = (UUID) cur.get(0).get("project_id");
+            UUID requester = (UUID) cur.get(0).get("requested_by");
+            var p = access.principal().orElse(null);
+            if (p != null) {
+                if (approver) {
+                    if (by.equals(requester)) {
+                        throw new DomainException(EqpErrors.SELF_APPROVAL, "본인이 신청한 예약은 승인할 수 없습니다");
+                    }
+                    access.requireProject("eqp:reservation:approve", project);
+                } else if (!by.equals(requester) && !access.allowed(p, "eqp:reservation:approve", project)) {
+                    throw new DomainException(EqpErrors.RESERVATION_CANCEL_DENIED,
+                            "예약 취소는 신청자 본인 또는 이 프로젝트의 승인 권한자만 할 수 있습니다");
+                }
+            }
+            String status = (String) cur.get(0).get("status");
+            if (!from.contains(status)) {
+                throw new DomainException(EqpErrors.STATE, "예약 상태 전이 불가: %s → %s".formatted(status, to));
             }
             eqp.jdbc().update("""
                     UPDATE eqp.reservation SET status = ?, approved_by = CASE WHEN ? THEN ? ELSE approved_by END,
@@ -140,7 +165,7 @@ public class ReservationService {
     public List<Map<String, Object>> list(UUID equipmentId, UUID projectId) {
         return eqp.jdbc().queryForList("""
                 SELECT id, equipment_id, project_id, lower(period) AS from_date, upper(period) - 1 AS to_date, status,
-                       conditional, version FROM eqp.reservation
+                       conditional, requested_by, version FROM eqp.reservation
                  WHERE (?::uuid IS NULL OR equipment_id = ?::uuid) AND (?::uuid IS NULL OR project_id = ?::uuid)
                  ORDER BY lower(period), created_at""", equipmentId, equipmentId, projectId, projectId);
     }

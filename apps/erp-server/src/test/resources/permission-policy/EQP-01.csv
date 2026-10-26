@@ -1,0 +1,2 @@
+# EQP-01: 장비 반출(대여)은 PROJECT 범위 — 반출 · 반납자는 그 프로젝트 투입 인원(V0044, 서비스 검사)
+ENG,eqp:checkout:create,PROJECT,EQP-01

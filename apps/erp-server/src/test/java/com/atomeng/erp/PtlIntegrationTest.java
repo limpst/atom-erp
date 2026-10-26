@@ -473,4 +473,64 @@ class PtlIntegrationTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ptl.notification WHERE ref_id = ?", Long.class, orphan))
                 .isZero();
     }
+
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 정책 결정
+
+    @Autowired
+    com.atomeng.erp.ptl.application.PortalDownloadRateLimiter downloadLimiter;
+    @Autowired
+    com.atomeng.common.identity.authz.PermissionRegistry permissionRegistry;
+
+    @Test
+    @DisplayName("PTL-01: CUSTOMER 권한은 ptl:* 뿐, 포털 주체가 내부 API(rpt 원본 PDF · core · dem · fac · sal)를 부르면 "
+            + "403 CORE-403-010(problem+json), 포털 API 는 200")
+    void ptl01PortalRealmLimitedToPtl() throws Exception {
+        assertThat(permissionRegistry.permissionsOf(com.atomeng.common.identity.Role.CUSTOMER).keySet())
+                .isNotEmpty().allMatch(k -> k.startsWith("ptl:"));
+        Tenant t = tenant("P1", "B");
+        for (String url : List.of("/api/v1/rpt/revisions/" + t.revisionId() + "/files/report.pdf",
+                "/api/v1/rpt/revisions/" + t.revisionId(), "/api/v1/rpt/reports?projectId=" + t.projectId(),
+                "/api/v1/core/projects/" + t.projectId(), "/api/v1/dem/daily-logs/" + UUID.randomUUID(),
+                "/api/v1/fac/buildings/" + t.building(), "/api/v1/sal/estimates/" + UUID.randomUUID(),
+                "/api/v1/test/hrq/engineers", "/actuator/metrics")) {
+            mvc.perform(asCustomer(get(url), t)).andExpect(status().isForbidden())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                            .contentTypeCompatibleWith("application/problem+json"))
+                    .andExpect(jsonPath("$.code").value("CORE-403-010"));
+        }
+        mvc.perform(asCustomer(post("/api/v1/rpt/reports"), t).contentType("application/json").content("{}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
+        // 포털 API 는 그대로
+        mvc.perform(asCustomer(get("/api/v1/ptl/me"), t)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(t.clientId().toString()));
+        mvc.perform(asCustomer(get("/api/v1/ptl/reports"), t)).andExpect(status().isOk());
+        // 내부 직원(PM)은 영향 없음
+        mvc.perform(as(get("/api/v1/rpt/revisions/" + t.revisionId()), t.pm(), "PM")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PTL-03: 고객사별 워터마크 다운로드 속도 제한 — 분당 한도 초과 429 PTL-429-001(retryAfterSeconds), "
+            + "다른 고객사는 영향 없음, 1분 뒤 다시 200")
+    void ptl03DownloadRateLimitPerCustomer() throws Exception {
+        Tenant t = tenant("RL", "B");
+        Tenant other = new Tenant(createClient(actor(), "합성고객-ptl-RL2-" + UUID.randomUUID()), UUID.randomUUID(),
+                null, null, null, null, null, null, null, null, null);
+        int max = downloadLimiter.maxPerMinute();
+        assertThat(max).isPositive();
+        for (int i = 0; i < max; i++) {
+            mvc.perform(asCustomer(post("/api/v1/ptl/reports/" + t.publishedReportId() + ":download"), t))
+                    .andExpect(status().isOk());
+        }
+        mvc.perform(asCustomer(post("/api/v1/ptl/reports/" + t.publishedReportId() + ":download"), t))
+                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("PTL-429-001"))
+                .andExpect(jsonPath("$.retryAfterSeconds").isNumber());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ptl.report_download WHERE customer_id = ?", Long.class,
+                t.clientId())).isEqualTo(max);
+        // 다른 고객사: 한도와 무관(자기 고객사 자원이 아니므로 404 — 429 아님)
+        mvc.perform(asCustomer(post("/api/v1/ptl/reports/" + t.publishedReportId() + ":download"), other))
+                .andExpect(status().isNotFound());
+        clock.advance(java.time.Duration.ofSeconds(61));
+        mvc.perform(asCustomer(post("/api/v1/ptl/reports/" + t.publishedReportId() + ":download"), t))
+                .andExpect(status().isOk());
+    }
 }

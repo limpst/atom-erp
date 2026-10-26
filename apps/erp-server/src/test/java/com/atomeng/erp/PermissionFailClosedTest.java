@@ -40,8 +40,13 @@ class PermissionFailClosedTest extends IntegrationTestBase {
         String url = "/api/v1/test/cmn05/undeclared/" + UUID.randomUUID();
         mvc.perform(as(get(url), pm, "PM")).andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CORE-403-002"));
-        mvc.perform(as(get(url), UUID.randomUUID(), "CUSTOMER").header("X-Client-Org-Id", client.toString()))
+        // CLIENT 범위(포털 권한 ptl:share:read — PTL-01 이후 CUSTOMER 의 유일한 권한군)도 판정 수단 없으면 403
+        mvc.perform(as(get("/api/v1/ptl/test/cmn05/undeclared/" + UUID.randomUUID()), UUID.randomUUID(), "CUSTOMER")
+                        .header("X-Client-Org-Id", client.toString()))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-002"));
+        // PTL-01: 포털 주체는 /api/v1/ptl 밖이면 권한 판정 전에 403 CORE-403-010
+        mvc.perform(as(get(url), UUID.randomUUID(), "CUSTOMER").header("X-Client-Org-Id", client.toString()))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
         mvc.perform(as(get(url), UUID.randomUUID(), "EXEC")).andExpect(status().isOk());
         // 서비스 검사를 명시한 엔드포인트는 aspect 가 역할만 본다
         mvc.perform(as(get("/api/v1/test/cmn05/service-checked/" + UUID.randomUUID()), pm, "PM"))
@@ -58,10 +63,11 @@ class PermissionFailClosedTest extends IntegrationTestBase {
         mvc.perform(as(get("/api/v1/test/cmn05/reports/" + mine), pm, "PM")).andExpect(status().isOk());
         mvc.perform(as(get("/api/v1/test/cmn05/reports/" + theirs), pm, "PM")).andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CORE-403-002"));
-        mvc.perform(as(get("/api/v1/test/cmn05/reports/" + mine), UUID.randomUUID(), "CUSTOMER")
+        mvc.perform(as(get("/api/v1/ptl/test/cmn05/reports/" + mine), UUID.randomUUID(), "CUSTOMER")
                 .header("X-Client-Org-Id", client.toString())).andExpect(status().isOk());
-        mvc.perform(as(get("/api/v1/test/cmn05/reports/" + theirs), UUID.randomUUID(), "CUSTOMER")
-                .header("X-Client-Org-Id", client.toString())).andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/ptl/test/cmn05/reports/" + theirs), UUID.randomUUID(), "CUSTOMER")
+                .header("X-Client-Org-Id", client.toString())).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CORE-403-002"));
         mvc.perform(as(get("/api/v1/test/cmn05/reports/" + UUID.randomUUID()), pm, "PM"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CORE-404-001"));
         // 프로젝트 없는 자원: PROJECT 범위는 소유자 본인만

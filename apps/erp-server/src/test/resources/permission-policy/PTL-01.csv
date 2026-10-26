@@ -1,0 +1,6 @@
+# PTL-01: CUSTOMER(포털)는 ptl:* 만 — 내부 API 권한 삭제(V0042). core:project:read 는 8.2 표 밖(core)이라 비교 대상 아님(기록용)
+CUSTOMER,sal:estimate:read,-,PTL-01
+CUSTOMER,fac:facility:read,-,PTL-01
+CUSTOMER,rpt:report:read,-,PTL-01
+CUSTOMER,dem:supervision-log:read,-,PTL-01
+CUSTOMER,core:project:read,-,PTL-01

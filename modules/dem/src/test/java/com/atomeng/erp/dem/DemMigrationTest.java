@@ -115,8 +115,9 @@ class DemMigrationTest {
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE role = 'PM' "
                     + "AND permission = 'dem:transmittal:issue'")).isEqualTo(1L);
             // 8.2 표 셀 리소스(supervision-log · setting)는 V0002 에만 — DEM 시드가 표 검사 리소스를 건드리지 않는다
+            // PTL-01(V0042): CUSTOMER dem:supervision-log:read 삭제 → 15 → 14
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'dem:supervision-log:%'"))
-                    .isEqualTo(15L);
+                    .isEqualTo(14L);
         }
     }
 

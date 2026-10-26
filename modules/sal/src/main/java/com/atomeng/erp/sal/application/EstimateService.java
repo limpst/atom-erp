@@ -38,8 +38,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>버전: 기회당 견적번호 1개(EST-yyyy-nnnn), 새 버전마다 version_no+1, 이전 열린 버전은 SUPERSEDED</li>
  *   <li>스냅샷: 규칙 본문 · 시설물 규모 · 산정 근거를 저장 — 규칙이 바뀌어도 재계산 안 함(BR-SAL-002)</li>
- *   <li>할인: :issue 때 발행자의 역할 · 그룹 한도(atom.sal.discount-limits) 초과면 PENDING_APPROVAL(FR-SAL-012),
+ *   <li>할인: :issue 때 <b>작성자</b>(created_by)의 역할 · 그룹 한도(atom.sal.discount-limits, 작성 시점 기록
+ *       author_discount_limit) 초과면 PENDING_APPROVAL(FR-SAL-012) — 발행자가 EXEC 여도 마찬가지(SAL-06).
  *       EXEC :approve-discount(If-Match) 로 approved_by 기록 뒤 :issue → ISSUED, 반려면 DRAFT. EXEC 한도 49%, DB CHECK &lt; 50%</li>
+ *   <li>SAL-06 직무 분리: 할인 승인자 ≠ 작성자. 작성자 한도에는 EXEC 승인 권한을 넣지 않는다(다중 역할 SALES+EXEC 도
+ *       영업 한도를 넘는 본인 견적은 다른 EXEC 의 승인이 필요)</li>
  *   <li>불변: ISSUED 이후(및 승인 이후) 금액 · 요율 · 스냅샷 · 라인 변경은 DB 트리거가 SAL-409-010 으로 거부</li>
  * </ul>
  */
@@ -83,8 +86,19 @@ public class EstimateService {
                 .max(BigDecimal.ZERO);
     }
 
+    /**
+     * SAL-06 작성자 할인 한도 — 작성자 역할 + 영업 그룹 중 가장 큰 한도, 단 EXEC(할인 승인 권한)는 제외한다.
+     * 승인 권한은 다른 사람의 견적에만 쓰인다(승인자 ≠ 작성자).
+     */
+    BigDecimal authorLimit(UUID author, Set<String> authorRoles) {
+        Set<String> rolesAndGroups = new HashSet<>(authorRoles == null ? Set.of() : authorRoles);
+        rolesAndGroups.addAll(sal.groupsOf(author));
+        rolesAndGroups.remove(DiscountPolicy.EXEC);
+        return policy.limitFor(rolesAndGroups);
+    }
+
     @Transactional
-    public Map<String, Object> createVersion(UUID opportunityId, CreateVersion c) {
+    public Map<String, Object> createVersion(UUID opportunityId, CreateVersion c, Set<String> authorRoles) {
         BigDecimal rate = c.discountRate() == null ? BigDecimal.ZERO : c.discountRate();
         DiscountPolicy.requireValidRate(rate);
         Map<String, Object> opp = sal.lock("opportunity", opportunityId);
@@ -132,12 +146,12 @@ public class EstimateService {
                                          fee_rule_set_id, rule_version, rule_snapshot, facility_snapshot, calc_trace,
                                          direct_labor, direct_expense, overhead_rate, overhead, tech_fee_rate, tech_fee,
                                          subtotal, discount_rate, offer_amount, vat, valid_until, status,
-                                         created_by, updated_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?)""",
+                                         author_discount_limit, created_by, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?)""",
                 id, estimateNo, versionNo, opportunityId, calc.serviceType(), SalJdbc.d(calc.asOfDate()), rr.id(),
                 rr.ruleVersion(), rr.body().toString(), json(c.facility()), json(trace), r.directLabor(),
                 r.directExpense(), r.overheadRate(), r.overhead(), r.techFeeRate(), r.techFee(), r.subtotal(), rate,
-                offer, vat, SalJdbc.d(opportunities.today().plusDays(validDays)), by, by);
+                offer, vat, SalJdbc.d(opportunities.today().plusDays(validDays)), authorLimit(by, authorRoles), by, by);
         int seq = 1;
         for (FeeLine l : r.lines()) {
             sal.jdbc().update("""
@@ -153,22 +167,24 @@ public class EstimateService {
     }
 
     /**
-     * POST /estimates/{id}:issue — 발행자 역할 · 그룹 한도 초과 + 미승인이면 PENDING_APPROVAL(발송 차단, TC-SAL-013),
-     * 아니면 ISSUED + sal.estimate.issued. EXEC 승인(approved_by) 이 있으면 바로 발행(TC-SAL-016).
+     * POST /estimates/{id}:issue — <b>작성자</b> 한도(author_discount_limit, SAL-06) 초과 + 미승인이면 PENDING_APPROVAL
+     * (발송 차단, TC-SAL-013), 아니면 ISSUED + sal.estimate.issued. 작성자가 아닌 EXEC 승인(approved_by)이 있으면 바로 발행(TC-SAL-016).
+     * 발행자의 역할은 한도에 쓰지 않는다 — EXEC 가 직접 발행해도 작성자 한도를 넘으면 다른 사람의 승인 기록이 필요하다.
+     * 한도 기록이 없는 예전 견적은 0(할인이 있으면 승인 필요).
      */
     @Transactional
-    public Map<String, Object> issue(UUID id, Set<String> roles) {
+    public Map<String, Object> issue(UUID id) {
         Map<String, Object> e = sal.lock("estimate", id);
         EstimateStatus st = EstimateStatus.valueOf(SalJdbc.str(e, "status"));
         if (st != EstimateStatus.DRAFT && st != EstimateStatus.PENDING_APPROVAL) {
             throw new DomainException(SalCodes.ESTIMATE_STATE, "발행할 수 없는 상태: " + st);
         }
         UUID by = actor.actorIdOrSystem();
-        Set<String> rolesAndGroups = new HashSet<>(roles);
-        rolesAndGroups.addAll(sal.groupsOf(by));
         BigDecimal rate = SalJdbc.dec(e, "discount_rate");
-        BigDecimal limit = policy.limitFor(rolesAndGroups);
-        boolean approved = e.get("approved_by") != null;
+        BigDecimal limit = e.get("author_discount_limit") == null ? BigDecimal.ZERO
+                : SalJdbc.dec(e, "author_discount_limit");
+        UUID approvedBy = SalJdbc.uuid(e, "approved_by");
+        boolean approved = approvedBy != null && !approvedBy.equals(SalJdbc.uuid(e, "created_by"));
         if (rate.compareTo(limit) > 0 && !approved) {
             sal.jdbc().update("""
                     UPDATE sal.estimate SET status = 'PENDING_APPROVAL', discount_limit = ?, version = version + 1,
@@ -207,6 +223,9 @@ public class EstimateService {
         BigDecimal rate = SalJdbc.dec(e, "discount_rate");
         switch (decision) {
             case "APPROVE" -> {
+                if (by.equals(SalJdbc.uuid(e, "created_by"))) {   // SAL-06 다중 역할(SALES+EXEC) 본인 할인 승인 금지
+                    throw new DomainException(SalCodes.SELF_APPROVAL, "견적 작성자는 본인 견적의 할인을 승인할 수 없습니다");
+                }
                 if (rate.compareTo(policy.execLimit()) > 0) {
                     throw new DomainException(SalCodes.DISCOUNT_RANGE, "EXEC 승인 한도 %s 초과: %s"
                             .formatted(policy.execLimit().toPlainString(), rate.toPlainString()));
@@ -295,6 +314,8 @@ public class EstimateService {
         m.put("validUntil", SalJdbc.localDate(e.get("valid_until")));
         m.put("status", e.get("status"));
         m.put("discountLimit", e.get("discount_limit"));
+        m.put("authorDiscountLimit", e.get("author_discount_limit"));
+        m.put("createdBy", e.get("created_by"));
         m.put("approvedBy", e.get("approved_by"));
         m.put("documentId", e.get("document_id"));
         m.put("version", e.get("version"));

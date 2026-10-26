@@ -6,6 +6,10 @@ package com.atomeng.erp.sal.domain;
 public final class SalCodes {
     private SalCodes() {}
 
+    /** SAL-03 →BID_APPROVED(입찰 품의 승인)은 sal:opportunity:approve 권한(EXEC)만 */
+    public static final String BID_APPROVAL_REQUIRED = "SAL-403-001";
+    /** SAL-06 견적 작성자 본인이 할인 승인 · 계약 결재를 할 수 없음 */
+    public static final String SELF_APPROVAL = "SAL-403-002";
     public static final String NOT_FOUND = "SAL-404-001";
     /** A6.1 기회 단계 전이 불가 */
     public static final String STAGE_TRANSITION = "SAL-409-001";
@@ -23,6 +27,8 @@ public final class SalCodes {
     public static final String ESTIMATE_IMMUTABLE = "SAL-409-010";
     /** 영업 그룹 소속 중복(비활성이면 수정으로 다시 활성화) */
     public static final String GROUP_MEMBER_EXISTS = "SAL-409-011";
+    /** SAL-03 WON 은 견적 수락 전이로만(수동 단계 이동 금지) */
+    public static final String WON_BY_ACCEPTANCE_ONLY = "SAL-409-012";
     public static final String INVALID = "SAL-422-001";
     /** BR-SAL-004 / TC-SAL-011 요율 범위 밖 */
     public static final String RATE_OUT_OF_RANGE = "SAL-422-002";
@@ -46,6 +52,8 @@ public final class SalCodes {
     public static final String NEGOTIATED_REASON_REQUIRED = "SAL-422-011";
     /** A8-8 계약 금액 ≠ 최종 견적(1% 이상) 사유 필수 */
     public static final String AMOUNT_DIFF_REASON_REQUIRED = "SAL-422-012";
+    /** SAL-03 영업 기회에 연결된 계약은 수락 견적(estimateId) 필수 */
+    public static final String CONTRACT_ESTIMATE_REQUIRED = "SAL-422-013";
     /** 공고 수집 외부 API 장애 · 미설정 */
     public static final String G2B_UNAVAILABLE = "SAL-503-001";
     /** 지원하지 않는 가격점수 유형 */

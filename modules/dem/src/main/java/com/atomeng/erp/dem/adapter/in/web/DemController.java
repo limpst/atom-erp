@@ -85,6 +85,8 @@ class DemController {
 
     record AmendRequest(@NotBlank String fieldPath, Object newValue, @NotBlank @Size(max = 2000) String reason) {}
 
+    record AmendmentDecisionRequest(@Size(max = 2000) String note) {}
+
     record PhotoRequest(@NotNull UUID attachmentId, @NotNull @Pattern(regexp = "^[0-9a-fA-F]{64}$") String sha256,
                         @NotNull UUID workPackageId, Instant capturedAt,
                         @DecimalMin("-90") @DecimalMax("90") BigDecimal lat,
@@ -146,7 +148,7 @@ class DemController {
     // ------------------------------------------------------------------ 프로젝트 · 업무 패키지 (FR-DEM-001, A6.1)
 
     @PostMapping("/projects")
-    @RequirePermission("dem:project:create")
+    @RequirePermission(value = "dem:project:create", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> createProject(@Valid @RequestBody ProjectRequest r) {
         var body = projects.create(new DemProjectService.Create(r.projectId(), r.buildingId(), r.packages().stream()
                 .map(p -> new DemProjectService.PackageSpec(p.packageType(), p.facilityId(), p.locale(), p.designCode(),
@@ -156,14 +158,14 @@ class DemController {
     }
 
     @GetMapping("/projects/{projectId}")
-    @RequirePermission("dem:project:read")
+    @RequirePermission(value = "dem:project:read", projectIdParam = "projectId")
     public ResponseEntity<Map<String, Object>> project(@PathVariable UUID projectId) {
         var body = projects.view(projectId);
         return ResponseEntity.ok().eTag(IfMatch.etagOf(((Number) body.get("version")).longValue())).body(body);
     }
 
     @PostMapping("/projects/{projectId}:transition")
-    @RequirePermission("dem:project:transition")
+    @RequirePermission(value = "dem:project:transition", projectIdParam = "projectId")
     public ResponseEntity<Map<String, Object>> transition(@PathVariable UUID projectId,
                                                           @RequestHeader(value = "If-Match", required = false) String ifMatch,
                                                           @Valid @RequestBody TransitionRequest r) {
@@ -173,20 +175,20 @@ class DemController {
 
     /** 해체 완료 신고 → COMPLETING + dem.demolition.completed (FAC 멸실 처리) */
     @PostMapping("/projects/{projectId}:complete-demolition")
-    @RequirePermission("dem:project:transition")
+    @RequirePermission(value = "dem:project:transition", projectIdParam = "projectId")
     public Map<String, Object> completeDemolition(@PathVariable UUID projectId,
                                                   @RequestBody(required = false) CompleteRequest r) {
         return projects.completeDemolition(projectId, r == null ? null : r.completedOn(), r == null ? null : r.submissionId());
     }
 
     @PostMapping("/projects/{projectId}:close")
-    @RequirePermission("dem:project:transition")
+    @RequirePermission(value = "dem:project:transition", projectIdParam = "projectId")
     public Map<String, Object> close(@PathVariable UUID projectId) {
         return projects.close(projectId);
     }
 
     @PostMapping("/projects/{projectId}/submissions")
-    @RequirePermission("dem:submission:write")
+    @RequirePermission(value = "dem:submission:write", projectIdParam = "projectId")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> submission(@PathVariable UUID projectId, @Valid @RequestBody SubmissionRequest r) {
         return projects.submit(projectId, new DemProjectService.Submission(r.authorityName(), r.submissionType(),
@@ -196,7 +198,7 @@ class DemController {
     // ------------------------------------------------------------------ 감리자 (FR-DEM-002)
 
     @PostMapping("/work-packages/{workPackageId}/supervisors")
-    @RequirePermission("dem:supervisor:assign")
+    @RequirePermission(value = "dem:supervisor:assign", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> assign(@PathVariable UUID workPackageId, @Valid @RequestBody AssignRequest r) {
         return supervisors.assign(workPackageId, new SupervisorService.Assign(r.employeeId(), r.role(), r.validFrom(),
@@ -204,13 +206,13 @@ class DemController {
     }
 
     @GetMapping("/work-packages/{workPackageId}/supervisors")
-    @RequirePermission("dem:supervisor:read")
+    @RequirePermission(value = "dem:supervisor:read", scopeCheckedInService = true)
     public Map<String, Object> supervisors(@PathVariable UUID workPackageId) {
-        return Map.of("assignments", supervisors.list(workPackageId), "alerts", supervisors.alerts(workPackageId));
+        return supervisors.listWithAlerts(workPackageId);
     }
 
     @PostMapping("/supervisors/{assignmentId}:release")
-    @RequirePermission("dem:supervisor:assign")
+    @RequirePermission(value = "dem:supervisor:assign", scopeCheckedInService = true)
     public Map<String, Object> release(@PathVariable UUID assignmentId, @Valid @RequestBody ReleaseRequest r) {
         return supervisors.release(assignmentId, r.releasedOn(), r.reason());
     }
@@ -251,10 +253,26 @@ class DemController {
     }
 
     @PostMapping("/daily-logs/{logId}/amendments")
-    @RequirePermission("dem:log-amendment:create")
+    @RequirePermission(value = "dem:log-amendment:create", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> amend(@PathVariable UUID logId, @Valid @RequestBody AmendRequest r) {
         return logs.amend(logId, r.fieldPath(), r.newValue(), r.reason());
+    }
+
+    /** DEM-03(b) 정정 요청(PENDING) 승인 — 요청자 · 일지 작성자 아닌 승인 권한자(PM 투입 · EXEC) */
+    @PostMapping("/daily-logs/{logId}/amendments/{amendmentId}:approve")
+    @RequirePermission(value = "dem:supervision-log:approve", scopeCheckedInService = true)
+    public Map<String, Object> approveAmendment(@PathVariable UUID logId, @PathVariable UUID amendmentId,
+                                                @Valid @RequestBody(required = false) AmendmentDecisionRequest r) {
+        return logs.decideAmendment(logId, amendmentId, true, r == null ? null : r.note());
+    }
+
+    /** DEM-03(b) 정정 요청 반려(사유 note 필수) */
+    @PostMapping("/daily-logs/{logId}/amendments/{amendmentId}:reject")
+    @RequirePermission(value = "dem:supervision-log:approve", scopeCheckedInService = true)
+    public Map<String, Object> rejectAmendment(@PathVariable UUID logId, @PathVariable UUID amendmentId,
+                                               @Valid @RequestBody(required = false) AmendmentDecisionRequest r) {
+        return logs.decideAmendment(logId, amendmentId, false, r == null ? null : r.note());
     }
 
     /** 운영 · 시험용 즉시 잠금(스케줄러와 같은 로직) */
@@ -267,7 +285,7 @@ class DemController {
     // ------------------------------------------------------------------ 증거 사진 (FR-DEM-008)
 
     @PostMapping("/evidence/photos")
-    @RequirePermission("dem:evidence:register")
+    @RequirePermission(value = "dem:evidence:register", scopeCheckedInService = true)
     public ResponseEntity<Map<String, Object>> registerPhoto(@Valid @RequestBody PhotoRequest r) {
         var res = evidence.register(new EvidenceService.Register(r.attachmentId(), r.sha256(), r.workPackageId(),
                 r.capturedAt(), r.lat(), r.lng(), r.deviceId()));
@@ -275,13 +293,13 @@ class DemController {
     }
 
     @GetMapping("/evidence/photos/{photoId}/verify")
-    @RequirePermission("dem:evidence:verify")
+    @RequirePermission(value = "dem:evidence:verify", scopeCheckedInService = true)
     public Map<String, Object> verifyPhoto(@PathVariable UUID photoId) {
         return evidence.verify(photoId);
     }
 
     @GetMapping("/work-packages/{workPackageId}/evidence")
-    @RequirePermission("dem:evidence:verify")
+    @RequirePermission(value = "dem:evidence:verify", scopeCheckedInService = true)
     public List<Map<String, Object>> evidenceManifest(@PathVariable UUID workPackageId) {
         return evidence.manifest(workPackageId);
     }
@@ -289,20 +307,20 @@ class DemController {
     // ------------------------------------------------------------------ 도서 · 리비전 · Transmittal · 의견 (FR-DEM-012~014)
 
     @PostMapping("/work-packages/{workPackageId}/documents")
-    @RequirePermission("dem:revision:write")
+    @RequirePermission(value = "dem:revision:write", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> document(@PathVariable UUID workPackageId, @Valid @RequestBody DocumentRequest r) {
         return structural.createDocument(workPackageId, r.docNo(), r.title(), r.discipline(), r.isInput());
     }
 
     @GetMapping("/documents/{documentId}")
-    @RequirePermission("dem:revision:read")
+    @RequirePermission(value = "dem:revision:read", scopeCheckedInService = true)
     public Map<String, Object> getDocument(@PathVariable UUID documentId) {
-        return structural.document(documentId);
+        return structural.readDocument(documentId);
     }
 
     @PostMapping("/documents/{documentId}/revisions")
-    @RequirePermission("dem:revision:write")
+    @RequirePermission(value = "dem:revision:write", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> revision(@PathVariable UUID documentId, @Valid @RequestBody RevisionRequest r) {
         return structural.createRevision(documentId, new StructuralService.NewRevision(r.fileAttachmentId(),
@@ -310,31 +328,31 @@ class DemController {
     }
 
     @PostMapping("/revisions/{revisionId}:replace-file")
-    @RequirePermission("dem:revision:write")
+    @RequirePermission(value = "dem:revision:write", scopeCheckedInService = true)
     public Map<String, Object> replaceFile(@PathVariable UUID revisionId, @Valid @RequestBody ReplaceFileRequest r) {
         return structural.replaceFile(revisionId, r.fileAttachmentId(), r.changeSummary());
     }
 
     @PostMapping("/revisions/{revisionId}:request-review")
-    @RequirePermission("dem:revision:write")
+    @RequirePermission(value = "dem:revision:write", scopeCheckedInService = true)
     public Map<String, Object> requestReview(@PathVariable UUID revisionId) {
         return structural.move(revisionId, "request-review");
     }
 
     @PostMapping("/revisions/{revisionId}:approve")
-    @RequirePermission("dem:revision:approve")
+    @RequirePermission(value = "dem:revision:approve", scopeCheckedInService = true)
     public Map<String, Object> approve(@PathVariable UUID revisionId) {
         return structural.move(revisionId, "approve");
     }
 
     @PostMapping("/revisions/{revisionId}:reject")
-    @RequirePermission("dem:revision:approve")
+    @RequirePermission(value = "dem:revision:approve", scopeCheckedInService = true)
     public Map<String, Object> reject(@PathVariable UUID revisionId) {
         return structural.move(revisionId, "reject");
     }
 
     @PostMapping("/work-packages/{workPackageId}/model-versions")
-    @RequirePermission("dem:revision:write")
+    @RequirePermission(value = "dem:revision:write", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> modelVersion(@PathVariable UUID workPackageId, @Valid @RequestBody ModelVersionRequest r) {
         return structural.createModelVersion(workPackageId, new StructuralService.ModelVersion(r.software(),
@@ -342,7 +360,7 @@ class DemController {
     }
 
     @PostMapping("/transmittals")
-    @RequirePermission("dem:transmittal:issue")
+    @RequirePermission(value = "dem:transmittal:issue", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> transmittal(@Valid @RequestBody TransmittalRequest r) {
         return structural.issue(new StructuralService.Issue(r.workPackageId(), r.purpose(), r.revisionIds(),
@@ -350,7 +368,7 @@ class DemController {
     }
 
     @PostMapping("/revisions/{revisionId}/comments")
-    @RequirePermission("dem:comment:write")
+    @RequirePermission(value = "dem:comment:write", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> comment(@PathVariable UUID revisionId, @Valid @RequestBody CommentRequest r) {
         return structural.addComment(revisionId, new StructuralService.NewComment(r.commentNo(), r.source(),
@@ -358,13 +376,13 @@ class DemController {
     }
 
     @GetMapping("/revisions/{revisionId}/comments")
-    @RequirePermission("dem:revision:read")
+    @RequirePermission(value = "dem:revision:read", scopeCheckedInService = true)
     public List<Map<String, Object>> comments(@PathVariable UUID revisionId) {
         return structural.comments(revisionId);
     }
 
     @PostMapping("/comments/{commentId}/replies")
-    @RequirePermission("dem:comment:write")
+    @RequirePermission(value = "dem:comment:write", scopeCheckedInService = true)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> reply(@PathVariable UUID commentId, @Valid @RequestBody ReplyRequest r) {
         return structural.reply(commentId, r.body(), r.resultingStatus());
@@ -373,7 +391,7 @@ class DemController {
     // ------------------------------------------------------------------ 인접건축물 사전 · 사후 (FR-DEM-018)
 
     @PostMapping("/projects/{projectId}/adjacent-surveys")
-    @RequirePermission("dem:survey:write")
+    @RequirePermission(value = "dem:survey:write", projectIdParam = "projectId")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> survey(@PathVariable UUID projectId, @Valid @RequestBody SurveyRequest r) {
         return surveys.createSurvey(projectId, new AdjacentSurveyService.Survey(r.adjacentBuildingId(), r.adjacentName(),
@@ -383,7 +401,7 @@ class DemController {
     }
 
     @PostMapping("/projects/{projectId}/adjacent-comparisons")
-    @RequirePermission("dem:survey:write")
+    @RequirePermission(value = "dem:survey:write", projectIdParam = "projectId")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> compare(@PathVariable UUID projectId, @Valid @RequestBody ComparisonRequest r) {
         return surveys.compare(projectId, r.preSurveyId(), r.postSurveyId());

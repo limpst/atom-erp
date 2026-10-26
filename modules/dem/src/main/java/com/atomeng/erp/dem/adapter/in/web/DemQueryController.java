@@ -22,7 +22,7 @@ class DemQueryController {
     }
 
     @GetMapping("/projects")
-    @RequirePermission("dem:project:read")
+    @RequirePermission(value = "dem:project:read", scopeCheckedInService = true)
     public List<Map<String, Object>> projects() {
         return query.projects();
     }
@@ -34,13 +34,13 @@ class DemQueryController {
     }
 
     @GetMapping("/work-packages/{workPackageId}/documents")
-    @RequirePermission("dem:revision:read")
+    @RequirePermission(value = "dem:revision:read", scopeCheckedInService = true)
     public List<Map<String, Object>> documents(@PathVariable UUID workPackageId) {
         return query.documents(workPackageId);
     }
 
     @GetMapping("/work-packages/{workPackageId}/transmittals")
-    @RequirePermission("dem:revision:read")
+    @RequirePermission(value = "dem:revision:read", scopeCheckedInService = true)
     public List<Map<String, Object>> transmittals(@PathVariable UUID workPackageId) {
         return query.transmittals(workPackageId);
     }

@@ -123,6 +123,12 @@ class WebListQueryIntegrationTest extends IntegrationTestBase {
         String project = call(postJson("/api/v1/core/projects", """
                 {"name":"합성 해체 목록","serviceType":"DEMOLITION_SUPERVISION","clientId":"%s"}""".formatted(client)),
                 pm, "PM", 201).get("id").asText();
+        // DEM-02: PM 의 DEM 권한은 PROJECT 범위 — 담당 PM 투입(RESP)
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성PM', DATE '2020-01-01', ?, ?) ON CONFLICT (id) DO NOTHING", pm,
+                "WLQ-" + pm.toString().substring(0, 8), pm, pm);
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?::uuid, ?, 'RESP', DATE '2020-01-01', DATE '2099-12-31')", project, pm);
         JsonNode dem = call(postJson("/api/v1/dem/projects", """
                 {"projectId":"%s","packages":[{"packageType":"DEM_SUPERVISION"},{"packageType":"STR_DESIGN"}]}"""
                 .formatted(project)), pm, "PM", 201);

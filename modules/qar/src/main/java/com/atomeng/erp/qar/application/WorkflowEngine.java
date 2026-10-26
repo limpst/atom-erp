@@ -240,9 +240,16 @@ public class WorkflowEngine {
                 yield actor.equals(assignee) ? Optional.empty()
                         : v("QAR_NOT_ASSIGNEE", "이 라운드 QA 담당자만 결정할 수 있습니다", assignee);
             }
-            case SOD_APPROVER -> assignments.qaAssignees(c.roundId()).contains(actor)
-                    ? v("QAR_SOD_VIOLATION", "QA 검토자는 최종 승인자가 될 수 없습니다(BR-QAR-002)", actor)
-                    : Optional.empty();
+            case SOD_APPROVER -> {
+                if (assignments.qaAssignees(c.roundId()).contains(actor)) {
+                    yield v("QAR_SOD_VIOLATION", "QA 검토자는 최종 승인자가 될 수 없습니다(BR-QAR-002)", actor);
+                }
+                // 보안 검토 2026-10-19 QAR-01: 최종 승인자 ≠ 작성자 · 섹션 편집자 · 제출자 · 등급 결정자(3자 분리)
+                String role = c.cmd == Command.APPROVE ? sup.authorRole(c.review, c.round, actor, true) : null;
+                yield role == null ? Optional.empty()
+                        : v("QAR_SOD_VIOLATION", "작성 · 편집 · 제출 · 등급 결정에 참여한 사람은 최종 승인자가 될 수 없습니다("
+                                + role + ")", actor);
+            }
             case QUALIFICATION_VALID -> evidence.approverQualification(actor, QarJdbc.uuid(c.review, "project_id"),
                     sup.today()) == QarEvidencePort.Qualification.INVALID
                     ? v("QAR_QUALIFICATION_INVALID", "책임기술자 자격이 유효하지 않습니다(" + sup.today() + " 기준)", actor)

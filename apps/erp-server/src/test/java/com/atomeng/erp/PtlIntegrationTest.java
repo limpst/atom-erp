@@ -115,6 +115,7 @@ class PtlIntegrationTest extends IntegrationTestBase {
                 + "\"serviceType\":\"PRECISE_DIAG\",\"clientId\":\"" + clientId + "\"}"), pm, "PM", 201);
         UUID id = UUID.fromString(p.get("id").asText());
         flow.member(id, pm, "RESP");
+        flow.qualify(pm);   // RPT-07: 등급 결정자 = 자격 유효 책임기술자
         return id;
     }
 

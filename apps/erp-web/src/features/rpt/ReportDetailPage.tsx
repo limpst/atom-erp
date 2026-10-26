@@ -51,7 +51,6 @@ function QarPanel({ reportId, revisionId, revStatus }: { reportId: string; revis
   const selfAll = m(async () => answerMissing(await qarApi.checklist(roundId!), 'SELF'), (n) => `자체검토 체크리스트 ${n}개 PASS`);
   const submit = m(async () => qarApi.submit(await qarApi.review(review!.id)), (r) => `제출 → ${r.status}`);
   const runAi = m(() => qarApi.runAiJobs(), (r) => `AI 작업 처리 ${r.processed} (skip ${r.skipped}, timeout ${r.timedOut})`);
-  const assignMe = m(() => qarApi.assign(roundId!, session!.actorId), () => 'QA 검토자로 배정');
   const qaAll = m(async () => answerMissing(await qarApi.checklist(roundId!), 'QA'), (n) => `QA 체크리스트 ${n}개 PASS`);
   const pass = m(async () => qarApi.decide(await qarApi.review(review!.id), roundId!, 'PASS'), (r) => `QA 통과 → ${r.status}`);
   const [rejectSummary, setRejectSummary] = useState('');
@@ -120,9 +119,7 @@ function QarPanel({ reportId, revisionId, revStatus }: { reportId: string; revis
             {review.status === 'QA_REVIEWING' && hasRole('QA') && (
               <>
                 {qaAssignee?.assigneeId !== session?.actorId && (
-                  <button onClick={() => assignMe.mutate()} disabled={assignMe.isPending}>
-                    나를 QA 검토자로 배정
-                  </button>
+                  <span className="muted">담당 QA: {who(qaAssignee?.assigneeId)} (자기 배정 금지 — QAR-03b)</span>
                 )}
                 <button onClick={() => qaAll.mutate()} disabled={qaAll.isPending}>
                   QA 체크리스트 PASS

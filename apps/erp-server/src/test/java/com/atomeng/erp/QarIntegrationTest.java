@@ -95,7 +95,7 @@ class QarIntegrationTest extends IntegrationTestBase {
     /** RPT: 보고서 → 동결 → compose → 확정 → (종합 의견 수정) → 렌더 → 검토 요청(IN_REVIEW) */
     private Prepared prepare(String opinion, boolean renderAndRequest) throws Exception {
         UUID project = flow.project(pm);
-        UUID building = flow.facBuilding(pm, "합성 QAR 동");
+        UUID building = flow.facBuilding(pm, "합성 QAR 동", project);
         JsonNode report = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(3));
         UUID reportId = UUID.fromString(report.get("id").asText());
         UUID rev = UUID.fromString(report.get("currentRevisionId").asText());
@@ -128,6 +128,13 @@ class QarIntegrationTest extends IntegrationTestBase {
         call(json(put("/api/v1/rpt/revisions/" + rev + "/sections/ch7.opinion").header("If-Match",
                 "\"v" + s.get("version").asLong() + "\""), objectMapper.writeValueAsString(Map.of("blocks",
                 List.of(Map.of("blockId", blockId, "kind", "PARAGRAPH", "text", text))))), pm, "PM", 200);
+    }
+
+    /** 최종 승인자 — 작성 · 편집 · 제출 · 등급 결정에 참여하지 않은 두 번째 PM(투입 PART). QAR-01 3자 분리 */
+    private UUID approver(UUID project) {
+        UUID a = flow.employee("QAR-PM2");
+        flow.member(project, a, "PART");
+        return a;
     }
 
     private JsonNode createReview(UUID rev) throws Exception {
@@ -341,13 +348,14 @@ class QarIntegrationTest extends IntegrationTestBase {
                 "{\"decision\":\"PASS\"}"), qa, "QA", 200);
         assertThat(passed.get("status").asText()).isEqualTo("PENDING_APPROVAL");
 
-        // 최종 승인: QA 는 권한 없음, TC-QAR-011 자격 무효 → 가드 실패, 그다음 승인
+        // 최종 승인: QA 는 권한 없음, TC-QAR-011 자격 무효 → 가드 실패, 그다음 승인(QAR-01: 작성 PM 이 아닌 두 번째 PM)
         call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), qa, "QA", 403);
-        qarEvidence.markInvalid(pm);
-        JsonNode invalid = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm, "PM", 409);
+        UUID pm2 = approver(p.project());
+        qarEvidence.markInvalid(pm2);
+        JsonNode invalid = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm2, "PM", 409);
         assertThat(violationCodes(invalid)).containsExactly("QAR_QUALIFICATION_INVALID");
         qarEvidence.clear();
-        JsonNode approved = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm, "PM", 200);
+        JsonNode approved = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm2, "PM", 200);
         assertThat(approved.get("status").asText()).isEqualTo("APPROVED");
         assertThat(approved.get("rounds").get(0).get("outcome").asText()).isEqualTo("APPROVED");
 
@@ -417,16 +425,19 @@ class QarIntegrationTest extends IntegrationTestBase {
         JsonNode cl = call(get("/api/v1/qar/rounds/" + roundId(review(id)) + "/checklist"), pm, "PM", 200);
         assertThat(cl.get("items").get(0).get("self").get("label").asText()).isEqualTo("자동 FAIL(사람 확인 권장)");
 
-        // TC-QAR-009: BLOCKING waiver 422, WARNING 은 PM · QA 사유 2인
+        // TC-QAR-009: BLOCKING waiver 422, WARNING 은 PM · QA 사유 2인(QAR-04b: PM 측 ≠ 작성자, QA 측 = 현재 라운드 QA 담당자 —
+        // 자체검토 단계는 QA 담당자가 없어 QA 측 서명 불가. GRANTED 까지는 qar04b 시험이 QA_REVIEWING 에서 확인)
+        UUID pm2 = approver(p.project());
         JsonNode w1 = call(json(post("/api/v1/qar/autocheck-results/" + blocking.get("id").asText() + "/waiver"),
-                "{\"reason\":\"합성 사유\"}"), pm, "PM", 422);
+                "{\"reason\":\"합성 사유\"}"), pm2, "PM", 422);
         assertThat(w1.get("code").asText()).isEqualTo("QAR-422-002");
         String wid = warning.get("id").asText();
+        call(json(post("/api/v1/qar/autocheck-results/" + wid + "/waiver"), "{\"reason\":\"작성자 본인\"}"), pm, "PM", 403);
         assertThat(call(json(post("/api/v1/qar/autocheck-results/" + wid + "/waiver"), "{\"reason\":\"관용 표현 — 의미상 안전 보장 아님\"}"),
-                pm, "PM", 200).get("status").asText()).isEqualTo("PENDING");
-        call(json(post("/api/v1/qar/autocheck-results/" + wid + "/waiver"), "{\"reason\":\"중복\"}"), pm, "PM", 409);
+                pm2, "PM", 200).get("status").asText()).isEqualTo("PENDING");
+        call(json(post("/api/v1/qar/autocheck-results/" + wid + "/waiver"), "{\"reason\":\"중복\"}"), pm2, "PM", 409);
         assertThat(call(json(post("/api/v1/qar/autocheck-results/" + wid + "/waiver"), "{\"reason\":\"QA 동의\"}"),
-                qa1, "QA", 200).get("status").asText()).isEqualTo("GRANTED");
+                qa1, "QA", 403).get("code").asText()).isEqualTo("QAR-403-003");
     }
 
     @Test
@@ -445,10 +456,10 @@ class QarIntegrationTest extends IntegrationTestBase {
         assertThat(sod.get("reason").asText()).isEqualTo("QAR_SOD_VIOLATION");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM core.audit_log WHERE module = 'QAR' AND target_id = ? "
                 + "AND after_json ->> 'violation' = 'QAR_SOD_VIOLATION'", Integer.class, round1)).isEqualTo(1);
-        // 다른 QA 로 수동 재배정은 허용
+        // 다른 QA 로 수동 재배정은 허용(QAR-03b: 배정자 ≠ 새 담당자 — QA 팀장 역할 대역)
         UUID other = assignee(r).equals(qa1) ? qa2 : qa1;
         call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
-                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + other + "\"}"), qa1, "QA", 201);
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + other + "\"}"), UUID.randomUUID(), "QA", 201);
         assertThat(assignee(review(id))).isEqualTo(other);
         UUID qa = other;
 
@@ -588,7 +599,7 @@ class QarIntegrationTest extends IntegrationTestBase {
         call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
                 "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + x + "\"}"), qa1, "QA", 201);
         call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
-                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + qa1 + "\"}"), qa1, "QA", 201);
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + qa1 + "\"}"), qa2, "QA", 201);   // QAR-03b 자기 배정 금지
         assertThat(assignee(review(id))).isEqualTo(qa1);
 
         JsonNode opinion = opinionSection(p.rev()).get("blocks").get(0);
@@ -604,8 +615,8 @@ class QarIntegrationTest extends IntegrationTestBase {
         // SEC-QAR-01: 재배정으로 빠진 전 QA 검토자(X)는 최종 승인자가 될 수 없다
         JsonNode sod = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), x, "PM", 409);
         assertThat(violationCodes(sod)).contains("QAR_SOD_VIOLATION");
-        assertThat(call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm, "PM", 200)
-                .get("status").asText()).isEqualTo("APPROVED");
+        assertThat(call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), approver(p.project()),
+                "PM", 200).get("status").asText()).isEqualTo("APPROVED");
 
         // SEC-QAR-03: 승인 완료 뒤에는 WARNING 결과라도 예외 승인(waiver)을 붙일 수 없다
         UUID run = jdbc.queryForObject("SELECT id FROM qar.autocheck_run WHERE round_id = ? LIMIT 1", UUID.class, round1);
@@ -620,5 +631,100 @@ class QarIntegrationTest extends IntegrationTestBase {
         JsonNode closed = call(json(post("/api/v1/qar/comments/" + minor.get("id").asText() + "/replies"),
                 "{\"action\":\"ANSWER\",\"body\":\"늦은 답변\"}"), pm, "PM", 409);
         assertThat(closed.get("code").asText()).isEqualTo("QAR-409-006");
+    }
+
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 정책 결정 QAR-01 · 03b · 04b
+
+    /** QA_REVIEWING → 담당 QA 체크리스트 · PASS → PENDING_APPROVAL */
+    private void toPendingApproval(UUID id, UUID round) throws Exception {
+        UUID qa = assignee(review(id));
+        answerMissing(round, "QA", qa, "QA");
+        assertThat(call(json(post("/api/v1/qar/rounds/" + round + "/decision").header("If-Match", etag(id)),
+                "{\"decision\":\"PASS\"}"), qa, "QA", 200).get("status").asText()).isEqualTo("PENDING_APPROVAL");
+    }
+
+    @Test
+    @DisplayName("QAR-01: 최종 승인자 3자 분리 — 작성 · 제출 · 등급 결정 PM, 섹션 편집 PM 의 승인은 409 QAR_SOD_VIOLATION, 참여하지 않은 PM 은 승인")
+    void qar01_finalApproverSeparation() throws Exception {
+        UUID project = flow.project(pm);
+        UUID building = flow.facBuilding(pm, "합성 QAR-01 동", project);
+        JsonNode report = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(3));
+        UUID reportId = UUID.fromString(report.get("id").asText());
+        UUID rev = UUID.fromString(report.get("currentRevisionId").asText());
+        flow.freeze(pm, reportId, RptFlow.snapshotBody(building, "C", null));
+        JsonNode g = flow.compose(pm, rev);
+        flow.decide(pm, rev, g.get("computedGrade").asText(), null, null, 200);
+        // 두 번째 PM 이 종합 의견 섹션을 편집 → 섹션 편집 이력자
+        UUID editor = approver(project);
+        JsonNode s = opinionSection(rev);
+        call(json(put("/api/v1/rpt/revisions/" + rev + "/sections/ch7.opinion").header("If-Match",
+                "\"v" + s.get("version").asLong() + "\""), objectMapper.writeValueAsString(Map.of("blocks",
+                List.of(Map.of("blockId", s.get("blocks").get(0).get("blockId").asText(), "kind", "PARAGRAPH",
+                        "text", "결함 4건을 조사하였으며 " + DEFAULT_OPINION_PHRASE + "."))))), editor, "PM", 200);
+        flow.render(pm, rev);
+        flow.reviewRequest(pm, rev);
+        JsonNode r = toQaReviewing(rev);
+        UUID id = UUID.fromString(r.get("id").asText());
+        toPendingApproval(id, roundId(r));
+
+        JsonNode byAuthor = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), pm, "PM", 409);
+        assertThat(violationCodes(byAuthor)).containsExactly("QAR_SOD_VIOLATION");
+        JsonNode byEditor = call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), editor, "PM",
+                409);
+        assertThat(violationCodes(byEditor)).containsExactly("QAR_SOD_VIOLATION");
+        assertThat(byEditor.get("violations").get(0).get("message").asText()).contains("SECTION_EDITOR");
+        assertThat(review(id).get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        UUID independent = approver(project);
+        assertThat(call(post("/api/v1/qar/reviews/" + id + "/approve").header("If-Match", etag(id)), independent, "PM", 200)
+                .get("status").asText()).isEqualTo("APPROVED");
+    }
+
+    @Test
+    @DisplayName("QAR-03b: QA_LEAD 역할이 없어 자기 배정을 금지 — 자기 자신 수동 배정 · 재배정 403 QAR-403-005 + 감사, 다른 QA 가 배정하면 허용")
+    void qar03b_noSelfAssignment() throws Exception {
+        Prepared p = prepare(null, true);
+        JsonNode r = toQaReviewing(p.rev());
+        UUID id = UUID.fromString(r.get("id").asText());
+        UUID round1 = roundId(r);
+        UUID current = assignee(r);
+        UUID other = current.equals(qa1) ? qa2 : qa1;
+        JsonNode self = call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + other + "\"}"), other, "QA", 403);
+        assertThat(self.get("code").asText()).isEqualTo("QAR-403-005");
+        assertThat(self.get("reason").asText()).isEqualTo("QAR_SELF_ASSIGNMENT");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.audit_log WHERE module = 'QAR' AND target_id = ? "
+                + "AND after_json ->> 'violation' = 'QAR_SELF_ASSIGNMENT'", Integer.class, round1)).isEqualTo(1);
+        assertThat(assignee(review(id))).isEqualTo(current);
+        call(json(post("/api/v1/qar/rounds/" + round1 + "/assignments"),
+                "{\"stepCode\":\"QA_REVIEW\",\"assigneeId\":\"" + other + "\"}"), current, "QA", 201);
+        assertThat(assignee(review(id))).isEqualTo(other);
+    }
+
+    @Test
+    @DisplayName("QAR-04b: waiver QA 측 서명은 현재 라운드 QA 담당자만(아니면 403 QAR-403-003), PM 측 서명자 ≠ 작성자(403 QAR-403-001), "
+            + "두 번째 PM + 담당 QA → GRANTED")
+    void qar04b_waiverSigners() throws Exception {
+        Prepared p = prepare(null, true);
+        JsonNode r = toQaReviewing(p.rev());
+        UUID round1 = roundId(r);
+        UUID qa = assignee(r);
+        UUID notAssignee = qa.equals(qa1) ? qa2 : qa1;
+        UUID run = jdbc.queryForObject("SELECT id FROM qar.autocheck_run WHERE round_id = ? LIMIT 1", UUID.class, round1);
+        UUID warn = UUID.randomUUID();
+        jdbc.update("INSERT INTO qar.autocheck_result(id, round_id, run_id, rule_id, severity, message) "
+                + "VALUES (?, ?, ?, 'AC-TXT-002', 'WARNING', '합성 경고')", warn, round1, run);
+        String url = "/api/v1/qar/autocheck-results/" + warn + "/waiver";
+        JsonNode byAuthor = call(json(post(url), "{\"reason\":\"작성자 본인 사유\"}"), pm, "PM", 403);
+        assertThat(byAuthor.get("code").asText()).isEqualTo("QAR-403-001");
+        assertThat(byAuthor.get("sodRule").asText()).isIn("AUTHOR", "SUBMITTER", "SECTION_EDITOR");
+        JsonNode byOtherQa = call(json(post(url), "{\"reason\":\"담당 아님\"}"), notAssignee, "QA", 403);
+        assertThat(byOtherQa.get("code").asText()).isEqualTo("QAR-403-003");
+        UUID pm2 = approver(p.project());
+        assertThat(call(json(post(url), "{\"reason\":\"관용 표현 — 의미상 안전 보장 아님\"}"), pm2, "PM", 200)
+                .get("status").asText()).isEqualTo("PENDING");
+        JsonNode granted = call(json(post(url), "{\"reason\":\"QA 동의\"}"), qa, "QA", 200);
+        assertThat(granted.get("status").asText()).isEqualTo("GRANTED");
+        assertThat(granted.get("pmId").asText()).isEqualTo(pm2.toString());
+        assertThat(granted.get("qaId").asText()).isEqualTo(qa.toString());
     }
 }

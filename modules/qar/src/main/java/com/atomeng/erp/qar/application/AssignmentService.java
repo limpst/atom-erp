@@ -144,6 +144,16 @@ public class AssignmentService {
                 || ReviewStatus.valueOf(QarJdbc.str(review, "status")) != ReviewStatus.QA_REVIEWING) {
             throw new DomainException(QarCodes.STATE, "QA 검토 중인 현재 라운드만 배정할 수 있습니다");
         }
+        // 보안 검토 2026-10-19 QAR-03b: 12역할에 QA_LEAD 가 없어 배정 권한을 나누지 않고, 자기 배정을 금지한다(배정자 ≠ 새 담당자)
+        if (sup.actorId().equals(assigneeId)) {
+            Map<String, Object> after = new LinkedHashMap<>();
+            after.put("violation", "QAR_SELF_ASSIGNMENT");
+            after.put("assigneeId", assigneeId);
+            after.put("step", step);
+            sup.auditIndependently(AuditLog.Action.UPDATE, "ReviewAssignment", roundId, null, after);
+            throw new DomainException(QarCodes.SELF_ASSIGNMENT, "자기 자신을 QA 검토자로 배정 · 재배정할 수 없습니다")
+                    .with("reason", "QAR_SELF_ASSIGNMENT");
+        }
         Map<UUID, String> ex = excluded(review, round, step);
         if (ex.containsKey(assigneeId)) {
             Map<String, Object> after = new LinkedHashMap<>();

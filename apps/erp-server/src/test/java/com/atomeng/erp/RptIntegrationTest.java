@@ -77,7 +77,7 @@ class RptIntegrationTest extends IntegrationTestBase {
 
     /** 보고서 생성 + 동결(grade 수준 합성 결함) → [reportId, revId] */
     private UUID[] frozenReport(String grade, String extra) throws Exception {
-        UUID building = UUID.randomUUID();
+        UUID building = flow.ownedBuilding(project);   // RPT-02b: 발주처 소유 FAC 시설물
         JsonNode r = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(20));
         UUID reportId = UUID.fromString(r.get("id").asText());
         UUID rev = UUID.fromString(r.get("currentRevisionId").asText());
@@ -89,7 +89,7 @@ class RptIntegrationTest extends IntegrationTestBase {
     @DisplayName("FR-RPT-001~016 전체 흐름: 동결 → compose(C) → 렌더 → 검토 → QAR 승인 → 발행(WORM · SHA-256) + "
             + "rpt.report.drafted 1회 · rpt.report.published(FAC 계약 필드)")
     void fullFlow() throws Exception {
-        UUID building = UUID.randomUUID();
+        UUID building = flow.ownedBuilding(project);   // RPT-02b: 발주처 소유 FAC 시설물
         JsonNode created = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(20));
         assertThat(created.get("status").asText()).isEqualTo("DRAFT");
         assertThat(created.at("/templateVersion/semver").asText()).isEqualTo("2026.1.0");
@@ -205,7 +205,7 @@ class RptIntegrationTest extends IntegrationTestBase {
                 + "\"memberId\":\"1F-COL-09\",\"defectType\":\"CRACK\",\"widthMm\":0.22,\"lengthM\":0.8,"
                 + "\"equipmentId\":\"%s\",\"measuredOn\":\"%s\",\"polyline\":[[9000,2000],[9300,2500]]}")
                 .formatted(equipment, today().minusDays(21));
-        UUID building = UUID.randomUUID();
+        UUID building = flow.ownedBuilding(project);   // RPT-02b: 발주처 소유 FAC 시설물
         JsonNode r = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(20));
         UUID reportId = UUID.fromString(r.get("id").asText());
         UUID rev = UUID.fromString(r.get("currentRevisionId").asText());
@@ -388,7 +388,7 @@ class RptIntegrationTest extends IntegrationTestBase {
     @DisplayName("BR-RPT-008 정정본: 납품된 Rev.1 → Rev.2(스냅샷 재사용 · 재동결) 발행 → Rev.1 SUPERSEDED + rpt.report.superseded, "
             + "FAC 등급 이력 2건")
     void correctionSupersedes() throws Exception {
-        UUID building = flow.facBuilding(pm, "합성 정정 대상 사옥");
+        UUID building = flow.facBuilding(pm, "합성 정정 대상 사옥", project);
         JsonNode r = flow.createReport(pm, project, building, "RT_REG", today().minusDays(15));
         UUID reportId = UUID.fromString(r.get("id").asText());
         UUID rev1 = UUID.fromString(r.get("currentRevisionId").asText());

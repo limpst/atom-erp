@@ -93,6 +93,7 @@ class FldIntegrationTest extends IntegrationTestBase {
         UUID project = flow.project(pm);
         flow.member(project, eng, "PART");
         UUID building = building("합성 FLD 본관");
+        flow.ensureOwnedBuilding(building, flow.clientOf(project));   // RPT-02b: 스냅샷 동 = 발주처 소유 시설물
         UUID floor = node(building, null, "FLOOR", null, "1F");
         UUID column = node(building, floor, "MEMBER", "COL", "1F-C1");
         JsonNode round = call(post("/api/v1/fld/rounds"), pm, "PM", """

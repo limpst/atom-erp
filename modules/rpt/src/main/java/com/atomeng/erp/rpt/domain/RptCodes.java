@@ -5,6 +5,10 @@ public final class RptCodes {
     private RptCodes() {}
 
     public static final String NOT_FOUND = "RPT-404-001";
+    /** RPT-07 등급 결정 · 변경은 프로젝트 지정 책임기술자(RESP)만 */
+    public static final String NOT_RESPONSIBLE_ENGINEER = "RPT-403-001";
+    /** RPT-07 책임기술자 자격(HRQ) 무효 · 없음 */
+    public static final String ENGINEER_NOT_QUALIFIED = "RPT-403-002";
     /** A6 리비전 상태 전이 불가 (설계 RPT_STATE) */
     public static final String STATE = "RPT-409-001";
     /** TC-RPT-003 BLOCKING 사전검증 이슈가 있어 compose 불가 (RPT_BLOCKING_ISSUES) */

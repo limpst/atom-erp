@@ -81,26 +81,93 @@ public class RptFlow {
     private static final java.util.concurrent.atomic.AtomicLong PNU = new java.util.concurrent.atomic.AtomicLong(
             System.nanoTime() % 1_000_000_000L + 500_000_000L);
 
-    /** FAC 시설물(수기 등록) — rpt.report.published 를 FAC 가 등급 이력으로 남기려면 실제 시설물이어야 한다 */
-    public UUID facBuilding(UUID pm, String name) throws Exception {
+    /**
+     * FAC 시설물(수기 등록, 소유 고객사 = 프로젝트 발주처) — rpt.report.published 를 FAC 가 등급 이력으로 남기려면 실제 시설물이어야
+     * 하고, 보안 검토 RPT-02b 로 스냅샷 동은 FAC 에 있고 프로젝트 발주처 소유여야 한다.
+     */
+    public UUID facBuilding(UUID pm, String name, UUID project) throws Exception {
         String pnu = "11%017d".formatted(PNU.incrementAndGet());
         JsonNode b = call(postJson("/api/v1/fac/buildings", """
                 {"name":"%s","dongName":"","pnu":"%s","roadAddress":"서울 합성구 RPT로 %s","structureNm":"철근콘크리트구조",
-                 "floorsAbove":5,"floorsBelow":1,"approvalDate":"2001-03-31","dataSource":"MANUAL"}"""
-                .formatted(name, pnu, pnu.substring(14))).header("Idempotency-Key", UUID.randomUUID().toString()),
-                pm, "PM", 201);
+                 "floorsAbove":5,"floorsBelow":1,"approvalDate":"2001-03-31","dataSource":"MANUAL","ownerClientId":"%s"}"""
+                .formatted(name, pnu, pnu.substring(14), clientOf(project)))
+                .header("Idempotency-Key", UUID.randomUUID().toString()), pm, "PM", 201);
         return UUID.fromString(b.get("id").asText());
     }
 
-    /** PM(투입) 이 만든 합성 프로젝트 */
+    /** 프로젝트 발주 고객사 */
+    public UUID clientOf(UUID project) {
+        return jdbc.queryForObject("SELECT client_id FROM core.project WHERE id = ?", UUID.class, project);
+    }
+
+    /** 프로젝트 발주처 소유 FAC 시설물(직접 SQL, ACTIVE) — RPT-02b 스냅샷 동 */
+    public UUID ownedBuilding(UUID project) {
+        UUID b = UUID.randomUUID();
+        ensureOwnedBuilding(b, clientOf(project));
+        return b;
+    }
+
+    /**
+     * 시설물이 없으면 고객사 소유로 만들고, 있는데 소유 고객사가 없으면 그 고객사 소유로 정한다(시험 준비 — RPT-02b).
+     */
+    public void ensureOwnedBuilding(UUID buildingId, UUID clientId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT b.site_id, s.owner_client_id FROM fac.building b "
+                + "JOIN fac.site s ON s.id = b.site_id WHERE b.id = ?", buildingId);
+        UUID by = UUID.randomUUID();
+        if (rows.isEmpty()) {
+            UUID site = UUID.randomUUID();
+            jdbc.update("INSERT INTO fac.site(id, name, owner_client_id, created_by, updated_by) VALUES (?, ?, ?, ?, ?)",
+                    site, "합성 RPT 단지", clientId, by, by);
+            jdbc.update("INSERT INTO fac.building(id, site_id, name, road_address, structure_nm, status, data_source, "
+                    + "created_by, updated_by) VALUES (?, ?, '합성 RPT 동', '서울 합성구 RPT로 1', '철근콘크리트구조', 'ACTIVE', "
+                    + "'MANUAL', ?, ?)", buildingId, site, by, by);
+        } else if (rows.get(0).get("owner_client_id") == null) {
+            jdbc.update("UPDATE fac.site SET owner_client_id = ? WHERE id = ?", clientId, rows.get(0).get("site_id"));
+        }
+    }
+
+    /** 시설물의 소유 고객사(없거나 시설물이 없으면 null) */
+    public UUID ownerOf(UUID buildingId) {
+        List<UUID> owners = jdbc.queryForList("SELECT s.owner_client_id FROM fac.building b JOIN fac.site s "
+                + "ON s.id = b.site_id WHERE b.id = ?", UUID.class, buildingId);
+        return owners.isEmpty() ? null : owners.get(0);
+    }
+
+    /**
+     * RPT-07: 등급 결정자 = 지정 책임기술자(RESP) + HRQ 자격 유효. 합성 HRQ 직원 · 승인된 건축기사 자격(무기한)을 둔다
+     * (등록 분야 아님 — HRQ 등록요건 시험에 영향 0).
+     */
+    public void qualify(UUID employee) {
+        jdbc.update("""
+                INSERT INTO hrq.employee(id, emp_no, name, field, employment_type, hired_on, created_by, updated_by)
+                SELECT id, emp_no, name, 'ARCH', 'FULLTIME', DATE '2020-01-01', id, id FROM core.employee WHERE id = ?
+                ON CONFLICT (id) DO NOTHING""", employee);
+        Integer has = jdbc.queryForObject("SELECT count(*) FROM hrq.credential WHERE employee_id = ? AND status = 'VALID'",
+                Integer.class, employee);
+        if (has == null || has == 0) {
+            jdbc.update("""
+                    INSERT INTO hrq.credential(id, employee_id, type_code, cert_no, acquired_on, status, approved_by,
+                                               approved_at, created_by, updated_by)
+                    VALUES (?, ?, 'ARCH_ENG', ?, DATE '2019-01-01', 'VALID', ?, now(), ?, ?)""", UUID.randomUUID(), employee,
+                    "SYN-RPT-" + SEQ.incrementAndGet(), employee, employee, employee);
+        }
+    }
+
+    /** PM(책임기술자 RESP 투입 · HRQ 자격 유효) 이 만든 합성 프로젝트 */
     public UUID project(UUID pm) throws Exception {
         UUID sales = UUID.randomUUID();
         JsonNode c = call(postJson("/api/v1/core/clients", "{\"name\":\"합성발주처-rpt-" + UUID.randomUUID()
                 + "\",\"clientType\":\"PRIVATE\"}"), sales, "SALES", 201);
+        return project(pm, UUID.fromString(c.get("id").asText()));
+    }
+
+    /** 주어진 발주 고객사의 합성 프로젝트(PM = RESP · 자격 유효) */
+    public UUID project(UUID pm, UUID clientId) throws Exception {
         JsonNode p = call(postJson("/api/v1/core/projects", "{\"name\":\"합성 RPT 프로젝트\",\"serviceType\":\"PRECISE_DIAG\","
-                + "\"clientId\":\"" + c.get("id").asText() + "\"}"), pm, "PM", 201);
+                + "\"clientId\":\"" + clientId + "\"}"), pm, "PM", 201);
         UUID id = UUID.fromString(p.get("id").asText());
         member(id, pm, "RESP");
+        qualify(pm);
         return id;
     }
 
@@ -217,7 +284,9 @@ public class RptFlow {
     public Published publishGrade(UUID buildingId, String grade, String facInspectionType, LocalDate performedOn)
             throws Exception {
         UUID pm = employee("RPT-PM");
-        UUID project = project(pm);
+        UUID owner = ownerOf(buildingId);
+        UUID project = owner == null ? project(pm) : project(pm, owner);
+        ensureOwnedBuilding(buildingId, clientOf(project));   // RPT-02b: 스냅샷 동은 프로젝트 발주처 소유 FAC 시설물
         JsonNode report = createReport(pm, project, buildingId, REPORT_TYPE.get(facInspectionType), performedOn);
         UUID reportId = UUID.fromString(report.get("id").asText());
         UUID rev = UUID.fromString(report.get("currentRevisionId").asText());

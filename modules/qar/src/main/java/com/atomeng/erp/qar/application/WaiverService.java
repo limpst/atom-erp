@@ -52,6 +52,24 @@ public class WaiverService {
         }
         String side = pm ? "pm" : "qa";
         UUID actor = sup.actorId();
+        // 보안 검토 2026-10-19 QAR-04b: QA 측 서명은 이 라운드의 현재 QA 담당자만, PM 측 서명자 ≠ 작성자(작성 · 제출 · 섹션 편집)
+        if (qa) {
+            UUID assignee = qar.jdbc().queryForList("""
+                    SELECT assignee_id FROM qar.review_assignment WHERE round_id = ? AND step_code = 'QA_REVIEW'
+                       AND completed_at IS NULL ORDER BY created_at DESC LIMIT 1""", UUID.class, round.get("id"))
+                    .stream().findFirst().orElse(null);
+            if (!actor.equals(assignee)) {
+                throw new DomainException(QarCodes.NOT_ASSIGNEE, "예외 승인 QA 사유는 이 라운드의 현재 QA 담당자만 입력합니다")
+                        .with("reason", "QAR_NOT_ASSIGNEE");
+            }
+        } else {
+            String role = sup.authorRole(review, round, actor, false);
+            if (role != null) {
+                throw new DomainException(QarCodes.SOD_VIOLATION,
+                        "보고서 작성에 참여한 사람(" + role + ")은 예외 승인 PM 사유를 입력할 수 없습니다")
+                        .with("reason", "QAR_SOD_VIOLATION").with("sodRule", role);
+            }
+        }
         Map<String, Object> w = qar.jdbc().queryForList("SELECT * FROM qar.waiver WHERE autocheck_result_id = ? FOR UPDATE",
                 resultId).stream().findFirst().orElse(null);
         if (w == null) {

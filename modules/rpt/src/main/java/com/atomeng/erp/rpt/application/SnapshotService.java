@@ -88,7 +88,7 @@ public class SnapshotService {
         Ctx c = sup.lock(RptJdbc.uuid(cur, "id"), "rpt:report:create");
         sup.requireStatus(c, ReportStatus.DRAFT, ReportStatus.SNAPSHOT_FROZEN, ReportStatus.COMPOSING);
         if (input.buildings() != null) {
-            input.buildings().forEach(b -> ownership.requireSameClient(c.projectId(), b.buildingId()));   // SEC-RPT-04
+            input.buildings().forEach(b -> ownership.requireLinkedToProject(c.projectId(), b.buildingId()));   // RPT-02b
         }
 
         Map<String, Object> watermarks = new LinkedHashMap<>();

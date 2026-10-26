@@ -277,7 +277,7 @@
   - `KeycloakRealmExportTest.claimNames` 는 클레임 이름이 없는 audience 매퍼를 건너뜀.
 - 운영 배포 시 꼭 할 일(추가): `ATOM_AIP_WORKER_SECRET`(32바이트 이상, ERP · 워커 같은 값), `ATOM_SECURITY_AUDIENCES`(realm 매퍼와 같은 값), `SPRING_PROFILES_ACTIVE=prod` + `atom.evidence.local-root`(영구 경로), Keycloak User Profile 에서 `client_id` · `employee_id` 관리자 전용(`deploy/keycloak/README.md`).
 - 운영 배포 시 꼭 할 일: **`atom.fcd.token-hmac.v1` 에 32바이트 이상 비밀 키 주입**(FCD-01). 주입하지 않으면 OIDC 모드 기동이 실패합니다.
-- **3차(2026-10-26, 정책 결정 적용): `./gradlew build` BUILD SUCCESSFUL — 시험 941개 중 실패 0, 건너뜀 5(PostGIS 1 + 작업 폴더에 .venv 가 없어 건너뛴 실워커 계약 4 — 따로 .venv 를 붙여 `AipWorkerLiveContractTest` 4개 통과 확인).** 웹: `npm run build` 통과, Vitest 16파일 98개 통과, Playwright E2E 20파일 37개 통과(직무 분리 E2E `w4-sod.spec.ts` 포함).
+- **3차(2026-10-26, 정책 결정 적용): `./gradlew build` BUILD SUCCESSFUL — 시험 944개 중 실패 0, 건너뜀 5(PostGIS 1 + 작업 폴더에 .venv 가 없어 건너뛴 실워커 계약 4 — 따로 .venv 를 붙여 `AipWorkerLiveContractTest` 4개 통과 확인).** 웹: `npm run build` 통과, Vitest 16파일 98개 통과, Playwright E2E 20파일 37개 통과(직무 분리 E2E `w4-sod.spec.ts` 포함).
 - 3차 운영 배포 시 꼭 할 일(추가): `deploy/prod/run-erp.sh`(또는 `.ps1`)로만 기동 — `SPRING_PROFILES_ACTIVE=prod` 고정 · 환경 파일 `/etc/atom-erp/erp.env`(양식 `deploy/prod/erp.env.example`, 비밀값 빈 칸). prod 는 `PG_APP_PASSWORD`(기본값 `atom_app_local` · 빈 값 거부), S3 호환 Object Lock 버킷(미리 Object Lock 을 켜고 생성) · `ATOM_EVIDENCE_S3_ENDPOINT` · `ATOM_EVIDENCE_S3_ACCESS_KEY` · `ATOM_EVIDENCE_S3_SECRET_KEY`(환경변수만), 실제 HRQ 투입 가능성 · 조종 자격 어댑터(스텁이면 기동 실패)가 필요합니다.
 
 ## 10. 다음 단계 권장 순서

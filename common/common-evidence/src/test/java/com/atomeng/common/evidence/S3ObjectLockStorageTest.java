@@ -45,7 +45,7 @@ import org.springframework.mock.env.MockEnvironment;
  */
 class S3ObjectLockStorageTest {
 
-    static final String AK = "AKIASYNTHETIC0000001";
+    static final String AK = "SYNTHETIC-TEST-AK-0001";
     static final String SK = "synthetic/secret/key/for/fake/s3/0000000";
     static final String REGION = "us-east-1";
 

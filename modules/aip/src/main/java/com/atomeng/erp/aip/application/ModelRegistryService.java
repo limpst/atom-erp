@@ -29,6 +29,11 @@ public class ModelRegistryService {
     public record Route(String serviceCode, String alias, UUID modelVersionId, String modelName, String modelVersion,
                         UUID promptVersionId, String promptKey, String promptVersion, String shadowModel) {}
 
+    /** canary 기본 비율(요청에 trafficPct 가 없을 때) */
+    public static final int DEFAULT_CANARY_PCT = 10;
+    /** 보안 검토 AIP-02: EXEC 최종 승인 없이 허용되는 canary 최대 비율 */
+    public static final int MAX_CANARY_PCT_WITHOUT_EXEC = 25;
+
     private final AipJdbc db;
     private final OutboxPublisher outbox;
     private final CurrentActor actor;
@@ -99,7 +104,15 @@ public class ModelRegistryService {
         if (m.get(col) != null) {
             throw new DomainException(AipCodes.PROMOTION_DENIED, approverRole + " 승인이 이미 기록되어 있습니다");
         }
-        db.jdbc().update("UPDATE aip.model_version SET " + col + " = ? WHERE id = ?", actor.actorIdOrSystem(), modelId);
+        // 보안 검토 AIP-01b: 4-eyes — QA 품질 승인자와 EXEC 최종 승인자는 다른 사람이어야 한다(QA+EXEC 겸직자 포함).
+        // DB CHECK ck_model_version_four_eyes(V0050)가 같은 규칙을 한 번 더 막는다.
+        UUID me = actor.actorIdOrSystem();
+        String other = "approved_by".equals(col) ? "exec_approved_by" : "approved_by";
+        if (me.equals(AipJdbc.uuid(m, other))) {
+            throw new DomainException(AipCodes.SEGREGATION_OF_DUTIES,
+                    "같은 사람이 QA 승인과 EXEC 승인을 모두 할 수 없습니다(AIP-01b)");
+        }
+        db.jdbc().update("UPDATE aip.model_version SET " + col + " = ? WHERE id = ?", me, modelId);
         return db.get("model_version", modelId);
     }
 
@@ -127,6 +140,20 @@ public class ModelRegistryService {
         if ("EXEC".equals(to.requiredApprover()) && m.get("exec_approved_by") == null) {
             throw new DomainException(AipCodes.PROMOTION_DENIED, "PRODUCTION 진입은 EXEC 최종 승인이 필요합니다");
         }
+        // 보안 검토 AIP-02: canary 비율은 서버가 통제 — 1~100, 25% 초과(전체 트래픽 100% 포함)는 EXEC 최종 승인이
+        // 먼저 기록된 모델만. 그 밖에는 403 AIP-403-001(승인 없이 canary 로 사실상 production 전환 금지)
+        Integer canaryPct = null;
+        if (to == ModelStage.CANARY) {
+            canaryPct = trafficPct == null ? DEFAULT_CANARY_PCT : trafficPct;
+            if (canaryPct < 1 || canaryPct > 100) {
+                throw new DomainException(AipCodes.INVALID, "canary trafficPct 는 1~100 이어야 합니다: " + canaryPct);
+            }
+            if (canaryPct > MAX_CANARY_PCT_WITHOUT_EXEC && m.get("exec_approved_by") == null) {
+                throw new DomainException(AipCodes.CANARY_TRAFFIC_EXEC_REQUIRED, "canary 트래픽 "
+                        + MAX_CANARY_PCT_WITHOUT_EXEC + "% 초과는 EXEC 최종 승인이 먼저 필요합니다: " + canaryPct + "%")
+                        .with("maxWithoutExec", MAX_CANARY_PCT_WITHOUT_EXEC).with("requested", canaryPct);
+            }
+        }
         db.jdbc().update("UPDATE aip.model_version SET stage = ?, stage_changed_at = now() WHERE id = ?", to.name(),
                 modelId);
         String alias = to.alias();
@@ -137,7 +164,7 @@ public class ModelRegistryService {
             }
             pct = switch (alias) {
                 case "production" -> 100;
-                case "canary" -> trafficPct == null ? 10 : trafficPct;
+                case "canary" -> canaryPct == null ? DEFAULT_CANARY_PCT : canaryPct;
                 default -> 0;
             };
             if ("production".equals(alias)) {

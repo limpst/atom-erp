@@ -267,12 +267,32 @@ public class SuggestionService {
         if ("DONE".equals(st) || "DISCARDED".equals(st)) {
             throw new DomainException(AipCodes.INVALID_TRANSITION, "이미 판정된 라벨 과제: " + st);
         }
+        UUID me = actor.actorIdOrSystem();
+        // 보안 검토 AIP-08: 판정자 ≠ 라벨러. 라벨러 = 라벨 제출자(label_task.labeled_by, Label Studio 연동 시 기록) 또는
+        // 이 과제의 원천 라벨(피드백 MODIFIED/REJECTED 정정)을 만든 결정자(aip.feedback.decided_by). DB 트리거(V0050)도 같은 규칙.
+        if (labelers(t).contains(me)) {
+            throw new DomainException(AipCodes.SEGREGATION_OF_DUTIES, "자기 라벨은 판정할 수 없습니다(AIP-08)");
+        }
         db.jdbc().update("""
                 INSERT INTO aip.adjudication(task_id, approved, agreement_iou, final_result, adjudicator_id, feedback_card)
                 VALUES (?, ?, ?, ?::jsonb, ?, ?)""", taskId, approved, iou,
-                finalResult == null ? "{}" : finalResult.toString(), actor.actorIdOrSystem(), card);
+                finalResult == null ? "{}" : finalResult.toString(), me, card);
         db.jdbc().update("UPDATE aip.label_task SET status = ? WHERE id = ?", approved ? "DONE" : "DISCARDED", taskId);
         return db.get("label_task", taskId);
+    }
+
+    /** 라벨 과제의 라벨러(제출자 + 원천 피드백 결정자) */
+    private Set<UUID> labelers(Map<String, Object> task) {
+        Set<UUID> out = new java.util.HashSet<>();
+        UUID labeledBy = AipJdbc.uuid(task, "labeled_by");
+        if (labeledBy != null) {
+            out.add(labeledBy);
+        }
+        UUID feedback = AipJdbc.uuid(task, "feedback_id");
+        if (feedback != null) {
+            out.addAll(db.jdbc().queryForList("SELECT decided_by FROM aip.feedback WHERE id = ?", UUID.class, feedback));
+        }
+        return out;
     }
 
     /**

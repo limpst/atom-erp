@@ -41,6 +41,42 @@ class ProductionGuardsAndAudienceTest {
                 new AtomSecurityProperties(true, List.of(), List.of("atom-erp-api")))).doesNotThrowAnyException();
     }
 
+    @Test
+    @DisplayName("CMN-04: 운영 배포 표식(atom.deploy.environment=prod)인데 prod 프로필이 없으면 기동 거부, 표식 없는 개발 기동은 허용")
+    void deployMarkerRequiresProdProfile() {
+        MockEnvironment marked = env("local-noauth");
+        marked.setProperty("atom.deploy.environment", "prod");
+        assertThatThrownBy(() -> ProductionGuards.checkDeployment(marked)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CMN-04");
+        MockEnvironment ok = env("prod");
+        ok.setProperty("atom.deploy.environment", "prod");
+        assertThatCode(() -> ProductionGuards.checkDeployment(ok)).doesNotThrowAnyException();
+        assertThatCode(() -> ProductionGuards.checkDeployment(env())).doesNotThrowAnyException();
+        assertThatCode(() -> ProductionGuards.checkDeployment(env("local-noauth"))).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("CMN-13: prod 프로필 + DB 비밀번호 미설정 · 빈 값 · 개발 기본값(atom_app_local) → 기동 거부, 개발 프로필은 기본값 허용")
+    void prodRefusesDefaultDbPassword() {
+        MockEnvironment missing = env("prod");
+        assertThatThrownBy(() -> ProductionGuards.checkDatasource(missing)).hasMessageContaining("CMN-13");
+        MockEnvironment blank = env("production");
+        blank.setProperty("spring.datasource.password", " ");
+        assertThatThrownBy(() -> ProductionGuards.checkDatasource(blank)).hasMessageContaining("CMN-13");
+        MockEnvironment dflt = env("prod");
+        dflt.setProperty("spring.datasource.password", ProductionGuards.DEV_DB_PASSWORD);
+        assertThatThrownBy(() -> ProductionGuards.checkDatasource(dflt)).hasMessageContaining("CMN-13");
+        MockEnvironment unresolved = env("prod");
+        unresolved.setProperty("spring.datasource.password", "${PG_APP_PASSWORD}");
+        assertThatThrownBy(() -> ProductionGuards.checkDatasource(unresolved)).isInstanceOf(IllegalStateException.class);
+        MockEnvironment real = env("prod");
+        real.setProperty("spring.datasource.password", "synthetic-Strong-pw-0001");
+        assertThatCode(() -> ProductionGuards.checkDatasource(real)).doesNotThrowAnyException();
+        MockEnvironment dev = env("local-noauth");
+        dev.setProperty("spring.datasource.password", ProductionGuards.DEV_DB_PASSWORD);
+        assertThatCode(() -> ProductionGuards.checkDatasource(dev)).doesNotThrowAnyException();
+    }
+
     private static Jwt jwt(List<String> aud) {
         var b = Jwt.withTokenValue("synthetic").header("alg", "RS256").subject("s").issuedAt(Instant.EPOCH)
                 .expiresAt(Instant.EPOCH.plusSeconds(60));

@@ -69,9 +69,12 @@ public class WebPlatformAutoConfiguration {
     @Bean
     FilterRegistrationBean<IdempotencyFilter> idempotencyFilter(IdempotencyStore store,
             ObjectProvider<CurrentActor> currentActor, ProblemWriter writer, IdempotencyProperties props,
-            ObjectMapper objectMapper, Clock clock) {
+            ObjectMapper objectMapper, Clock clock, ObjectProvider<IdempotencyFilter.ReplayAuthorization> replayAuth) {
         CurrentActor actor = currentActor.getIfAvailable(() -> Optional::empty);
-        var reg = new FilterRegistrationBean<>(new IdempotencyFilter(store, actor, writer, props, objectMapper, clock));
+        // CMN-09: 재반환 전 권한 재확인 구현(common-identity)이 있으면 켠다
+        boolean reauthorize = replayAuth.getIfAvailable() != null;
+        var reg = new FilterRegistrationBean<>(new IdempotencyFilter(store, actor, writer, props, objectMapper, clock,
+                reauthorize));
         reg.setOrder(IDEMPOTENCY_FILTER_ORDER);
         reg.addUrlPatterns("/api/*");
         return reg;

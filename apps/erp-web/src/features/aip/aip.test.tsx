@@ -39,7 +39,12 @@ useMswServer(
     await record(request);
     return HttpResponse.json(job({ id: 'j2', status: 'CANCELLED' }));
   }),
-  mswHttp.get('*/api/v1/aip/models', () => HttpResponse.json([model({}), model({ id: 'm9', name: 'crack', version: '1.1.0', stage: 'EVALUATED', deployments: null })])),
+  mswHttp.get('*/api/v1/aip/models', () => HttpResponse.json([model({}), model({ id: 'm9', name: 'crack', version: '1.1.0', stage: 'EVALUATED', deployments: null }),
+    model({ id: 'm7', name: 'crack', version: '1.2.0', stage: 'SHADOW', approved_by: devUserId(6), deployments: null })])),
+  mswHttp.post('*/api/v1/aip/models/:id/promote', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ ...model({ id: 'm7', stage: 'CANARY' }), alias: 'canary', trafficPct: 25 });
+  }),
   mswHttp.post('*/api/v1/aip/models/:id/approval', async ({ request }) => {
     await record(request);
     return HttpResponse.json(model({ id: 'm9', stage: 'EVALUATED', approved_by: devUserId(6) }));
@@ -98,6 +103,35 @@ describe('AI Job · 모델 화면', () => {
     expect(req).toHaveTextContent('crack@1.1.0평가 완료ShadowQA대기');
     await user.click(within(t).getAllByRole('button', { name: 'QA 승인' })[1]);
     await waitFor(() => expect(seen[0]).toMatchObject({ url: '/api/v1/aip/models/m9/approval', body: { role: 'QA' } }));
+  });
+
+  it('AIP-MODEL-READ: SYSADMIN 도 모델 레지스트리 탭을 보고 단계 전이(canary 25% 상한 안내)를 연다', async () => {
+    const user = userEvent.setup();
+    renderAs(devUserId(8), ['SYSADMIN'], <AipPage />, { route: '/?tab=models' });
+    expect(await screen.findByRole('tab', { name: '모델 레지스트리' })).toBeInTheDocument();
+    const t = await screen.findByTestId('aip-models');
+    expect(await within(t).findByText('crack@1.2.0')).toBeInTheDocument();
+    const row = within(t).getByText('crack@1.2.0').closest('tr')!;
+    await user.click(within(row).getByRole('button', { name: '단계 전이…' }));
+    const dlg = await screen.findByRole('dialog');
+    const pct = within(dlg).getByLabelText('canary 비율');
+    expect(pct).toHaveAttribute('max', '25');   // AIP-02: EXEC 승인 전 canary ≤ 25%
+    await user.clear(pct);
+    await user.type(pct, '60');
+    expect(within(dlg).getByRole('status')).toHaveTextContent('AIP-403-001');
+    await user.clear(pct);
+    await user.type(pct, '25');
+    await user.click(within(dlg).getByRole('button', { name: '전이' }));
+    await waitFor(() => expect(seen[0]).toMatchObject({ url: '/api/v1/aip/models/m7/promote', body: { targetStage: 'CANARY', trafficPct: 25 } }));
+  });
+
+  it('AIP-01b: QA 승인자 본인(QA+EXEC 겸직)에게는 EXEC 승인 버튼을 보이지 않는다', async () => {
+    renderAs(devUserId(6), ['QA', 'EXEC'], <AipPage />, { route: '/?tab=models' });
+    const t = await screen.findByTestId('aip-models');
+    const row = (await within(t).findByText('crack@1.2.0')).closest('tr')!;
+    expect(within(row).queryByRole('button', { name: 'EXEC 승인' })).toBeNull();
+    const other = within(t).getByText('crack@1.1.0').closest('tr')!;
+    expect(within(other).getByRole('button', { name: 'EXEC 승인' })).toBeInTheDocument();
   });
 
   it('제안: 결정 대기 → 수락, 결정됨 탭', async () => {

@@ -248,6 +248,52 @@ class IdempotencyIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @DisplayName("CMN-09: 재반환 전 권한 재확인 — 권한이 회수된 같은 사용자 · 같은 키는 403(저장 응답 비노출), 권한이 있으면 업무 미실행 재반환")
+    void cmn09ReplayRechecksPermission() throws Exception {
+        UUID actor = actor();
+        String key = UUID.randomUUID().toString();
+        String name = "합성고객-CMN09-" + key.substring(0, 8);
+        var first = mvc.perform(as(postJson(CLIENTS, body(name)), actor, "SALES").header("Idempotency-Key", key))
+                .andExpect(status().isCreated()).andReturn();
+        String id = json(first).get("id").asText();
+
+        // 역할 회수(SALES → EMPLOYEE) 뒤 같은 키 재전송 → 권한 재검사 403, 저장 응답(고객 id) 비노출
+        var denied = mvc.perform(as(postJson(CLIENTS, body(name)), actor, "EMPLOYEE").header("Idempotency-Key", key))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Idempotent-Replayed"))
+                .andExpect(jsonPath("$.code").value("CORE-403-001")).andReturn();
+        assertThat(denied.getResponse().getContentAsString()).doesNotContain(id);
+
+        // 권한이 그대로면 저장 응답 재반환(업무 · 감사 미실행)
+        mvc.perform(as(postJson(CLIENTS, body(name)), actor, "SALES").header("Idempotency-Key", key))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.id").value(id));
+        assertThat(clientsNamed(name)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.audit_log WHERE target_id = ?::uuid",
+                Integer.class, id)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("CMN-09: 바이너리(비 JSON, PDF) 응답은 멱등 저장 · 재반환 제외 — 같은 키 재전송도 매번 본문 있는 200(빈 200 버그 수정)")
+    void cmn09BinaryResponsesAreNotStored() throws Exception {
+        UUID actor = actor();
+        String key = UUID.randomUUID().toString();
+        int before = boom.binaryCalls.get();
+        for (int i = 0; i < 2; i++) {
+            var r = mvc.perform(as(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/test/binary"),
+                            actor, "SALES").header("Idempotency-Key", key))
+                    .andExpect(status().isOk())
+                    .andExpect(header().doesNotExist("Idempotent-Replayed")).andReturn();
+            assertThat(r.getResponse().getContentType()).isEqualTo("application/pdf");
+            assertThat(new String(r.getResponse().getContentAsByteArray(), StandardCharsets.US_ASCII)).startsWith("%PDF-1.7 synthetic");
+        }
+        assertThat(boom.binaryCalls.get() - before).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.idempotency_key WHERE actor_id = ? AND key = ?",
+                Integer.class, actor, key)).isZero();
+    }
+
     private static String hashOf(String path, String json) {
         return Hashing.sha256Hex("POST\n" + path + "\n"
                 + CanonicalJson.canonicalize(json.getBytes(StandardCharsets.UTF_8)));

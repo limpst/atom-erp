@@ -34,15 +34,28 @@ public record FldProperties(Sync sync, Upload upload, Ai ai) {
     }
 
     /**
-     * @param maxFileBytes           사진 원본 최대 크기(보안 검토 FLD-02, 기본 50MB — 수치는 정책 FLD-02b 로 조정)
-     * @param maxOpenSessionsPerUser 사용자당 동시에 열린 업로드 세션 수(기본 20 — 수치는 정책 FLD-02b 로 조정)
+     * 업로드 한도 — <b>보안 검토 FLD-02b 확정값(2026-10-26, 권장안 승인)</b>. 운영 기본값이며 설정으로만 바꾼다
+     * ({@code atom.fld.upload.*}, application.yml 에 같은 값을 명시). 근거: 현장 기기(태블릿 · 드론 카메라) 원본 사진은
+     * 대개 5~30MB 라 50MB 면 여유가 있고, 동시에 열린 세션 20개 · 7일 만료면 오프라인 1주 현장 작업도 수용하면서
+     * TEMP 디스크 고갈(세션 남발)을 막는다. 첨부 공통 상한 {@code atom.attachment.max-bytes} 도 같은 50MB(core AttachmentService).
+     *
+     * @param maxChunkBytes          PATCH 청크 상한(FR-FLD-017, 5MB)
+     * @param sessionTtl             업로드 세션 만료(7일) — 지나면 PATCH 410 FLD-410-001 · FldUploadJanitor 가 EXPIRED
+     * @param maxFileBytes           사진 원본 최대 크기(50MB) — 넘으면 413 FLD-413-002
+     * @param maxOpenSessionsPerUser 사용자당 동시에 열린 업로드 세션 수(20) — 넘으면 429 FLD-429-001
      */
     public record Upload(Integer maxChunkBytes, Duration sessionTtl, Long maxFileBytes, Integer maxOpenSessionsPerUser) {
+        public static final int DEFAULT_MAX_CHUNK_BYTES = 5 * 1024 * 1024;
+        public static final Duration DEFAULT_SESSION_TTL = Duration.ofDays(7);
+        public static final long DEFAULT_MAX_FILE_BYTES = 50L * 1024 * 1024;
+        public static final int DEFAULT_MAX_OPEN_SESSIONS_PER_USER = 20;
+
         public Upload {
-            maxChunkBytes = maxChunkBytes == null ? 5 * 1024 * 1024 : maxChunkBytes;
-            sessionTtl = sessionTtl == null ? Duration.ofDays(7) : sessionTtl;
-            maxFileBytes = maxFileBytes == null ? 50L * 1024 * 1024 : maxFileBytes;
-            maxOpenSessionsPerUser = maxOpenSessionsPerUser == null ? 20 : maxOpenSessionsPerUser;
+            maxChunkBytes = maxChunkBytes == null ? DEFAULT_MAX_CHUNK_BYTES : maxChunkBytes;
+            sessionTtl = sessionTtl == null ? DEFAULT_SESSION_TTL : sessionTtl;
+            maxFileBytes = maxFileBytes == null ? DEFAULT_MAX_FILE_BYTES : maxFileBytes;
+            maxOpenSessionsPerUser = maxOpenSessionsPerUser == null ? DEFAULT_MAX_OPEN_SESSIONS_PER_USER
+                    : maxOpenSessionsPerUser;
         }
     }
 

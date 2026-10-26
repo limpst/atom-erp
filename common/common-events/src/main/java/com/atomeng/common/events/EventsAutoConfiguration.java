@@ -30,8 +30,10 @@ public class EventsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    EventTransport eventTransport(ApplicationEventPublisher publisher) {
-        return new SpringEventTransport(publisher);
+    EventTransport eventTransport(ApplicationEventPublisher publisher,
+                                  org.springframework.beans.factory.config.ConfigurableListableBeanFactory beans) {
+        // CMN-14: 빈 팩토리를 넘겨 구독자 단위 전달 · 재시도 · DLQ 를 켠다
+        return new SpringEventTransport(publisher, beans);
     }
 
     @Bean

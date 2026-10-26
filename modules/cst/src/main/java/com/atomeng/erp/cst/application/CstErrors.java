@@ -16,6 +16,10 @@ public final class CstErrors {
     public static final String PERIOD_STATE = "CST-409-004";
     /** 요율 승인 4-eyes — 등록 · 수정자 ≠ 승인자 */
     public static final String RATE_SAME_APPROVER = "CST-403-001";
+    /** CST-01 예산 maker-checker — 작성 · 수정 · 상신자 ≠ 결재자 */
+    public static final String BUDGET_SAME_APPROVER = "CST-403-002";
+    /** CST-02 요율 적용 기간이 마감된 회계기간에 걸침(소급 금지) */
+    public static final String RATE_PERIOD_CLOSED = "CST-409-008";
     /** 요율 상태(DRAFT 만 수정 · 승인 · 반려, APPROVED 만 종료) */
     public static final String RATE_STATE = "CST-409-005";
     public static final String RATE_DRAFT_EXISTS = "CST-409-006";

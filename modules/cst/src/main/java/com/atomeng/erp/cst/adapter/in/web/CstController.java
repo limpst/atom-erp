@@ -208,7 +208,15 @@ class CstController {
         return budgets.revisions(projectId);
     }
 
-    /** 실행예산 결재(EXEC) — DRAFT → APPROVED(Baseline). If-Match 필수 */
+    /** 실행예산 상신(PM · ADMIN · FIN) — DRAFT → SUBMITTED. If-Match 필수 (CST-01) */
+    @PostMapping("/projects/{projectId}/budget-revisions/{revisionId}:submit")
+    @RequirePermission(value = "cst:budget:update", projectIdParam = "projectId")
+    public Map<String, Object> submitBudget(@PathVariable UUID projectId, @PathVariable UUID revisionId,
+                                            @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        return budgets.submit(projectId, revisionId, IfMatch.require(ifMatch));
+    }
+
+    /** 실행예산 결재(EXEC) — SUBMITTED → APPROVED(Baseline), 작성 · 상신자 ≠ 결재자. If-Match 필수 */
     @PostMapping("/projects/{projectId}/budget-revisions/{revisionId}:approve")
     @RequirePermission(value = "cst:budget:approve", projectIdParam = "projectId")
     public Map<String, Object> approveBudget(@PathVariable UUID projectId, @PathVariable UUID revisionId,

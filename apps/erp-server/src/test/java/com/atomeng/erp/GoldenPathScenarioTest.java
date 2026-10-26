@@ -187,8 +187,17 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         assertThat(draft.get("status").asText()).isEqualTo("DRAFT");
         assertThat(draft.get("revNo").asInt()).isZero();
         assertThat(draft.get("contractAmountKrw").decimalValue()).isEqualByComparingTo(offer);
+        // CST-01: DRAFT 직접 결재 409 → 상신(ADMIN) → 상신자 본인 결재 403(maker-checker) → EXEC 결재
+        call(ifMatch(postJson("/api/v1/cst/projects/" + project + "/budget-revisions/"
+                + draft.get("id").asText() + ":approve", "{}"), draft.get("version").asLong()), exec, "EXEC", 409);
+        JsonNode submitted = call(ifMatch(postJson("/api/v1/cst/projects/" + project + "/budget-revisions/"
+                + draft.get("id").asText() + ":submit", "{}"), draft.get("version").asLong()), admin, "ADMIN", 200);
+        assertThat(submitted.get("status").asText()).isEqualTo("SUBMITTED");
+        assertThat(call(ifMatch(postJson("/api/v1/cst/projects/" + project + "/budget-revisions/"
+                + draft.get("id").asText() + ":approve", "{}"), submitted.get("version").asLong()), admin, "ADMIN", 403)
+                .get("code").asText()).isEqualTo("CST-403-002");
         JsonNode approvedBudget = call(ifMatch(postJson("/api/v1/cst/projects/" + project + "/budget-revisions/"
-                + draft.get("id").asText() + ":approve", "{}"), draft.get("version").asLong()), exec, "EXEC", 200);
+                + draft.get("id").asText() + ":approve", "{}"), submitted.get("version").asLong()), exec, "EXEC", 200);
         assertThat(approvedBudget.get("status").asText()).isEqualTo("APPROVED");
         BigDecimal bac = approvedBudget.get("bacKrw").decimalValue();
         BigDecimal fieldBudget = BigDecimal.ZERO;

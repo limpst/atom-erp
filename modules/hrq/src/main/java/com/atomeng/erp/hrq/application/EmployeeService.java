@@ -47,6 +47,9 @@ public class EmployeeService {
     @Transactional
     public EmployeeRow register(Register r) {
         UUID by = actor.actorIdOrSystem();
+        if (r.initialGrade() != null) {
+            requireNotSelf(r.id(), by, "본인 등급(초기 등급 포함)은 직접 정할 수 없습니다");
+        }
         directory.ensureEmployee(new EmployeeDirectoryApi.EmployeeRecord(r.id(), r.empNo(), r.name(), r.hiredOn()));
         jdbc.insertEmployee(new EmployeeRow(r.id(), r.empNo(), r.name(), r.field(), r.employmentType(), "ACTIVE",
                 r.registeredField(), r.hiredOn(), null, null, 0), by);
@@ -59,6 +62,13 @@ public class EmployeeService {
         return get(r.id());
     }
 
+    /** HRQ-06: 요청자 = 대상 직원이면 거부(노임단가 · 등록요건에 영향을 주는 등급은 남이 처리) */
+    static void requireNotSelf(UUID target, UUID requester, String message) {
+        if (target.equals(requester)) {
+            throw new DomainException(HrqErrors.SELF_APPROVAL, message);
+        }
+    }
+
     public EmployeeRow get(UUID id) {
         return jdbc.employee(id).orElseThrow(() -> new DomainException(HrqErrors.NOT_FOUND, "기술자 없음: " + id));
     }
@@ -69,6 +79,7 @@ public class EmployeeService {
         requireGrade(grade);
         jdbc.lockEmployee(empId).orElseThrow(() -> new DomainException(HrqErrors.NOT_FOUND, "기술자 없음: " + empId));
         UUID by = actor.actorIdOrSystem();
+        requireNotSelf(empId, by, "본인 등급은 변경할 수 없습니다 — 다른 경영지원 담당자가 처리합니다");
         var open = jdbc.openGrade(empId);
         String prev = open.map(HrqJdbc.GradeRow::grade).orElse(null);
         if (open.isPresent()) {

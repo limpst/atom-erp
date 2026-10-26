@@ -65,7 +65,8 @@ class HrqController {
 
     record WeekRequest(@NotNull List<@Valid EntryRequest> entries, boolean submit) {}
 
-    record ApprovalRequest(@NotEmpty List<UUID> entryIds) {}
+    /** delegationReason: 프로젝트 RESP 가 아닌 EXEC · ADMIN 의 대리 승인 사유(5자 이상, HRQ-01) */
+    record ApprovalRequest(@NotEmpty List<UUID> entryIds, @Size(max = 500) String delegationReason) {}
 
     record CorrectRequest(@NotNull @DecimalMin(value = "0", inclusive = false) @DecimalMax("24") BigDecimal hours,
                           String workType, @NotBlank @Size(max = 500) String reason, boolean adjustment) {}
@@ -114,10 +115,6 @@ class HrqController {
             }
         }
         return false;
-    }
-
-    private static boolean isAdmin() {
-        return AtomAuthentication.currentPrincipal().map(p -> p.has(Role.ADMIN)).orElse(false);
     }
 
     // ------------------------------------------------------------ 기술자·등급
@@ -238,8 +235,8 @@ class HrqController {
 
     @PostMapping("/timesheets/approvals")
     @RequirePermission("hrq:timesheet:approve")
-    public Map<String, Integer> approve(@Valid @RequestBody ApprovalRequest r) {
-        return Map.of("approved", timesheets.approve(r.entryIds()));
+    public TimesheetService.ApprovalResult approve(@Valid @RequestBody ApprovalRequest r) {
+        return timesheets.approve(r.entryIds(), r.delegationReason());
     }
 
     /** (v0.3) 확정 타임시트 정정 — Idempotency-Key 필수(설계 B4). 같은 키 재요청은 공통 필터가 재반환(TC-HRQ-013) */
@@ -256,7 +253,7 @@ class HrqController {
                 .orElseThrow(() -> new DomainException("HRQ-404-001", "타임시트 없음: " + id));
         requireSelfOr(cur.employeeId(), Role.PM, Role.ADMIN);
         return timesheets.correct(id, new TimesheetService.Correction(r.hours(), r.workType(), r.reason(),
-                r.adjustment()), isAdmin());
+                r.adjustment()));
     }
 
     @GetMapping("/timesheets/{empId}/weeks/{isoWeek}")
@@ -280,15 +277,12 @@ class HrqController {
 
     // ------------------------------------------------------------ 월 마감
     /**
-     * 월 마감 이력(웹) — 읽기 전용. 회사 전체 상태라 hrq:timesheet:read 가 ALL 인 역할(EXEC · PM · ADMIN)만,
-     * SELF 범위 역할은 거부(실패하는 쪽으로 닫음).
+     * 월 마감 이력(웹) — 읽기 전용. 회사 전체 상태라 hrq:month-close:read(EXEC · PM · ADMIN · SYSADMIN, 모두 ALL, V0039)만 —
+     * 재오픈하는 SYSADMIN 도 목록에서 고른다(HRQ-07).
      */
     @GetMapping("/month-close")
-    @RequirePermission(value = "hrq:timesheet:read", scopeCheckedInService = true)
+    @RequirePermission("hrq:month-close:read")
     public List<Map<String, Object>> monthCloses() {
-        if (!hasAny(Role.EXEC, Role.PM, Role.ADMIN)) {
-            throw new DomainException(CoreErrors.OUT_OF_PROJECT_SCOPE, "월 마감 이력은 전체 범위 역할만 조회할 수 있습니다");
-        }
         return jdbc.monthCloses();
     }
 
@@ -298,8 +292,9 @@ class HrqController {
         return timesheets.closeMonth(yyyyMM);
     }
 
+    /** 재오픈은 마감(ADMIN)과 분리 — hrq:month-close:reopen(SYSADMIN), CST 회계기간과 같은 구조(HRQ-07) */
     @PostMapping("/month-close/{yyyyMM}:reopen")
-    @RequirePermission("hrq:month-close:write")
+    @RequirePermission("hrq:month-close:reopen")
     public Map<String, Object> reopen(@PathVariable String yyyyMM, @Valid @RequestBody ReopenRequest r) {
         timesheets.reopenMonth(yyyyMM, r.reason());
         return jdbc.monthClose(yyyyMM);

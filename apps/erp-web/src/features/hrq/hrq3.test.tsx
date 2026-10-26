@@ -122,12 +122,20 @@ describe('등록요건', () => {
 });
 
 describe('HRQ 월 마감', () => {
-  it('미승인 409 는 토스트, 재오픈은 사유 5자 이상', async () => {
+  it('ADMIN: 미승인 409 는 토스트, 재오픈 버튼은 없음(HRQ-07)', async () => {
     const user = userEvent.setup();
     renderAs(ADMIN, ['ADMIN'], <HrqMonthClosePage />);
     await screen.findByTestId('hrq-month-202608');
     await user.click(screen.getByTestId('hrq-close'));
     await waitFor(() => expect(toasts.error[0]?.title).toBe('[HRQ-409-004] 미승인 타임시트'));
+    expect(screen.queryByRole('button', { name: 'HRQ 재오픈 2026-08' })).toBeNull();
+  });
+
+  it('SYSADMIN: 마감 버튼 없이 목록에서 재오픈, 사유 5자 이상(HRQ-07)', async () => {
+    const user = userEvent.setup();
+    renderAs(devUserId(13), ['SYSADMIN'], <HrqMonthClosePage />);
+    await screen.findByTestId('hrq-month-202608');
+    expect(screen.queryByTestId('hrq-close')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'HRQ 재오픈 2026-08' }));
     const dlg = screen.getByRole('dialog', { name: 'HRQ 2026-08 재오픈' });
     await user.type(within(dlg).getByLabelText('재오픈 사유'), '짧음');

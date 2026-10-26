@@ -441,14 +441,23 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         call(post("/api/v1/qar/ai-jobs:run"), qa, "QA", 200);
         assertThat(call(get("/api/v1/qar/reviews/" + reviewId), pm, "PM", 200).get("status").asText())
                 .isEqualTo("QA_REVIEWING");
+        // QAR-03b: 자기 배정 금지 — QA 팀장(합성 QA 역할)이 배정
         call(postJson("/api/v1/qar/rounds/" + roundQ + "/assignments", json(map("stepCode", "QA_REVIEW",
-                "assigneeId", qa))), qa, "QA", 201);
+                "assigneeId", qa))), UUID.randomUUID(), "QA", 201);
         answerChecklist(roundQ, "QA", qa, "QA");
         assertThat(call(postJson("/api/v1/qar/rounds/" + roundQ + "/decision", "{\"decision\":\"PASS\"}")
                 .header("If-Match", etag("/api/v1/qar/reviews/" + reviewId, pm, "PM")), qa, "QA", 200)
                 .get("status").asText()).isEqualTo("PENDING_APPROVAL");
+        // QAR-01: 최종 승인자는 작성 · 제출 · 등급 결정에 참여하지 않은 두 번째 PM(투입 PART)
+        UUID approver = hrqEmployee("최종승인자", "ARCH", "SENIOR");
+        call(postJson("/api/v1/core/projects/" + project + "/members", json(map("employeeId", approver,
+                "roleInProject", "PART", "fromDate", today.minusDays(30).toString(),
+                "toDate", today.plusDays(150).toString()))), exec, "EXEC", 201);
         assertThat(call(post("/api/v1/qar/reviews/" + reviewId + "/approve").header("If-Match",
-                etag("/api/v1/qar/reviews/" + reviewId, pm, "PM")), pm, "PM", 200).get("status").asText())
+                etag("/api/v1/qar/reviews/" + reviewId, pm, "PM")), pm, "PM", 409).get("violations").get(0).get("code")
+                .asText()).isEqualTo("QAR_SOD_VIOLATION");
+        assertThat(call(post("/api/v1/qar/reviews/" + reviewId + "/approve").header("If-Match",
+                etag("/api/v1/qar/reviews/" + reviewId, pm, "PM")), approver, "PM", 200).get("status").asText())
                 .isEqualTo("APPROVED");
         drain();
         JsonNode published = call(post("/api/v1/rpt/revisions/" + rev + "/publish"), pm, "PM", 200);

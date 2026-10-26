@@ -102,11 +102,11 @@ class DemMigrationTest {
     }
 
     @Test
-    @DisplayName("Step 1: dem 테이블 28개 · 점검표 5공정 17항목 · 규칙 8종 · 세부 권한 시드(⚠️ 예시 approved_by NULL)")
+    @DisplayName("Step 1: dem 테이블 29개(V0048 정정 결정 표 포함) · 점검표 5공정 17항목 · 규칙 8종 · 세부 권한 시드(⚠️ 예시 approved_by NULL)")
     void schemaAndSeeds() throws Exception {
         try (var c = conn(); var st = c.createStatement()) {
             assertThat(scalar(st, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'dem'"))
-                    .isEqualTo(28L);
+                    .isEqualTo(29L);   // + V0048 dem.log_amendment_decision(DEM-03 b)
             assertThat(scalar(st, "SELECT count(*) FROM dem.checklist_template WHERE approved_by IS NULL")).isEqualTo(5L);
             assertThat(scalar(st, "SELECT count(*) FROM dem.checklist_template_item")).isEqualTo(17L);
             assertThat(scalar(st, "SELECT count(*) FROM dem.rule_param WHERE approved_by IS NULL")).isEqualTo(8L);
@@ -114,6 +114,11 @@ class DemMigrationTest {
                     .isEqualTo("3");
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE role = 'PM' "
                     + "AND permission = 'dem:transmittal:issue'")).isEqualTo(1L);
+            // DEM-02(V0047): PM · ENG 의 DEM 세부 권한은 PROJECT, EXEC · QA · ADMIN 은 ALL 유지, 점검표 템플릿 읽기는 ALL
+            assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE role IN ('PM','ENG') "
+                    + "AND permission LIKE 'dem:%' AND permission <> 'dem:checklist:read' AND scope = 'ALL'")).isEqualTo(0L);
+            assertThat(scalar(st, "SELECT scope FROM core.role_permission WHERE role = 'EXEC' "
+                    + "AND permission = 'dem:project:read'")).isEqualTo("ALL");
             // 8.2 표 셀 리소스(supervision-log · setting)는 V0002 에만 — DEM 시드가 표 검사 리소스를 건드리지 않는다
             // PTL-01(V0042): CUSTOMER dem:supervision-log:read 삭제 → 15 → 14
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'dem:supervision-log:%'"))

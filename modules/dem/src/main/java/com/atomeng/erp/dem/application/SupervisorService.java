@@ -48,8 +48,11 @@ public class SupervisorService {
     private final AuditLog audit;
     private final CurrentActor actor;
 
+    private final DemAccess access;
+
     public SupervisorService(DemJdbc dem, RuleParams rules, HrqQueryApi hrq, OutboxPublisher outbox, AuditLog audit,
-                             CurrentActor actor) {
+                             CurrentActor actor, DemAccess access) {
+        this.access = access;
         this.dem = dem;
         this.rules = rules;
         this.hrq = hrq;
@@ -66,6 +69,12 @@ public class SupervisorService {
         }
         var wp = dem.one("업무 패키지", "SELECT project_id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL FOR UPDATE",
                 workPackageId);
+        access.requireProject("dem:supervisor:assign", (UUID) wp.get("project_id"), null);   // DEM-02
+        // 보안 검토 2026-10-19 DEM-03(a): 지정하는 사람 ≠ 감리자(자기 감리 금지)
+        if (by.equals(a.employeeId())) {
+            throw new DomainException(DemErrors.SELF_SUPERVISOR, "자기 자신을 감리자로 지정할 수 없습니다")
+                    .with("reason", "DEM_SELF_SUPERVISOR");
+        }
         // 같은 직원 동시 지정 요청 직렬화(10-IMPL Step 3 함정: activeCount 경쟁 조건)
         dem.jdbc().queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtext(?))) l", Integer.class,
                 "dem-supervisor:" + a.employeeId());
@@ -191,6 +200,7 @@ public class SupervisorService {
         var a = dem.one("감리자 지정", """
                 SELECT id, work_package_id, employee_id, valid_from, status FROM dem.supervisor_assignment
                  WHERE id = ? AND deleted_at IS NULL FOR UPDATE""", assignmentId);
+        access.requirePackage("dem:supervisor:assign", (UUID) a.get("work_package_id"), false);   // DEM-02
         if (!"ACTIVE".equals(a.get("status"))) {
             throw new DomainException(DemErrors.INVALID_TRANSITION, "이미 해제된 지정입니다").with("reason", "DEM_INVALID_TRANSITION");
         }
@@ -227,6 +237,13 @@ public class SupervisorService {
         m.put("hrqCheckSnapshot", dem.tree((String) r.get("snap")));
         m.put("version", r.get("version"));
         return m;
+    }
+
+    /** GET /work-packages/{id}/supervisors — DEM-02 범위(투입 인원 · 그 패키지 활성 감리자) 검사 후 목록 · 경고 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> listWithAlerts(UUID workPackageId) {
+        access.requirePackage("dem:supervisor:read", workPackageId, true);
+        return Map.of("assignments", list(workPackageId), "alerts", alerts(workPackageId));
     }
 
     public List<Map<String, Object>> list(UUID workPackageId) {

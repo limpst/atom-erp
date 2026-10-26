@@ -44,7 +44,9 @@ public class DemQueryService {
         List<Map<String, Object>> out = new ArrayList<>();
         for (UUID id : dem.jdbc().queryForList("SELECT project_id FROM dem.project ORDER BY created_at DESC, project_id",
                 UUID.class)) {
-            out.add(projects.view(id));
+            if (access.allows("dem:project:read", id)) {   // DEM-02: PROJECT 범위는 투입 프로젝트만
+                out.add(projects.view(id));
+            }
         }
         return out;
     }
@@ -67,8 +69,9 @@ public class DemQueryService {
                 SELECT l.id, l.log_date, l.author_id, l.phase_code, l.progress_pct, l.workers_count, l.status,
                        l.late_sync, l.locked_at, l.content_sha256, l.version,
                        (SELECT count(*) FROM dem.log_amendment a WHERE a.daily_log_id = l.id) AS amendments,
-                       (SELECT count(*) FROM dem.log_amendment a WHERE a.daily_log_id = l.id
-                                                              AND a.status = 'PENDING') AS pending_amendments
+                       (SELECT count(*) FROM dem.log_amendment a WHERE a.daily_log_id = l.id AND a.status = 'PENDING'
+                           AND NOT EXISTS (SELECT 1 FROM dem.log_amendment_decision d
+                                            WHERE d.amendment_id = a.id)) AS pending_amendments
                   FROM dem.daily_log l
                  WHERE l.work_package_id = ? AND l.deleted_at IS NULL
                  ORDER BY l.log_date DESC, l.author_id""", wpId)) {
@@ -97,7 +100,7 @@ public class DemQueryService {
     /** 패키지의 도서(리비전 · 미결 의견 수 포함) — 도서번호 순 */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> documents(UUID wpId) {
-        projectOfPackage(wpId);
+        access.requirePackage("dem:revision:read", wpId, false);
         List<Map<String, Object>> out = new ArrayList<>();
         for (UUID id : dem.jdbc().queryForList(
                 "SELECT id FROM dem.document WHERE work_package_id = ? ORDER BY doc_no, id", UUID.class, wpId)) {
@@ -109,7 +112,7 @@ public class DemQueryService {
     /** 패키지의 트랜스미털(최신 먼저) + 포함 리비전 */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> transmittals(UUID wpId) {
-        projectOfPackage(wpId);
+        access.requirePackage("dem:revision:read", wpId, false);
         List<Map<String, Object>> out = new ArrayList<>();
         for (var t : dem.jdbc().queryForList("""
                 SELECT id, transmittal_no, purpose, recipient_name, issued_at, issued_by

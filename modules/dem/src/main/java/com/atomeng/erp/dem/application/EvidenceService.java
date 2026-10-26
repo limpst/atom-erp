@@ -46,8 +46,11 @@ public class EvidenceService {
     private final CurrentActor actor;
     private final Clock clock;
 
+    private final DemAccess access;
+
     public EvidenceService(DemJdbc dem, ObjectStorage storage, DemSecurityAudit security, OutboxPublisher outbox,
-                           CurrentActor actor, Clock clock) {
+                           CurrentActor actor, Clock clock, DemAccess access) {
+        this.access = access;
         this.dem = dem;
         this.storage = storage;
         this.security = security;
@@ -62,6 +65,7 @@ public class EvidenceService {
         var existing = dem.jdbc().queryForList("SELECT id, work_package_id FROM dem.evidence_photo "
                 + "WHERE attachment_id = ? OR sha256 = ? ORDER BY received_at LIMIT 1", r.attachmentId(), claimed);
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL", r.workPackageId());
+        access.requirePackage("dem:evidence:register", r.workPackageId(), true);   // DEM-02: 투입 인원 · 패키지 감리자
         var att = dem.one("첨부", """
                 SELECT bucket, object_key, sha256, owner_module, chain_scope, created_by FROM core.attachment
                  WHERE id = ? AND deleted_at IS NULL""", r.attachmentId());
@@ -121,8 +125,9 @@ public class EvidenceService {
     @Transactional
     public Map<String, Object> verify(UUID photoId) {
         var p = dem.one("증거 사진", """
-                SELECT p.id, p.sha256, a.bucket, a.object_key FROM dem.evidence_photo p
+                SELECT p.id, p.work_package_id, p.sha256, a.bucket, a.object_key FROM dem.evidence_photo p
                   JOIN core.attachment a ON a.id = p.attachment_id WHERE p.id = ?""", photoId);
+        access.requirePackage("dem:evidence:verify", (UUID) p.get("work_package_id"), false);   // DEM-02
         String expected = (String) p.get("sha256");
         String actual;
         try {
@@ -170,7 +175,9 @@ public class EvidenceService {
     }
 
     /** 분쟁 대응 증거 목록(manifest 행) — 최근 검증 MISMATCH 는 제외 표시 */
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> manifest(UUID workPackageId) {
+        access.requirePackage("dem:evidence:verify", workPackageId, false);   // DEM-02
         return dem.jdbc().queryForList("SELECT id FROM dem.evidence_photo WHERE work_package_id = ? ORDER BY received_at, id",
                 UUID.class, workPackageId).stream().map(this::view).toList();
     }

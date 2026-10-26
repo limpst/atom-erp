@@ -121,6 +121,38 @@ public class ReviewSupport {
                 .map(RptRevisionQuery.Editor::editorId).distinct().toList();
     }
 
+    /**
+     * actor 가 이 보고서 작성에 참여한 역할(없으면 null) — 보안 검토 2026-10-19 QAR-01 · QAR-04b.
+     * AUTHOR(검토 생성자 · RPT 보고서 · 리비전 생성자) · SUBMITTER(어느 라운드든 제출자) · SECTION_EDITOR(라운드 리비전 편집 이력,
+     * 자동 생성 실행자 포함) · GRADE_DECIDER(등급 확정자, includeGradeDecider 일 때만).
+     */
+    public String authorRole(Map<String, Object> review, Map<String, Object> round, UUID actor,
+                             boolean includeGradeDecider) {
+        if (actor.equals(QarJdbc.uuid(review, "created_by"))) {
+            return "AUTHOR";
+        }
+        for (UUID s : qar.jdbc().queryForList("SELECT submitted_by FROM qar.review_round WHERE review_id = ? "
+                + "AND submitted_by IS NOT NULL", UUID.class, review.get("id"))) {
+            if (actor.equals(s)) {
+                return "SUBMITTER";
+            }
+        }
+        UUID revisionId = QarJdbc.uuid(round, "revision_id");
+        if (sectionEditors(revisionId).contains(actor)) {
+            return "SECTION_EDITOR";
+        }
+        RptRevisionQuery.Authorship who = rpt.authorship(revisionId).orElse(null);
+        if (who != null) {
+            if (actor.equals(who.reportCreatedBy()) || actor.equals(who.revisionCreatedBy())) {
+                return "AUTHOR";
+            }
+            if (includeGradeDecider && actor.equals(who.gradeDecidedBy())) {
+                return "GRADE_DECIDER";
+            }
+        }
+        return null;
+    }
+
     /** 요청이 실패(롤백)해도 남겨야 하는 감사 기록 — 별도 트랜잭션(TC-QAR-002 SoD 위반 기록) */
     public void auditIndependently(AuditLog.Action action, String targetType, UUID targetId, Object before,
                                    Object after) {

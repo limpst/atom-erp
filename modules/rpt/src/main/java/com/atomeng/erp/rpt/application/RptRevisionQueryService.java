@@ -52,6 +52,17 @@ public class RptRevisionQueryService implements RptRevisionQuery {
                 reportId).stream().findFirst().map(this::info);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Authorship> authorship(UUID revisionId) {
+        return rpt.row("report_revision", revisionId, false).map(rev -> {
+            Map<String, Object> report = rpt.get("report", RptJdbc.uuid(rev, "report_id"));
+            UUID decidedBy = rpt.jdbc().queryForList("SELECT decided_by FROM rpt.grade_result WHERE revision_id = ?",
+                    UUID.class, revisionId).stream().filter(java.util.Objects::nonNull).findFirst().orElse(null);
+            return new Authorship(RptJdbc.uuid(report, "created_by"), RptJdbc.uuid(rev, "created_by"), decidedBy);
+        });
+    }
+
     private RevisionInfo info(Map<String, Object> rev) {
         UUID revId = RptJdbc.uuid(rev, "id");
         Map<String, Object> report = rpt.get("report", RptJdbc.uuid(rev, "report_id"));

@@ -42,6 +42,8 @@ import javax.imageio.ImageIO;
  *   <li>DEM: 푸른아파트 해체 감리(B 고객) — 감리자(자격 만료 임박 보조), 감리일지(잠금 2 · 제출 1), 도서 · 트랜스미털 · 검토의견</li>
  *   <li>PTL: A 고객 보고서(1판 → 정정 2판, 대체 배너) · B 고객 보고서 1건, 서비스 요청 1건</li>
  * </ul>
+ * 보안 검토 2026-10-19 정책(QAR-01 · 03b · RPT-07 · DEM-03): 등급 확정은 RESP 최책임(HRQ 건축기사 자격 유효), QA 는 자동 배정
+ * (자기 배정 금지), 최종 승인은 작성에 참여하지 않은 두 번째 PM 문책임(PART). 감리일지 정정 요청 1건(정참여 → 승인 대기).
  */
 final class DevSeedRound2 {
 
@@ -107,6 +109,8 @@ final class DevSeedRound2 {
         UUID projectB = seedDem(clientB, bB);
 
         // ---------------------------------------------------------------- 10. RPT → PTL
+        // RPT-07: 등급 확정자 = 프로젝트 RESP + HRQ 자격 유효(합성 번호, 무기한)
+        credential(PM, "ARCH_ENG", "SYN-RPT-PM", "2012-03-02", null);
         // A 고객: 1판 납품 → 정정 2판 발행(1판 대체) → 2판 납품. B 고객: 1판 납품
         UUID[] repA = report(projectA, annex, "RT_PRC", "(합성) 한빛타워 별관 정밀안전점검 보고서", "B");
         deliver(repA[1]);
@@ -287,11 +291,18 @@ final class DevSeedRound2 {
             call("POST", "/api/v1/dem/projects/" + project + ":transition", map("to", st), PM, "PM");
         }
         // 감리일지: 그제 · 어제 제출 → 자정 잠금 배치(수동 실행) → 오늘 일지는 제출 상태(잠금 전)
+        UUID oldest = null;
         for (int back : new int[] {2, 1}) {
-            dailyLog(supWp, today.minusDays(back), 30 + (2 - back) * 10, back == 1);
+            JsonNode l = dailyLog(supWp, today.minusDays(back), 30 + (2 - back) * 10, back == 1);
+            if (back == 2) {
+                oldest = id(l);
+            }
         }
         call("POST", "/api/v1/dem/daily-logs:lock-due", map(), ADMIN, "ADMIN");
         dailyLog(supWp, today, 55, false);
+        // DEM-03(b): 감리원 본인 일지 정정은 즉시 반영되지 않고 정정 요청(PENDING) → PM(최책임 · 문책임) 승인 대기
+        call("POST", "/api/v1/dem/daily-logs/" + oldest + "/amendments", map("fieldPath", "workersCount",
+                "newValue", 13, "reason", "(합성) 출역 인원 오기 — 13명으로 정정 요청"), ENG, "ENG");
 
         // 구조 도서: S-101 A판 검토용 발행(0) → 검토의견 2건(1건 미결) → B판 승인(시공용 발행은 미결 의견으로 막힘)
         //           S-102 A판 승인(미결 없음 → 시공용 발행 가능)
@@ -316,7 +327,7 @@ final class DevSeedRound2 {
         UUID s102 = id(call("POST", "/api/v1/dem/work-packages/" + designWp + "/documents",
                 map("docNo", "S-102", "title", "(합성) 지상 1층 구조평면도"), ENG, "ENG"));
         approvedRevision(s102, designWp, "S-102 A", "(합성) 최초 작성");
-        log("DEM 해체 감리 프로젝트 1 · 감리일지 3(잠금 2) · 도서 2 · 검토의견 2(미결 1)");
+        log("DEM 해체 감리 프로젝트 1 · 감리일지 3(잠금 2, 정정 요청 1) · 도서 2 · 검토의견 2(미결 1)");
         return project;
     }
 
@@ -329,11 +340,11 @@ final class DevSeedRound2 {
         call("POST", "/api/v1/hrq/credentials/" + cred + ":approve", map(), ADMIN, "ADMIN");
     }
 
-    private void dailyLog(UUID wp, LocalDate date, int progress, boolean withFail) throws Exception {
+    private JsonNode dailyLog(UUID wp, LocalDate date, int progress, boolean withFail) throws Exception {
         List<Map<String, Object>> checklist = new ArrayList<>();
         checklist.add(map("templateItemId", "0192d000-0000-7000-8000-000000001035", "result", withFail ? "FAIL" : "PASS",
                 "severity", withFail ? "MEDIUM" : null, "note", withFail ? "(합성) 해체 순서 일부 역순 — 시정 지시" : null));
-        call("PUT", "/api/v1/dem/daily-logs/" + wp + "/" + date, map("clientOpId", UUID.randomUUID(),
+        return call("PUT", "/api/v1/dem/daily-logs/" + wp + "/" + date, map("clientOpId", UUID.randomUUID(),
                 "phaseCode", "UPPER_DEMOLITION", "progressPct", progress, "workersCount", 12,
                 "weather", map("sky", "맑음", "tempC", 17), "equipment", List.of(map("kind", "굴삭기(합성)", "count", 2)),
                 "checklist", checklist, "remarks", "(합성) " + date + " 상부 해체 진행", "submit", true), ENG, "ENG");
@@ -427,15 +438,20 @@ final class DevSeedRound2 {
             call("POST", "/api/v1/qar/ai-jobs:run", map(), QA, "QA");
             Thread.sleep(250);
         }
-        var assign = s.send("POST", "/api/v1/qar/rounds/" + round + "/assignments",
-                map("stepCode", "QA_REVIEW", "assigneeId", QA), QA, "QA", null, Map.of());
-        if (assign.statusCode() >= 300 && assign.statusCode() != 409) {
-            throw new IllegalStateException("QA 배정 " + assign.statusCode() + " " + assign.body());
+        // QA 는 자동 배정(검토자 프로필) — QAR-03b 자기 배정 금지라 수동 배정하지 않는다
+        boolean assigned = false;
+        for (JsonNode a : call("GET", reviewPath, null, PM, "PM").get("round").get("assignments")) {
+            assigned |= "QA_REVIEW".equals(a.get("step").asText()) && QA.toString().equals(a.get("assigneeId").asText())
+                    && a.get("completedAt").isNull();
+        }
+        if (!assigned) {
+            throw new IllegalStateException("QA 자동 배정 안 됨: " + reviewPath);
         }
         answerChecklist(round, "QA", QA, "QA");
         s.call("POST", "/api/v1/qar/rounds/" + round + "/decision", map("decision", "PASS"), QA, "QA",
                 s.etagOf(reviewPath, PM, "PM"));
-        s.call("POST", reviewPath + "/approve", map(), PM, "PM", s.etagOf(reviewPath, PM, "PM"));
+        // QAR-01: 최종 승인자 ≠ 작성 · 제출 · 등급 결정자(최책임) → 두 번째 PM 문책임(PART)
+        s.call("POST", reviewPath + "/approve", map(), PM2, "PM", s.etagOf(reviewPath, PM2, "PM"));
         waitRevision(rev, "APPROVED");
         call("POST", "/api/v1/rpt/revisions/" + rev + "/publish", map(), PM, "PM");
         return reviewId;

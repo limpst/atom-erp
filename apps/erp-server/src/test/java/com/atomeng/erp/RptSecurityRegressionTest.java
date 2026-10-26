@@ -18,7 +18,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-/** 보안 검토 2026-10-19 회귀 시험 — RPT (SEC-RPT-02 · 03 · 04). 모든 데이터는 합성값. */
+/** 보안 검토 2026-10-19 회귀 시험 — RPT (SEC-RPT-02 · 03 · 04, 정책 결정 RPT-02b · RPT-07). 모든 데이터는 합성값. */
 class RptSecurityRegressionTest extends IntegrationTestBase {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
@@ -64,7 +64,7 @@ class RptSecurityRegressionTest extends IntegrationTestBase {
     void customerSeesOnlyPublished() throws Exception {
         UUID pm = flow.employee("SEC-PM");
         UUID project = flow.project(pm);
-        UUID building = UUID.randomUUID();
+        UUID building = flow.ownedBuilding(project);   // RPT-02b: 발주처 소유 FAC 시설물
         JsonNode report = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(10));
         UUID reportId = UUID.fromString(report.get("id").asText());
         UUID rev = UUID.fromString(report.get("currentRevisionId").asText());
@@ -121,5 +121,70 @@ class RptSecurityRegressionTest extends IntegrationTestBase {
                 RptFlow.snapshotBody(foreign, "C", null)), pm, "PM", 422);
         // 자기 발주처 시설물은 정상
         assertThat(flow.freeze(pm, reportId, RptFlow.snapshotBody(own, "C", null)).get("snapshotVer").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("RPT-02b: 스냅샷 동은 프로젝트에 연결된(발주처 소유) FAC 시설물만 — FAC 에 없는 건물 · 소유 고객사 없는 건물 422 RPT-422-001, "
+            + "FAC 동 없는 스냅샷 발행은 연결 안 된 보고서 시설물에 등급을 남기지 않음")
+    void rpt02b_snapshotBuildingMustBeLinked() throws Exception {
+        UUID pm = flow.employee("SEC-PM");
+        UUID project = flow.project(pm);
+        UUID own = ownedBuilding(clientOf(project));
+        JsonNode report = flow.createReport(pm, project, own, "RT_PRC", today().minusDays(3));
+        UUID reportId = UUID.fromString(report.get("id").asText());
+        String url = "/api/v1/rpt/reports/" + reportId + "/snapshots";
+        JsonNode notInFac = flow.call(RptFlow.postJson(url, RptFlow.snapshotBody(UUID.randomUUID(), "C", null)), pm, "PM", 422);
+        assertThat(notInFac.get("code").asText()).isEqualTo("RPT-422-001");
+        assertThat(notInFac.get("reason").asText()).isEqualTo("FACILITY_NOT_IN_FAC");
+        JsonNode noOwner = flow.call(RptFlow.postJson(url, RptFlow.snapshotBody(ownedBuilding(null), "C", null)), pm, "PM", 422);
+        assertThat(noOwner.get("reason").asText()).isEqualTo("FACILITY_OWNER_UNKNOWN");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM rpt.snapshot s JOIN rpt.report_revision r ON r.id = s.revision_id "
+                + "WHERE r.report_id = ?", Integer.class, reportId)).isZero();
+        assertThat(flow.freeze(pm, reportId, RptFlow.snapshotBody(own, "C", null)).get("snapshotVer").asInt()).isEqualTo(1);
+
+        // FAC 동 없는 스냅샷 + FAC 미등록 보고서 시설물 → 발행은 되지만 등급 이력 대상(buildingIds)에 넣지 않는다
+        UUID unknownFacility = UUID.randomUUID();
+        JsonNode r2 = flow.createReport(pm, project, unknownFacility, "RT_PRC", today().minusDays(3));
+        UUID rev2 = UUID.fromString(r2.get("currentRevisionId").asText());
+        flow.freeze(pm, UUID.fromString(r2.get("id").asText()),
+                RptFlow.snapshotBody(unknownFacility, "C", null).replace("\"buildingId\":\"" + unknownFacility + "\",", ""));
+        flow.composeToPublish(pm, rev2);
+        JsonNode published = objectMapper.readTree(jdbc.queryForObject("SELECT payload::text FROM core.outbox_event "
+                + "WHERE event_type = 'rpt.report.published' AND aggregate_id = ?::uuid", String.class, r2.get("id").asText()));
+        assertThat(published.get("buildingIds")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("RPT-07: 등급 결정 · 변경은 프로젝트 지정 책임기술자(RESP)만 — 참여(PART) PM 403 RPT-403-001, "
+            + "자격(HRQ) 무효 RESP 403 RPT-403-002, 유효 자격 RESP 200")
+    void rpt07_gradeDecisionByResponsibleEngineer() throws Exception {
+        UUID pm = flow.employee("SEC-PM");
+        UUID project = flow.project(pm);
+        UUID part = flow.employee("SEC-PART");
+        flow.member(project, part, "PART");
+        flow.qualify(part);   // 자격이 있어도 RESP 가 아니면 불가
+        UUID building = flow.ownedBuilding(project);
+        JsonNode report = flow.createReport(pm, project, building, "RT_PRC", today().minusDays(3));
+        UUID reportId = UUID.fromString(report.get("id").asText());
+        UUID rev = UUID.fromString(report.get("currentRevisionId").asText());
+        flow.freeze(pm, reportId, RptFlow.snapshotBody(building, "C", null));
+        String computed = flow.compose(pm, rev).get("computedGrade").asText();
+
+        JsonNode notResp = flow.decide(part, rev, computed, null, null, 403);
+        assertThat(notResp.get("code").asText()).isEqualTo("RPT-403-001");
+        assertThat(notResp.get("reason").asText()).isEqualTo("NOT_RESPONSIBLE_ENGINEER");
+        jdbc.update("UPDATE hrq.credential SET status = 'EXPIRED' WHERE employee_id = ?", pm);
+        try {
+            JsonNode unqualified = flow.decide(pm, rev, computed, null, null, 403);
+            assertThat(unqualified.get("code").asText()).isEqualTo("RPT-403-002");
+            assertThat(unqualified.get("basis").asText()).isEqualTo("NO_VALID_QUALIFICATION");
+        } finally {
+            jdbc.update("UPDATE hrq.credential SET status = 'VALID' WHERE employee_id = ?", pm);
+        }
+        assertThat(jdbc.queryForObject("SELECT final_grade FROM rpt.grade_result WHERE revision_id = ?", String.class, rev))
+                .isNull();
+        JsonNode ok = flow.decide(pm, rev, computed, null, null, 200);
+        assertThat(ok.get("finalGrade").asText()).isEqualTo(computed);
+        assertThat(ok.get("decidedBy").asText()).isEqualTo(pm.toString());
     }
 }

@@ -75,7 +75,9 @@ class ModularityTests {
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideInAPackage("com.atomeng.erp.sal..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                // RPT-07(보안 검토 2026-10-19): 책임기술자 자격은 hrq::api(HrqQueryApi)로만 — hrq 내부는 계속 금지
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq.application..",
+                        "com.atomeng.erp.hrq.domain..", "com.atomeng.erp.hrq.adapter..", "com.atomeng.erp.cst..",
                         "com.atomeng.erp.fcd..", "com.atomeng.erp.eqp..", "com.atomeng.erp.core.application..",
                         "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
                         "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..")
@@ -93,7 +95,7 @@ class ModularityTests {
     }
 
     @Test
-    @DisplayName("06-IMPL Step 0: rpt 는 core::api · fac::api · eqp::api 만 참조, 다른 업무 모듈 → rpt 는 rpt::api 만(현재 0건)")
+    @DisplayName("06-IMPL Step 0: rpt 는 core::api · fac::api · eqp::api · hrq::api(RPT-07 자격) 만 참조, 다른 업무 모듈 → rpt 는 rpt::api 만(현재 0건)")
     void rptBoundary() {
         ApplicationModule rpt = modules.stream()
                 .filter(m -> m.getIdentifier().toString().equals("rpt")).findFirst().orElseThrow();
@@ -102,7 +104,9 @@ class ModularityTests {
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideInAPackage("com.atomeng.erp.rpt..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                // RPT-07(보안 검토 2026-10-19): 책임기술자 자격은 hrq::api(HrqQueryApi)로만 — hrq 내부는 계속 금지
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq.application..",
+                        "com.atomeng.erp.hrq.domain..", "com.atomeng.erp.hrq.adapter..", "com.atomeng.erp.cst..",
                         "com.atomeng.erp.fcd..", "com.atomeng.erp.sal..", "com.atomeng.erp.core.application..",
                         "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
                         "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..",
@@ -125,7 +129,9 @@ class ModularityTests {
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideInAPackage("com.atomeng.erp.qar..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                // RPT-07(보안 검토 2026-10-19): 책임기술자 자격은 hrq::api(HrqQueryApi)로만 — hrq 내부는 계속 금지
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq.application..",
+                        "com.atomeng.erp.hrq.domain..", "com.atomeng.erp.hrq.adapter..", "com.atomeng.erp.cst..",
                         "com.atomeng.erp.fcd..", "com.atomeng.erp.sal..", "com.atomeng.erp.fac..", "com.atomeng.erp.eqp..",
                         "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
                         "com.atomeng.erp.rpt.application..", "com.atomeng.erp.rpt.domain..", "com.atomeng.erp.rpt.adapter..")
@@ -168,7 +174,9 @@ class ModularityTests {
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideInAPackage("com.atomeng.erp.ptl..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                // RPT-07(보안 검토 2026-10-19): 책임기술자 자격은 hrq::api(HrqQueryApi)로만 — hrq 내부는 계속 금지
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq.application..",
+                        "com.atomeng.erp.hrq.domain..", "com.atomeng.erp.hrq.adapter..", "com.atomeng.erp.cst..",
                         "com.atomeng.erp.fcd..", "com.atomeng.erp.eqp..", "com.atomeng.erp.qar..", "com.atomeng.erp.dem..",
                         "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",
                         "com.atomeng.erp.fac.application..", "com.atomeng.erp.fac.domain..", "com.atomeng.erp.fac.adapter..",
@@ -219,7 +227,9 @@ class ModularityTests {
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("com.atomeng.erp");
         com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
                 .that().resideInAPackage("com.atomeng.erp.fld..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq..", "com.atomeng.erp.cst..",
+                // RPT-07(보안 검토 2026-10-19): 책임기술자 자격은 hrq::api(HrqQueryApi)로만 — hrq 내부는 계속 금지
+                .should().dependOnClassesThat().resideInAnyPackage("com.atomeng.erp.hrq.application..",
+                        "com.atomeng.erp.hrq.domain..", "com.atomeng.erp.hrq.adapter..", "com.atomeng.erp.cst..",
                         "com.atomeng.erp.fcd..", "com.atomeng.erp.sal..", "com.atomeng.erp.rpt..", "com.atomeng.erp.qar..",
                         "com.atomeng.erp.dem..", "com.atomeng.erp.ptl..",
                         "com.atomeng.erp.core.application..", "com.atomeng.erp.core.domain..", "com.atomeng.erp.core.adapter..",

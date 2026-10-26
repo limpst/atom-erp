@@ -99,7 +99,7 @@ class AipIntegrationTest extends IntegrationTestBase {
      * 분석한다 — 합성 프로젝트 회차에 합성 PNG 원본을 저장하고 첨부 행을 만든다.
      */
     private UUID attachment(UUID pm, UUID project) throws Exception {
-        UUID building = flow.facBuilding(pm, "합성 AIP 건물");
+        UUID building = flow.facBuilding(pm, "합성 AIP 건물", project);
         JsonNode round = call(json(post("/api/v1/fld/rounds"), """
                 {"projectId":"%s","buildingId":"%s","surveyType":"PRECISE_INSPECTION"}""".formatted(project, building)),
                 pm, "PM", 201);
@@ -622,7 +622,7 @@ class AipIntegrationTest extends IntegrationTestBase {
     void rptDraftThroughAip() throws Exception {
         UUID pm = flow.employee("AIP-RPT-PM");
         UUID project = flow.project(pm);
-        UUID building = flow.facBuilding(pm, "합성 AIP 동");
+        UUID building = flow.facBuilding(pm, "합성 AIP 동", project);
         JsonNode report = flow.createReport(pm, project, building, "RT_PRC", LocalDate.now().minusDays(3));
         UUID reportId = UUID.fromString(report.get("id").asText());
         UUID rev = UUID.fromString(report.get("currentRevisionId").asText());

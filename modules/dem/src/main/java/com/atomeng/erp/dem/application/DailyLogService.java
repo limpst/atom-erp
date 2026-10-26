@@ -448,8 +448,15 @@ public class DailyLogService {
         List<Map<String, Object>> amendments = new ArrayList<>();
         Map<String, Object> effective = new LinkedHashMap<>(canonicalView(logId));
         for (var a : dem.jdbc().queryForList("""
-                SELECT id, field_path, old_value::text AS old_value, new_value::text AS new_value, reason, status,
-                       amended_by, amended_at FROM dem.log_amendment WHERE daily_log_id = ? ORDER BY amended_at, id""",
+                SELECT a.id, a.field_path, a.old_value::text AS old_value, a.new_value::text AS new_value, a.reason,
+                       CASE WHEN a.status = 'APPLIED' THEN 'APPLIED'
+                            WHEN d.decision = 'APPROVED' THEN 'APPLIED'
+                            WHEN d.decision = 'REJECTED' THEN 'REJECTED'
+                            ELSE 'PENDING' END AS status,
+                       a.status AS requested_status, a.amended_by, a.amended_at,
+                       d.decided_by, d.decided_at, d.note AS decision_note
+                  FROM dem.log_amendment a LEFT JOIN dem.log_amendment_decision d ON d.amendment_id = a.id
+                 WHERE a.daily_log_id = ? ORDER BY a.amended_at, a.id""",
                 logId)) {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("id", a.get("id"));
@@ -460,6 +467,11 @@ public class DailyLogService {
             x.put("status", a.get("status"));
             x.put("amendedBy", a.get("amended_by"));
             x.put("amendedAt", str(DemJdbc.inst(a.get("amended_at"))));
+            // DEM-03(b): 본인 일지 정정 · 잠금 후 동기화는 요청(PENDING) → 다른 사람의 승인(APPROVED → 유효 뷰 반영)
+            x.put("request", "PENDING".equals(a.get("requested_status")));
+            x.put("decidedBy", a.get("decided_by"));
+            x.put("decidedAt", str(DemJdbc.inst(a.get("decided_at"))));
+            x.put("decisionNote", a.get("decision_note"));
             amendments.add(x);
             if ("APPLIED".equals(a.get("status"))) {
                 effective.put((String) a.get("field_path"), dem.tree((String) a.get("new_value")));
@@ -551,10 +563,20 @@ public class DailyLogService {
     public static final Set<String> AMENDABLE = Set.of("phaseCode", "progressPct", "workersCount", "weather",
             "equipment", "remarks", "checklist");
 
-    /** 잠금 일지 정정(PM) — 원문(daily_log)은 그대로, 정정 행(append-only)만 추가 */
+    /**
+     * 잠금 일지 정정 — 원문(daily_log)은 그대로, 정정 행(append-only)만 추가.
+     * 보안 검토 2026-10-19 DEM-03(b): 본인(일지 작성자) 정정은 즉시 적용하지 않고 정정 요청(PENDING)으로 남긴다 →
+     * 다른 사람이 {@link #decideAmendment} 로 승인해야 유효 뷰에 반영. 남의 일지 정정은 승인 권한자
+     * (dem:supervision-log:approve — PM · EXEC)만 즉시 적용, 그 외(감리자 ENG)는 403.
+     * DEM-02: 범위 = 투입 인원 또는 일지 작성자 본인.
+     */
     @Transactional
     public Map<String, Object> amend(UUID logId, String fieldPath, Object newValue, String reason) {
-        var log = dem.one("감리일지", "SELECT status FROM dem.daily_log WHERE id = ? FOR UPDATE", logId);
+        var log = dem.one("감리일지", """
+                SELECT l.status, l.author_id, w.project_id FROM dem.daily_log l
+                  JOIN dem.work_package w ON w.id = l.work_package_id WHERE l.id = ? FOR UPDATE OF l""", logId);
+        UUID author = (UUID) log.get("author_id");
+        access.requireProject("dem:log-amendment:create", (UUID) log.get("project_id"), emp -> emp.equals(author));
         if (!"LOCKED".equals(log.get("status"))) {
             throw new DomainException(DemErrors.INVALID, "잠금 전 일지는 Amendment 대신 일지 업서트로 고칩니다")
                     .with("reason", "DEM_LOG_NOT_LOCKED");
@@ -568,13 +590,65 @@ public class DailyLogService {
         }
         Object oldValue = canonicalView(logId).get(fieldPath);
         UUID by = actor.actorIdOrSystem();
+        boolean own = by.equals(author);
+        if (!own && !access.hasPermission("dem:supervision-log:approve")) {
+            throw new DomainException(DemErrors.AMENDMENT_NOT_ALLOWED,
+                    "남의 감리일지는 승인 권한자만 정정합니다 — 감리자는 자기 일지 정정 요청만 올릴 수 있습니다")
+                    .with("reason", "DEM_AMENDMENT_NOT_ALLOWED");
+        }
+        String status = own ? "PENDING" : "APPLIED";
         UUID id = UuidV7.next();
         dem.jdbc().update("""
                 INSERT INTO dem.log_amendment(id, daily_log_id, field_path, old_value, new_value, reason, status, amended_by)
-                VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, 'APPLIED', ?)""", id, logId, fieldPath, dem.json(oldValue),
-                dem.json(newValue), reason, by);
+                VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)""", id, logId, fieldPath, dem.json(oldValue),
+                dem.json(newValue), reason, status, by);
         audit.append("DEM", AuditLog.Action.UPDATE, "daily-log-amendment", logId, Map.of("field", fieldPath),
-                Map.of("amendmentId", id, "reason", reason));
+                Map.of("amendmentId", id, "reason", reason, "status", status));
+        Map<String, Object> body = detail(logId);
+        body.put("amendmentId", id);
+        body.put("amendmentStatus", status);
+        return body;
+    }
+
+    /**
+     * DEM-03(b) 정정 요청 승인 · 반려: POST /daily-logs/{logId}/amendments/{amendmentId}:approve | :reject.
+     * 권한 dem:supervision-log:approve(PM 투입 프로젝트 · EXEC 전체). 결정자 ≠ 요청자 · ≠ 일지 작성자(403 DEM-403-003),
+     * 대기(PENDING · 결정 없음) 요청만(409 DEM-409-009). 잠금 후 동기화 초안(fieldPath '$')은 전체 덮어쓰기라 승인하지 않고
+     * 반려만 한다(필드별 정정으로 다시 올림 — 422).
+     */
+    @Transactional
+    public Map<String, Object> decideAmendment(UUID logId, UUID amendmentId, boolean approve, String note) {
+        var log = dem.one("감리일지", """
+                SELECT l.author_id, w.project_id FROM dem.daily_log l
+                  JOIN dem.work_package w ON w.id = l.work_package_id WHERE l.id = ?""", logId);
+        access.requireProject("dem:supervision-log:approve", (UUID) log.get("project_id"), null);
+        var a = dem.one("정정 요청", """
+                SELECT id, field_path, status, amended_by FROM dem.log_amendment
+                 WHERE id = ? AND daily_log_id = ? FOR UPDATE""", amendmentId, logId);
+        Integer decided = dem.jdbc().queryForObject(
+                "SELECT count(*) FROM dem.log_amendment_decision WHERE amendment_id = ?", Integer.class, amendmentId);
+        if (!"PENDING".equals(a.get("status")) || (decided != null && decided > 0)) {
+            throw new DomainException(DemErrors.AMENDMENT_NOT_PENDING, "대기 중인 정정 요청이 아닙니다")
+                    .with("reason", "DEM_AMENDMENT_NOT_PENDING");
+        }
+        UUID by = actor.actorIdOrSystem();
+        if (by.equals(a.get("amended_by")) || by.equals(log.get("author_id"))) {
+            throw new DomainException(DemErrors.SOD_VIOLATION, "정정 요청자 · 일지 작성자는 그 정정을 승인 · 반려할 수 없습니다")
+                    .with("reason", "DEM_SOD_VIOLATION");
+        }
+        if (approve && !AMENDABLE.contains((String) a.get("field_path"))) {
+            throw new DomainException(DemErrors.INVALID, "잠금 후 동기화 초안은 승인할 수 없습니다 — 필드별 정정으로 다시 올리세요")
+                    .with("reason", "DEM_AMENDMENT_NOT_FIELD");
+        }
+        if (!approve && (note == null || note.isBlank())) {
+            throw new DomainException(DemErrors.INVALID, "반려 사유 필수");
+        }
+        String decision = approve ? "APPROVED" : "REJECTED";
+        dem.jdbc().update("""
+                INSERT INTO dem.log_amendment_decision(amendment_id, decision, note, decided_by) VALUES (?, ?, ?, ?)""",
+                amendmentId, decision, note, by);
+        audit.append("DEM", approve ? AuditLog.Action.APPROVE : AuditLog.Action.UPDATE, "daily-log-amendment", logId,
+                Map.of("amendmentId", amendmentId, "status", "PENDING"), Map.of("decision", decision));
         return detail(logId);
     }
 }

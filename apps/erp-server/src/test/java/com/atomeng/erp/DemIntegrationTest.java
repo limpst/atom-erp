@@ -154,6 +154,20 @@ class DemIntegrationTest extends IntegrationTestBase {
 
     record Fixture(UUID projectId, UUID buildingId, UUID supervisionWp, UUID designWp) {}
 
+    /** 프로젝트 투입 인원(core.employee + project_member PART) — DEM-02: PM · ENG 의 DEM 권한은 PROJECT 범위 */
+    private UUID member(UUID project) {
+        UUID id = actor();
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성투입자', DATE '2020-01-01', ?, ?)", id, "DM-" + SEQ.incrementAndGet(), id, id);
+        join(project, id);
+        return id;
+    }
+
+    private void join(UUID project, UUID employee) {
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, 'PART', DATE '2020-01-01', DATE '2099-12-31')", project, employee);
+    }
+
     private Fixture demProject() throws Exception {
         UUID project = coreProject();
         // 담당 PM 투입(RESP) — 일지 열람은 PROJECT 범위(보안 검토 2026-10-19)
@@ -384,6 +398,7 @@ class DemIntegrationTest extends IntegrationTestBase {
         var f = demProject();
         UUID eng = engineer(true);
         assign(f.supervisionWp(), eng, "CHIEF", today().minusDays(3), null, 201);
+        join(f.projectId(), eng);   // DEM-02: 설계 패키지 등록 시도(409)도 범위 안에서 — 투입 인원
 
         // 사진 먼저 동기화(core 첨부 → DEM 증거 등록)
         JsonNode att1 = upload(eng, f.supervisionWp(), 1);
@@ -402,7 +417,7 @@ class DemIntegrationTest extends IntegrationTestBase {
         mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
                         {"attachmentId":"%s","sha256":"%s","workPackageId":"%s"}""".formatted(
                         attOther.get("attachmentId").asText(), attOther.get("sha256").asText(), f.supervisionWp())),
-                        engineer(true), "ENG"))
+                        member(f.projectId()), "ENG"))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEM-422-001"));
         jdbc.update("UPDATE core.attachment SET owner_module = 'FLD' WHERE id = ?::uuid", attOther.get("attachmentId").asText());
         mvc.perform(as(postJson("/api/v1/dem/evidence/photos", """
@@ -586,13 +601,13 @@ class DemIntegrationTest extends IntegrationTestBase {
         return id;
     }
 
-    private UUID newApprovedRevision(UUID doc, UUID model) throws Exception {
+    private UUID newApprovedRevision(UUID project, UUID doc, UUID model) throws Exception {
         var r = json(mvc.perform(as(postJson("/api/v1/dem/documents/" + doc + "/revisions", """
                         {"fileAttachmentId":"%s","changeSummary":"합성 변경"%s}""".formatted(fileAttachment(),
-                        model == null ? "" : ",\"modelVersionId\":\"" + model + "\"")), actor(), "ENG"))
+                        model == null ? "" : ",\"modelVersionId\":\"" + model + "\"")), member(project), "ENG"))
                 .andExpect(status().isCreated()).andReturn());
         UUID rev = UUID.fromString(r.get("id").asText());
-        mvc.perform(as(postJson("/api/v1/dem/revisions/" + rev + ":request-review", "{}"), actor(), "ENG"))
+        mvc.perform(as(postJson("/api/v1/dem/revisions/" + rev + ":request-review", "{}"), member(project), "ENG"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INTERNAL_REVIEW"));
         mvc.perform(as(postJson("/api/v1/dem/revisions/" + rev + ":approve", "{}"), pm, "PM"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
@@ -605,9 +620,9 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .formatted(wp, purpose, rev)), pm, "PM"));
     }
 
-    private void reply(UUID comment, String status, String role) throws Exception {
+    private void reply(UUID comment, String status, UUID who, String role) throws Exception {
         mvc.perform(as(postJson("/api/v1/dem/comments/" + comment + "/replies",
-                "{\"body\":\"합성 회신 " + status + "\",\"resultingStatus\":\"" + status + "\"}"), actor(), role))
+                "{\"body\":\"합성 회신 " + status + "\",\"resultingStatus\":\"" + status + "\"}"), who, role))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value(status));
     }
 
@@ -617,44 +632,46 @@ class DemIntegrationTest extends IntegrationTestBase {
     void tcDem007_transmittalAndComments() throws Exception {
         var f = demProject();
         UUID wp = f.designWp();
+        UUID designer = member(f.projectId());   // DEM-02: 설계 ENG 는 투입 인원
+        UUID qa = actor();                       // 검토의견 작성자(QA, ALL 범위) — DEM-03(d) 수용 · 종결은 작성자만
         UUID doc = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/work-packages/" + wp + "/documents",
-                        "{\"docNo\":\"S-201\",\"title\":\"합성 2F 골조 평면도\"}"), actor(), "ENG"))
+                        "{\"docNo\":\"S-201\",\"title\":\"합성 2F 골조 평면도\"}"), designer, "ENG"))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText());
         UUID model = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/work-packages/" + wp + "/model-versions", """
                         {"software":"MIDAS Gen (합성)","fileAttachmentId":"%s","designCode":"KDS 41","changeSummary":"최초 모델",
-                         "loadCombinations":{"LC1":"1.2D+1.6L"}}""".formatted(fileAttachment())), actor(), "ENG"))
+                         "loadCombinations":{"LC1":"1.2D+1.6L"}}""".formatted(fileAttachment())), designer, "ENG"))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText());
 
         // Rev.A → 승인 → FOR_REVIEW 발행(Rev.0)
-        UUID revA = newApprovedRevision(doc, null);
+        UUID revA = newApprovedRevision(f.projectId(), doc, null);
         issue(wp, "FOR_REVIEW", revA).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.transmittalNo").value(org.hamcrest.Matchers.matchesPattern("TR-\\d{4}-\\d{4}")))
                 .andExpect(jsonPath("$.revisions[0].issuedRev").value("0"));
         // TC-DEM-008: 발행본 파일 교체 → 409
         mvc.perform(as(postJson("/api/v1/dem/revisions/" + revA + ":replace-file",
-                        "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}"), actor(), "ENG"))
+                        "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}"), designer, "ENG"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEM-409-001"))
                 .andExpect(jsonPath("$.reason").value("DEM_IMMUTABLE"));
 
         // 발주처 지적 1건(OPEN)
         UUID comment = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/revisions/" + revA + "/comments",
-                        "{\"source\":\"CLIENT\",\"severity\":\"MAJOR\",\"body\":\"합성: 보 B3 단면 검토 필요\"}"), actor(), "QA"))
+                        "{\"source\":\"CLIENT\",\"severity\":\"MAJOR\",\"body\":\"합성: 보 B3 단면 검토 필요\"}"), qa, "QA"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.commentNo").value("C-001"))
                 .andReturn()).get("id").asText());
-        UUID revB = newApprovedRevision(doc, model);
+        UUID revB = newApprovedRevision(f.projectId(), doc, model);
         // TC-DEM-007: OPEN · RESPONDED · REJECTED 각각 최종 발행 409
         issue(wp, "FOR_CONSTRUCTION", revB).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DEM-409-002")).andExpect(jsonPath("$.byStatus.OPEN").value(1));
-        reply(comment, "RESPONDED", "ENG");
+        reply(comment, "RESPONDED", designer, "ENG");
         issue(wp, "FOR_CONSTRUCTION", revB).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.byStatus.RESPONDED").value(1));
-        reply(comment, "REJECTED", "QA");
+        reply(comment, "REJECTED", qa, "QA");
         issue(wp, "FOR_CONSTRUCTION", revB).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.reason").value("DEM_OPEN_COMMENTS_EXIST"))
                 .andExpect(jsonPath("$.byStatus.REJECTED").value(1));
         // 표에 없는 전이(REJECTED → CLOSED) 409
         mvc.perform(as(postJson("/api/v1/dem/comments/" + comment + "/replies",
-                        "{\"body\":\"닫기\",\"resultingStatus\":\"CLOSED\"}"), actor(), "QA"))
+                        "{\"body\":\"닫기\",\"resultingStatus\":\"CLOSED\"}"), qa, "QA"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DEM-409-004"));
         // FOR_REVIEW 는 미결 의견이 있어도 발행 허용 → Rev.B = 1, Rev.A SUPERSEDED, 참조 모델 동결
         issue(wp, "FOR_REVIEW", revB).andExpect(status().isCreated()).andExpect(jsonPath("$.revisions[0].issuedRev").value("1"));
@@ -664,11 +681,11 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .isTrue();
 
         // 재회신 → 수용 → 종결 → Rev.C 최종 발행(For Construction)
-        reply(comment, "RESPONDED", "ENG");
-        reply(comment, "ACCEPTED", "QA");
-        reply(comment, "CLOSED", "QA");
+        reply(comment, "RESPONDED", designer, "ENG");
+        reply(comment, "ACCEPTED", qa, "QA");
+        reply(comment, "CLOSED", qa, "QA");
         assertThat(events("dem.comment.closed", comment)).isEqualTo(1);
-        UUID revC = newApprovedRevision(doc, null);
+        UUID revC = newApprovedRevision(f.projectId(), doc, null);
         var tr = json(issue(wp, "FOR_CONSTRUCTION", revC).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.revisions[0].issuedRev").value("2")).andReturn());
         UUID trId = UUID.fromString(tr.get("id").asText());
@@ -680,7 +697,7 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.revisions.length()").value(3));
         // 승인 전(WIP) 리비전 발행 → 409
         UUID wip = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/documents/" + doc + "/revisions",
-                        "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}"), actor(), "ENG"))
+                        "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}"), designer, "ENG"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.revCode").value("D")).andReturn()).get("id").asText());
         issue(wp, "FOR_REVIEW", wip).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.reason").value("DEM_REVISION_NOT_APPROVED"));
@@ -739,6 +756,7 @@ class DemIntegrationTest extends IntegrationTestBase {
     @DisplayName("FR-DEM-018: 인접건축물 사전/사후 조사 비교 저장(진전 · 신규 · 동일 · 보수/미확인, 결과 SHA-256 · 규칙 고정), 도면 버전 불일치 422")
     void adjacentComparison() throws Exception {
         var f = demProject();
+        UUID surveyor = member(f.projectId());   // DEM-02: 조사 ENG 는 투입 인원
         String pre = """
                 {"adjacentName":"합성 인접 상가","phase":"PRE","surveyedOn":"%s","drawingVersion":"A-01","defects":[
                  {"defectNo":"P-1","floor":"1F","memberRef":"W1","defectType":"CRACK","x":1.0,"y":1.0,"crackWidthMm":0.20,"lengthMm":500},
@@ -752,11 +770,11 @@ class DemIntegrationTest extends IntegrationTestBase {
                  {"defectNo":"Q-3","floor":"1F","memberRef":"W1","defectType":"CRACK","x":8.0,"y":1.0,"crackWidthMm":0.10,"lengthMm":100}]}"""
                 .formatted(today());
         UUID preId = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/projects/" + f.projectId()
-                + "/adjacent-surveys", pre), actor(), "ENG")).andExpect(status().isCreated()).andReturn()).get("id").asText());
+                + "/adjacent-surveys", pre), surveyor, "ENG")).andExpect(status().isCreated()).andReturn()).get("id").asText());
         UUID postId = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/projects/" + f.projectId()
-                + "/adjacent-surveys", post), actor(), "ENG")).andExpect(status().isCreated()).andReturn()).get("id").asText());
+                + "/adjacent-surveys", post), surveyor, "ENG")).andExpect(status().isCreated()).andReturn()).get("id").asText());
         mvc.perform(as(postJson("/api/v1/dem/projects/" + f.projectId() + "/adjacent-comparisons",
-                        "{\"preSurveyId\":\"%s\",\"postSurveyId\":\"%s\"}".formatted(preId, postId)), actor(), "ENG"))
+                        "{\"preSurveyId\":\"%s\",\"postSurveyId\":\"%s\"}".formatted(preId, postId)), surveyor, "ENG"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.summary.SAME").value(1))
                 .andExpect(jsonPath("$.summary.PROGRESSED").value(1))
@@ -765,10 +783,171 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.thresholds.widthGrowthMm").value(0.1))
                 .andExpect(jsonPath("$.resultSha256").value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{64}")));
         UUID otherDrawing = UUID.fromString(json(mvc.perform(as(postJson("/api/v1/dem/projects/" + f.projectId()
-                + "/adjacent-surveys", post.replace("A-01", "A-02")), actor(), "ENG"))
+                + "/adjacent-surveys", post.replace("A-01", "A-02")), surveyor, "ENG"))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText());
         mvc.perform(as(postJson("/api/v1/dem/projects/" + f.projectId() + "/adjacent-comparisons",
-                        "{\"preSurveyId\":\"%s\",\"postSurveyId\":\"%s\"}".formatted(preId, otherDrawing)), actor(), "ENG"))
+                        "{\"preSurveyId\":\"%s\",\"postSurveyId\":\"%s\"}".formatted(preId, otherDrawing)), surveyor, "ENG"))
                 .andExpect(status().is(422)).andExpect(jsonPath("$.reason").value("DEM_DRAWING_VERSION_MISMATCH"));
+    }
+
+    // ------------------------------------------------------------------ 보안 검토 2026-10-19 정책 결정 DEM-02 · DEM-03
+
+    private JsonNode post(String url, String body, UUID who, String role, int expect) throws Exception {
+        var r = mvc.perform(as(postJson(url, body), who, role)).andExpect(status().is(expect)).andReturn();
+        byte[] b = r.getResponse().getContentAsByteArray();
+        return b.length == 0 ? null : objectMapper.readTree(b);
+    }
+
+    @Test
+    @DisplayName("DEM-02: PM · ENG 의 DEM 권한은 PROJECT 범위 — 투입 안 된 PM 의 전이 · 종료 · 감리자 지정 · 해제 · 일지 정정 · 리비전 승인 · "
+            + "도서 작성 403 CORE-403-002, 목록에서 제외, EXEC · QA 는 ALL 유지")
+    void dem02_projectScope() throws Exception {
+        var f = demProject();
+        UUID outsider = actor();   // 다른 프로젝트 PM(투입 아님)
+        post("/api/v1/dem/projects/" + f.projectId() + ":transition", "{\"to\":\"PLANNING\"}", outsider, "PM", 403);
+        post("/api/v1/dem/projects/" + f.projectId() + ":close", "{}", outsider, "PM", 403);
+        UUID eng = engineer(true);
+        JsonNode denied = post("/api/v1/dem/work-packages/" + f.supervisionWp() + "/supervisors", """
+                {"employeeId":"%s","role":"CHIEF","validFrom":"%s"}""".formatted(eng, today()), outsider, "PM", 403);
+        assertThat(denied.get("code").asText()).isEqualTo("CORE-403-002");
+        UUID aid = UUID.fromString(assign(f.supervisionWp(), eng, "CHIEF", today().minusDays(2), null, 201)
+                .get("id").asText());
+        post("/api/v1/dem/supervisors/" + aid + ":release", "{\"releasedOn\":\"" + today() + "\"}", outsider, "PM", 403);
+        mvc.perform(as(get("/api/v1/dem/work-packages/" + f.supervisionWp() + "/supervisors"), outsider, "PM"))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/dem/work-packages/" + f.supervisionWp() + "/supervisors"), eng, "ENG"))
+                .andExpect(status().isOk());   // 그 패키지 감리자는 투입 인원이 아니어도 조회
+        mvc.perform(as(get("/api/v1/dem/projects/" + f.projectId()), outsider, "PM")).andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/dem/projects/" + f.projectId()), UUID.randomUUID(), "EXEC")).andExpect(status().isOk());
+        JsonNode list = json(mvc.perform(as(get("/api/v1/dem/projects"), outsider, "PM")).andExpect(status().isOk()).andReturn());
+        list.forEach(pj -> assertThat(pj.get("projectId").asText()).isNotEqualTo(f.projectId().toString()));
+        JsonNode mine = json(mvc.perform(as(get("/api/v1/dem/projects"), pm, "PM")).andExpect(status().isOk()).andReturn());
+        assertThat(mine.findValuesAsText("projectId")).contains(f.projectId().toString());
+
+        // 감리일지 정정(잠금 일지)
+        String checklist = "[{\"templateItemId\":\"%s\",\"result\":\"PASS\"}]".formatted(ITEM_SEQUENCE);
+        UUID logId = UUID.fromString(json(mvc.perform(logPut(f.supervisionWp(), today(), logBody(UUID.randomUUID(),
+                checklist, true), eng)).andExpect(status().isOk()).andReturn()).get("id").asText());
+        clock.advance(Duration.ofDays(1).plusHours(1));
+        post("/api/v1/dem/daily-logs:lock-due", "{}", admin, "ADMIN", 200);
+        post("/api/v1/dem/daily-logs/" + logId + "/amendments",
+                "{\"fieldPath\":\"remarks\",\"newValue\":\"x\",\"reason\":\"범위 밖 정정\"}", outsider, "PM", 403);
+
+        // 도서 · 리비전 승인
+        post("/api/v1/dem/work-packages/" + f.designWp() + "/documents", "{\"docNo\":\"S-901\",\"title\":\"합성\"}",
+                outsider, "ENG", 403);
+        UUID designer = member(f.projectId());
+        UUID doc = UUID.fromString(post("/api/v1/dem/work-packages/" + f.designWp() + "/documents",
+                "{\"docNo\":\"S-901\",\"title\":\"합성\"}", designer, "ENG", 201).get("id").asText());
+        UUID rev = UUID.fromString(post("/api/v1/dem/documents/" + doc + "/revisions",
+                "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}", designer, "ENG", 201).get("id").asText());
+        post("/api/v1/dem/revisions/" + rev + ":request-review", "{}", designer, "ENG", 200);
+        post("/api/v1/dem/revisions/" + rev + ":approve", "{}", outsider, "PM", 403);
+        mvc.perform(as(get("/api/v1/dem/documents/" + doc), outsider, "PM")).andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/v1/dem/documents/" + doc), UUID.randomUUID(), "QA")).andExpect(status().isOk());
+        assertThat(post("/api/v1/dem/revisions/" + rev + ":approve", "{}", pm, "PM", 200).get("status").asText())
+                .isEqualTo("APPROVED");
+    }
+
+    @Test
+    @DisplayName("DEM-03: 직무 분리 — (a) PM 자기 감리자 지정 403 DEM-403-002, (b) 본인 일지 정정은 요청(PENDING) → 다른 사람 승인 후 유효 뷰 반영 · "
+            + "본인 승인 403 DEM-403-003 · 감리자의 남 일지 정정 403 DEM-403-005, (c) 리비전 작성 · 검토 요청자 승인 403 DEM-403-003, "
+            + "(d) 리비전 작성자 · 제3자의 의견 수용 · 종결 403 DEM-403-004, 의견 작성자 · 검토자는 가능")
+    void dem03_segregationOfDuties() throws Exception {
+        var f = demProject();
+        // (a) PM 이 자기 자신을 감리자로 지정
+        JsonNode self = post("/api/v1/dem/work-packages/" + f.supervisionWp() + "/supervisors", """
+                {"employeeId":"%s","role":"CHIEF","validFrom":"%s"}""".formatted(pm, today()), pm, "PM", 403);
+        assertThat(self.get("code").asText()).isEqualTo("DEM-403-002");
+        assertThat(self.get("reason").asText()).isEqualTo("DEM_SELF_SUPERVISOR");
+
+        // (b) 감리일지 정정 요청
+        UUID eng = engineer(true);
+        UUID pm2 = engineer(true);   // 보조 감리자를 겸하는 두 번째 PM(투입 PART)
+        join(f.projectId(), pm2);
+        assign(f.supervisionWp(), eng, "CHIEF", today().minusDays(3), null, 201);
+        assign(f.supervisionWp(), pm2, "ASSISTANT", today().minusDays(3), null, 201);
+        String checklist = "[{\"templateItemId\":\"%s\",\"result\":\"PASS\"}]".formatted(ITEM_SEQUENCE);
+        UUID engLog = UUID.fromString(json(mvc.perform(logPut(f.supervisionWp(), today(), logBody(UUID.randomUUID(),
+                checklist, true), eng)).andExpect(status().isOk()).andReturn()).get("id").asText());
+        UUID pm2Log = UUID.fromString(json(mvc.perform(as(putJson("/api/v1/dem/daily-logs/" + f.supervisionWp() + "/"
+                + today(), logBody(UUID.randomUUID(), checklist, true)), pm2, "PM")).andExpect(status().isOk())
+                .andReturn()).get("id").asText());
+        clock.advance(Duration.ofDays(1).plusHours(1));
+        post("/api/v1/dem/daily-logs:lock-due", "{}", admin, "ADMIN", 200);
+
+        JsonNode req = post("/api/v1/dem/daily-logs/" + engLog + "/amendments",
+                "{\"fieldPath\":\"remarks\",\"newValue\":\"합성: 살수 3회로 정정\",\"reason\":\"본인 기록 정정\"}", eng, "ENG", 201);
+        assertThat(req.get("amendmentStatus").asText()).isEqualTo("PENDING");
+        assertThat(req.at("/effective/remarks").asText()).isEqualTo("합성: 오후 강풍 예보로 살수 2회 추가");   // 아직 미반영
+        UUID amendmentId = UUID.fromString(req.get("amendmentId").asText());
+        JsonNode summary = json(mvc.perform(as(get("/api/v1/dem/work-packages/" + f.supervisionWp() + "/daily-logs"),
+                pm, "PM")).andExpect(status().isOk()).andReturn());
+        for (JsonNode l : summary) {
+            if (l.get("id").asText().equals(engLog.toString())) {
+                assertThat(l.get("pendingAmendments").asInt()).isEqualTo(1);
+            }
+        }
+        // 감리자(ENG)는 남의 일지를 정정할 수 없다(투입 인원이어도 — 투입 밖이면 범위에서 먼저 403)
+        post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments",
+                "{\"fieldPath\":\"remarks\",\"newValue\":\"x\",\"reason\":\"남의 일지\"}", eng, "ENG", 403);
+        join(f.projectId(), eng);
+        JsonNode other = post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments",
+                "{\"fieldPath\":\"remarks\",\"newValue\":\"x\",\"reason\":\"남의 일지\"}", eng, "ENG", 403);
+        assertThat(other.get("code").asText()).isEqualTo("DEM-403-005");
+        // PM 본인 일지 정정도 요청 → 본인 승인 403
+        JsonNode own = post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments",
+                "{\"fieldPath\":\"workersCount\",\"newValue\":15,\"reason\":\"인원 오기\"}", pm2, "PM", 201);
+        assertThat(own.get("amendmentStatus").asText()).isEqualTo("PENDING");
+        JsonNode selfApprove = post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments/" + own.get("amendmentId").asText()
+                + ":approve", "{}", pm2, "PM", 403);
+        assertThat(selfApprove.get("code").asText()).isEqualTo("DEM-403-003");
+        // 다른 사람(PM2)이 ENG 의 요청을 승인 → 유효 뷰 반영, 같은 요청 재결정 409, 반려는 사유 필수
+        JsonNode approved = post("/api/v1/dem/daily-logs/" + engLog + "/amendments/" + amendmentId + ":approve",
+                "{\"note\":\"현장 사진 대조 확인\"}", pm2, "PM", 200);
+        assertThat(approved.at("/effective/remarks").asText()).isEqualTo("합성: 살수 3회로 정정");
+        assertThat(approved.at("/amendments/0/status").asText()).isEqualTo("APPLIED");
+        assertThat(approved.at("/amendments/0/decidedBy").asText()).isEqualTo(pm2.toString());
+        assertThat(post("/api/v1/dem/daily-logs/" + engLog + "/amendments/" + amendmentId + ":approve", "{}", pm, "PM", 409)
+                .get("code").asText()).isEqualTo("DEM-409-009");
+        post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments/" + own.get("amendmentId").asText() + ":reject", "{}",
+                pm, "PM", 422);
+        JsonNode rejected = post("/api/v1/dem/daily-logs/" + pm2Log + "/amendments/" + own.get("amendmentId").asText()
+                + ":reject", "{\"note\":\"근거 부족\"}", pm, "PM", 200);
+        assertThat(rejected.at("/amendments/0/status").asText()).isEqualTo("REJECTED");
+        assertThat(rejected.at("/effective/workersCount").asInt()).isEqualTo(14);
+        // 남(PM)이 하는 정정은 종전처럼 즉시 적용
+        assertThat(post("/api/v1/dem/daily-logs/" + engLog + "/amendments",
+                "{\"fieldPath\":\"progressPct\",\"newValue\":50,\"reason\":\"PM 확인 정정\"}", pm, "PM", 201)
+                .get("amendmentStatus").asText()).isEqualTo("APPLIED");
+
+        // (c) 리비전: 작성 · 검토 요청한 PM 은 승인 불가
+        UUID authorPm = member(f.projectId());
+        UUID doc = UUID.fromString(post("/api/v1/dem/work-packages/" + f.designWp() + "/documents",
+                "{\"docNo\":\"S-902\",\"title\":\"합성\"}", authorPm, "PM", 201).get("id").asText());
+        UUID rev = UUID.fromString(post("/api/v1/dem/documents/" + doc + "/revisions",
+                "{\"fileAttachmentId\":\"" + fileAttachment() + "\"}", authorPm, "PM", 201).get("id").asText());
+        post("/api/v1/dem/revisions/" + rev + ":request-review", "{}", pm2, "PM", 200);
+        assertThat(post("/api/v1/dem/revisions/" + rev + ":approve", "{}", authorPm, "PM", 403).get("code").asText())
+                .isEqualTo("DEM-403-003");
+        assertThat(post("/api/v1/dem/revisions/" + rev + ":approve", "{}", pm2, "PM", 403).get("reason").asText())
+                .isEqualTo("DEM_SOD_VIOLATION");   // 검토 요청자
+        JsonNode ok = post("/api/v1/dem/revisions/" + rev + ":approve", "{}", pm, "PM", 200);
+        assertThat(ok.get("approvedBy").asText()).isEqualTo(pm.toString());
+        assertThat(ok.get("reviewRequestedBy").asText()).isEqualTo(pm2.toString());
+
+        // (d) 의견: 리비전 작성자 · 제3자 ENG 는 수용 · 종결 불가, 의견 작성자(QA) · 검토자(PM) 는 가능
+        UUID qa = actor();
+        UUID c = UUID.fromString(post("/api/v1/dem/revisions/" + rev + "/comments",
+                "{\"severity\":\"MINOR\",\"body\":\"합성: 범례 오탈자\"}", qa, "QA", 201).get("id").asText());
+        post("/api/v1/dem/comments/" + c + "/replies", "{\"body\":\"수정 반영\",\"resultingStatus\":\"RESPONDED\"}",
+                authorPm, "PM", 201);
+        assertThat(post("/api/v1/dem/comments/" + c + "/replies", "{\"body\":\"자기 수용\",\"resultingStatus\":\"ACCEPTED\"}",
+                authorPm, "PM", 403).get("code").asText()).isEqualTo("DEM-403-004");
+        post("/api/v1/dem/comments/" + c + "/replies", "{\"body\":\"제3자 수용\",\"resultingStatus\":\"ACCEPTED\"}",
+                member(f.projectId()), "ENG", 403);
+        post("/api/v1/dem/comments/" + c + "/replies", "{\"body\":\"확인\",\"resultingStatus\":\"ACCEPTED\"}", qa, "QA", 201);
+        assertThat(post("/api/v1/dem/comments/" + c + "/replies", "{\"body\":\"종결\",\"resultingStatus\":\"CLOSED\"}",
+                pm, "PM", 201).get("status").asText()).isEqualTo("CLOSED");
     }
 }

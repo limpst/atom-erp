@@ -9,6 +9,14 @@ public final class DemErrors {
 
     /** 지정 감리자가 아닌 사용자의 일지 작성 (DEM_NOT_ASSIGNED_SUPERVISOR) */
     public static final String NOT_ASSIGNED_SUPERVISOR = "DEM-403-001";
+    /** DEM-03(a) PM 이 자기 자신을 감리자로 지정 (DEM_SELF_SUPERVISOR) */
+    public static final String SELF_SUPERVISOR = "DEM-403-002";
+    /** DEM-03(b)(c) 직무 분리: 리비전 작성 · 검토 요청 · 파일 교체자의 승인, 정정 요청자 · 일지 작성자의 정정 결정 (DEM_SOD_VIOLATION) */
+    public static final String SOD_VIOLATION = "DEM-403-003";
+    /** DEM-03(d) 검토의견 수용 · 종결은 의견 작성자 · 검토자만, 리비전 작성자는 불가 (DEM_COMMENT_CLOSE_NOT_ALLOWED) */
+    public static final String COMMENT_CLOSE_NOT_ALLOWED = "DEM-403-004";
+    /** DEM-03(b) 남의 일지 정정은 승인 권한자(dem:supervision-log:approve)만 — 감리자는 자기 일지 정정 요청만 */
+    public static final String AMENDMENT_NOT_ALLOWED = "DEM-403-005";
     public static final String NOT_FOUND = "DEM-404-001";
     /** BR-DEM-008 · BR-DEM-006 잠금 · 발행 객체 수정 · 삭제 (DEM_IMMUTABLE) */
     public static final String IMMUTABLE = "DEM-409-001";
@@ -26,7 +34,9 @@ public final class DemErrors {
     public static final String EVIDENCE_HASH_MISMATCH = "DEM-409-007";
     /** 같은 증거 사진(sha256)이 다른 업무 패키지에 이미 등록됨 — 보안 검토 2026-10-19 */
     public static final String EVIDENCE_DUPLICATE_OTHER_PACKAGE = "DEM-409-008";
-    /** 일지 · 리비전 버전 불일치(If-Match) 는 공통 CORE-412-001 */
+    // 일지 · 리비전 버전 불일치(If-Match) 는 공통 CORE-412-001
+    /** DEM-03(b) 대기(PENDING) 상태가 아닌 정정 요청의 승인 · 반려 (DEM_AMENDMENT_NOT_PENDING) */
+    public static final String AMENDMENT_NOT_PENDING = "DEM-409-009";
     public static final String INVALID = "DEM-422-001";
     /** BR-DEM-002 / TC-DEM-001 자격 · 퇴사 (DEM_SUPERVISOR_NOT_QUALIFIED) */
     public static final String SUPERVISOR_NOT_QUALIFIED = "DEM-422-002";

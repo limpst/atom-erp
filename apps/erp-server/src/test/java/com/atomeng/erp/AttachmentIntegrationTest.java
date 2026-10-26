@@ -95,7 +95,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
                     "ATT-" + m.toString().substring(0, 8), m, m);
             flow.member(project, m, "PART");
         }
-        UUID building = flow.facBuilding(pm, "합성 첨부 건물");
+        UUID building = flow.facBuilding(pm, "합성 첨부 건물", project);
         var r = mvc.perform(as(postJson("/api/v1/fld/rounds", """
                 {"projectId":"%s","buildingId":"%s","surveyType":"PRECISE_INSPECTION"}""".formatted(project, building)),
                 pm, "PM")).andExpect(status().isCreated()).andReturn();

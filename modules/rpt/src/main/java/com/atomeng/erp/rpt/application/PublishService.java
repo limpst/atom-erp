@@ -53,9 +53,12 @@ public class PublishService {
     private final OutboxPublisher outbox;
     private final AuditLog audit;
     private final ReportService reports;
+    private final FacilityOwnershipGuard ownership;
 
     public PublishService(RevisionSupport sup, RenderService render, SnapshotService snapshots, RptStorage storage,
-                          OutboxPublisher outbox, AuditLog audit, ReportService reports) {
+                          OutboxPublisher outbox, AuditLog audit, ReportService reports,
+                          FacilityOwnershipGuard ownership) {
+        this.ownership = ownership;
         this.sup = sup;
         this.rpt = sup.jdbc();
         this.render = render;
@@ -153,8 +156,10 @@ public class PublishService {
         Set<UUID> buildings = new LinkedHashSet<>();
         doc.buildings().stream().map(SnapshotDocument.Building::buildingId).filter(java.util.Objects::nonNull)
                 .forEach(buildings::add);
-        if (buildings.isEmpty()) {
-            buildings.add(RptJdbc.uuid(c.report(), "facility_id"));
+        // RPT-02b: 스냅샷에 FAC 동이 없으면 보고서 시설물로 대신하되, 프로젝트에 연결된(발주처 소유) FAC 시설물일 때만
+        UUID facility = RptJdbc.uuid(c.report(), "facility_id");
+        if (buildings.isEmpty() && ownership.isLinkedToProject(c.projectId(), facility)) {
+            buildings.add(facility);
         }
         String finalGrade = RptJdbc.str(grade, "final_grade");
         String inspectionType = type.facInspectionType().orElse(null);

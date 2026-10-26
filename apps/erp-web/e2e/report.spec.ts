@@ -36,21 +36,23 @@ test('RPT 리비전 → QAR 검토 → 발행', async ({ page }) => {
     await page.waitForTimeout(1500);
   }
   await expect(rs).toHaveText('QA_REVIEWING');
-  const assign = page.getByRole('button', { name: '나를 QA 검토자로 배정' });
-  if (await assign.isVisible()) {
-    await assign.click();
-    await expect(page.getByText('QA 검토자로 배정')).toBeVisible();
-  }
+  // QAR-03b: 자기 배정 금지 — 한품질은 검토자 프로필로 자동 배정된다(수동 "나를 배정" 버튼 없음)
+  await expect(page.getByRole('button', { name: '나를 QA 검토자로 배정' })).toHaveCount(0);
   await page.getByRole('button', { name: 'QA 체크리스트 PASS' }).click();
   await expect(page.getByText(/QA 체크리스트 \d+개 PASS/)).toBeVisible();
   await page.getByRole('button', { name: /QA 통과/ }).click();
   await expect(rs).toHaveText('PENDING_APPROVAL');
   await page.screenshot({ path: `${SHOTS}/08-qar-pending-approval.png`, fullPage: true });
 
-  // 책임기술자 최종 승인 → (Relay) RPT APPROVED → 발행
+  // QAR-01: 작성 · 제출 · 등급 결정한 최책임은 최종 승인 불가(가드 QAR_SOD_VIOLATION) → 두 번째 PM 문책임2 가 승인
   await loginAs(page, '최책임');
   await page.getByRole('button', { name: '책임기술자 최종 승인' }).click();
+  await expect(page.getByText(/QAR_SOD_VIOLATION/).first()).toBeVisible();
+  await expect(rs).toHaveText('PENDING_APPROVAL');
+  await loginAs(page, '문책임2');
+  await page.getByRole('button', { name: '책임기술자 최종 승인' }).click();
   await expect(rs).toHaveText('APPROVED');
+  await loginAs(page, '최책임');
   await expect(rev).toHaveText('검토 승인', { timeout: 30_000 });
   await page.getByTestId('publish').click();
   await expect(rev).toHaveText('발행');

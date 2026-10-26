@@ -6,9 +6,11 @@ import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.core.util.Hashing;
 import com.atomeng.common.events.OutboxPublisher;
 import com.atomeng.common.web.http.IfMatch;
+import com.atomeng.erp.core.api.ProjectRoleQuery;
 import com.atomeng.erp.rpt.adapter.out.persistence.RptJdbc;
 import com.atomeng.erp.rpt.api.RptEvents;
 import com.atomeng.erp.rpt.application.RevisionSupport.Ctx;
+import com.atomeng.erp.rpt.application.port.EngineerQualificationPort;
 import com.atomeng.erp.rpt.domain.ReportStatus;
 import com.atomeng.erp.rpt.domain.ReportType;
 import com.atomeng.erp.rpt.domain.RptCodes;
@@ -65,9 +67,14 @@ public class ComposeService {
     private final SectionService sections;
     private final OutboxPublisher outbox;
     private final AuditLog audit;
+    private final ProjectRoleQuery roles;
+    private final EngineerQualificationPort qualification;
 
     public ComposeService(RevisionSupport sup, SnapshotService snapshots, RuleTableService rules, GradeEngine engine,
-                          RptStorage storage, SectionService sections, OutboxPublisher outbox, AuditLog audit) {
+                          RptStorage storage, SectionService sections, OutboxPublisher outbox, AuditLog audit,
+                          ProjectRoleQuery roles, EngineerQualificationPort qualification) {
+        this.roles = roles;
+        this.qualification = qualification;
         this.sup = sup;
         this.rpt = sup.jdbc();
         this.snapshots = snapshots;
@@ -97,7 +104,8 @@ public class ComposeService {
 
         // 등급 결과(재생성 시 교체, 확정 등급은 산정 결과가 같을 때만 유지)
         List<Map<String, Object>> prev = rpt.jdbc().queryForList(
-                "SELECT id, computed_grade, final_grade, override_reason FROM rpt.grade_result WHERE revision_id = ?", revId);
+                "SELECT id, computed_grade, final_grade, override_reason, decided_by, decided_at FROM rpt.grade_result "
+                        + "WHERE revision_id = ?", revId);
         rpt.jdbc().update("DELETE FROM rpt.member_rating WHERE grade_result_id IN "
                 + "(SELECT id FROM rpt.grade_result WHERE revision_id = ?)", revId);
         rpt.jdbc().update("DELETE FROM rpt.grade_result WHERE revision_id = ?", revId);
@@ -120,8 +128,10 @@ public class ComposeService {
         }
         if (!prev.isEmpty() && prev.get(0).get("final_grade") != null
                 && grade.computedGrade().equals(RptJdbc.str(prev.get(0), "computed_grade"))) {
-            rpt.jdbc().update("UPDATE rpt.grade_result SET final_grade = ?, override_reason = ? WHERE id = ?",
-                    RptJdbc.str(prev.get(0), "final_grade"), prev.get(0).get("override_reason"), gid);
+            // 확정자도 유지(QAR-01 최종 승인자 ≠ 등급 결정자 판정 근거)
+            rpt.jdbc().update("UPDATE rpt.grade_result SET final_grade = ?, override_reason = ?, decided_by = ?, "
+                    + "decided_at = ? WHERE id = ?", RptJdbc.str(prev.get(0), "final_grade"),
+                    prev.get(0).get("override_reason"), prev.get(0).get("decided_by"), prev.get(0).get("decided_at"), gid);
         }
 
         // 망도: 결함이 있는 (동, 층)마다 DXF + PNG
@@ -272,6 +282,8 @@ public class ComposeService {
     /**
      * 책임기술자 등급 확정 / override (BR-RPT-005): 산정과 다르면 사유 100자 이상 + 근거 결함 1건 이상(스냅샷에 있는 번호),
      * 감사 로그(before/after). If-Match = 리비전 ETag.
+     * 보안 검토 2026-10-19 RPT-07: 결정 · 변경은 그 프로젝트의 지정 책임기술자(core.project_member RESP 투입)만,
+     * 그리고 hrq::api 자격이 오늘 기준 유효해야 한다(포트 {@link EngineerQualificationPort}) — 아니면 403.
      */
     @Transactional
     public Map<String, Object> decide(UUID revId, long expectedVersion, String finalGrade, String reason,
@@ -279,6 +291,7 @@ public class ComposeService {
         Ctx c = sup.lock(revId, "rpt:grade:decide");
         IfMatch.check(expectedVersion, RptJdbc.version(c.rev()));
         sup.requireStatus(c, ReportStatus.COMPOSING);
+        requireResponsibleEngineer(c.projectId());
         Map<String, Object> g = rpt.jdbc().queryForList("SELECT * FROM rpt.grade_result WHERE revision_id = ?", revId)
                 .stream().findFirst().orElseThrow(() -> new DomainException(RptCodes.STATE, "등급 산정 전입니다"));
         SafetyGrade fin = SafetyGrade.valueOf(finalGrade);
@@ -313,6 +326,25 @@ public class ComposeService {
         Map<String, Object> v = new LinkedHashMap<>(grade(revId, false));
         v.put("revisionVersion", RptJdbc.version(rpt.get("report_revision", revId)));
         return v;
+    }
+
+    /** RPT-07: 지정 책임기술자(RESP) + 유효 자격. 시스템 실행(행위자 없음)은 웹 경계 밖이라 검사하지 않는다 */
+    private void requireResponsibleEngineer(UUID projectId) {
+        UUID actor = sup.actorId();
+        if (com.atomeng.common.identity.AtomAuthentication.currentPrincipal().isEmpty()) {
+            return;
+        }
+        if (!roles.hasRole(actor, projectId, ProjectRoleQuery.RESP, sup.today())) {
+            throw new DomainException(RptCodes.NOT_RESPONSIBLE_ENGINEER,
+                    "등급 결정 · 변경은 이 프로젝트의 지정 책임기술자(RESP 투입)만 할 수 있습니다")
+                    .with("reason", "NOT_RESPONSIBLE_ENGINEER");
+        }
+        EngineerQualificationPort.Result q = qualification.responsibleEngineer(actor, sup.today());
+        if (!q.valid()) {
+            throw new DomainException(RptCodes.ENGINEER_NOT_QUALIFIED,
+                    "책임기술자 자격이 유효하지 않습니다(" + sup.today() + " 기준, HRQ 자격 확인)")
+                    .with("reason", "ENGINEER_NOT_QUALIFIED").with("basis", q.basis());
+        }
     }
 
     @Transactional(readOnly = true)

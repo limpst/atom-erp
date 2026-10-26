@@ -32,6 +32,12 @@ public interface RptRevisionQuery {
 
     Optional<RevisionContent> content(UUID revisionId);
 
+    /** 작성 · 등급 결정 이력자 — QAR 최종 승인자 3자 분리(보안 검토 2026-10-19 QAR-01) */
+    Optional<Authorship> authorship(UUID revisionId);
+
+    /** reportCreatedBy = 보고서 생성자, revisionCreatedBy = 리비전 생성자(정정본 작성자), gradeDecidedBy = 등급 확정자(없으면 null) */
+    record Authorship(UUID reportCreatedBy, UUID revisionCreatedBy, UUID gradeDecidedBy) {}
+
     record Rect(int page, BigDecimal x, BigDecimal y, BigDecimal w, BigDecimal h) {}
 
     record Anchor(UUID blockId, String sectionKey, String kind, int page, List<Rect> rects, String textHash) {}

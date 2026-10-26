@@ -54,7 +54,11 @@ public class DemProjectService {
     private final CurrentActor actor;
     private final Clock clock;
 
-    public DemProjectService(DemJdbc dem, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock) {
+    private final DemAccess access;
+
+    public DemProjectService(DemJdbc dem, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock,
+                             DemAccess access) {
+        this.access = access;
         this.dem = dem;
         this.outbox = outbox;
         this.audit = audit;
@@ -77,6 +81,7 @@ public class DemProjectService {
         if (projects == null || projects == 0) {
             throw new DomainException(DemErrors.NOT_FOUND, "프로젝트 없음: " + c.projectId());
         }
+        access.requireProject("dem:project:create", c.projectId(), null);   // DEM-02: PM 은 투입 프로젝트만
         if (c.buildingId() != null) {
             requireBuilding(c.buildingId());
         }

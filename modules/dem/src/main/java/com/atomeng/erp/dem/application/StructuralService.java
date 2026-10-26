@@ -34,6 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>FOR_CONSTRUCTION 발행은 해당 도서들의 미결 의견(OPEN · RESPONDED · REJECTED) 0건일 때만(BR-DEM-009)</li>
  *   <li>발행 트랜잭션: 이전 ISSUED → SUPERSEDED → 새 리비전 ISSUED → 참조 해석모델 freeze → {@code dem.revision.issued}</li>
  *   <li>QAR 워크플로우 대신 PM 내부 승인(10-IMPL 0.3 대안: "DEM 내부 단순 승인 플래그")</li>
+ *   <li>보안 검토 2026-10-19 DEM-02: 모든 쓰기 · 읽기는 도서 · 리비전 · 의견 → 업무 패키지 → 프로젝트 범위 검사(DemAccess)</li>
+ *   <li>DEM-03(c): 승인자 ≠ 리비전 작성자 · 검토 요청자 · 파일 교체자(403 DEM-403-003)</li>
+ *   <li>DEM-03(d): 의견 수용(ACCEPTED) · 종결(CLOSED)은 의견 작성자 또는 검토자(dem:revision:approve 보유)만,
+ *       리비전 작성자 · 파일 교체자는 불가(403 DEM-403-004)</li>
  * </ul>
  */
 @Service
@@ -56,7 +60,11 @@ public class StructuralService {
     private final CurrentActor actor;
     private final Clock clock;
 
-    public StructuralService(DemJdbc dem, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock) {
+    private final DemAccess access;
+
+    public StructuralService(DemJdbc dem, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock,
+                             DemAccess access) {
+        this.access = access;
         this.dem = dem;
         this.outbox = outbox;
         this.audit = audit;
@@ -69,6 +77,7 @@ public class StructuralService {
     @Transactional
     public Map<String, Object> createDocument(UUID wpId, String docNo, String title, String discipline, boolean input) {
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL", wpId);
+        access.requirePackage("dem:revision:write", wpId, false);
         Integer dup = dem.jdbc().queryForObject("SELECT count(*) FROM dem.document WHERE work_package_id = ? AND doc_no = ?",
                 Integer.class, wpId, docNo);
         if (dup != null && dup > 0) {
@@ -80,6 +89,13 @@ public class StructuralService {
                 VALUES (?, ?, ?, ?, ?, ?, ?)""", id, wpId, docNo, title, discipline == null ? "STR" : discipline, input,
                 actor.actorIdOrSystem());
         return document(id);
+    }
+
+    /** GET /documents/{id} — DEM-02 범위 검사 후 조회 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> readDocument(UUID documentId) {
+        access.requireDocument("dem:revision:read", documentId);
+        return document(documentId);
     }
 
     public Map<String, Object> document(UUID documentId) {
@@ -101,6 +117,7 @@ public class StructuralService {
     @Transactional
     public Map<String, Object> createRevision(UUID documentId, NewRevision r) {
         var doc = dem.one("도서", "SELECT id, work_package_id FROM dem.document WHERE id = ? FOR UPDATE", documentId);
+        access.requirePackage("dem:revision:write", (UUID) doc.get("work_package_id"), false);
         if (r.modelVersionId() != null) {
             Integer ok = dem.jdbc().queryForObject("SELECT count(*) FROM dem.analysis_model_version WHERE id = ? "
                     + "AND work_package_id = ?", Integer.class, r.modelVersionId(), doc.get("work_package_id"));
@@ -123,7 +140,8 @@ public class StructuralService {
     public Map<String, Object> revision(UUID revisionId) {
         var r = dem.one("리비전", """
                 SELECT r.id, r.document_id, d.doc_no, r.rev_code, r.issued_rev, r.status, r.file_attachment_id,
-                       r.model_version_id, r.change_summary, r.needs_recheck, r.approved_by, r.transmittal_id, r.issued_at
+                       r.model_version_id, r.change_summary, r.needs_recheck, r.approved_by, r.transmittal_id, r.issued_at,
+                       r.created_by, r.review_requested_by, r.file_replaced_by
                   FROM dem.document_revision r JOIN dem.document d ON d.id = r.document_id WHERE r.id = ?""", revisionId);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", r.get("id"));
@@ -137,19 +155,23 @@ public class StructuralService {
         m.put("changeSummary", r.get("change_summary"));
         m.put("needsRecheck", r.get("needs_recheck"));
         m.put("approvedBy", r.get("approved_by"));
+        m.put("createdBy", r.get("created_by"));
+        m.put("reviewRequestedBy", r.get("review_requested_by"));
+        m.put("fileReplacedBy", r.get("file_replaced_by"));
         m.put("transmittalId", r.get("transmittal_id"));
         m.put("issuedAt", DemJdbc.inst(r.get("issued_at")));
         return m;
     }
 
     private Map<String, Object> lockRevision(UUID revisionId) {
-        return dem.one("리비전", "SELECT id, document_id, status, model_version_id FROM dem.document_revision "
-                + "WHERE id = ? FOR UPDATE", revisionId);
+        return dem.one("리비전", "SELECT id, document_id, status, model_version_id, created_by, review_requested_by, "
+                + "file_replaced_by FROM dem.document_revision WHERE id = ? FOR UPDATE", revisionId);
     }
 
     /** WIP · 검토 중 · 승인 리비전의 파일 교체(승인본이면 다시 WIP). 발행본은 409 DEM_IMMUTABLE(TC-DEM-008) */
     @Transactional
     public Map<String, Object> replaceFile(UUID revisionId, UUID fileAttachmentId, String changeSummary) {
+        access.requireRevision("dem:revision:write", revisionId);
         var r = lockRevision(revisionId);
         RevisionStatus st = RevisionStatus.valueOf((String) r.get("status"));
         if (st.published()) {
@@ -157,8 +179,8 @@ public class StructuralService {
         }
         dem.jdbc().update("""
                 UPDATE dem.document_revision SET file_attachment_id = ?, change_summary = coalesce(?, change_summary),
-                       status = 'WIP', approved_by = NULL, approved_at = NULL WHERE id = ?""",
-                fileAttachmentId, changeSummary, revisionId);
+                       status = 'WIP', approved_by = NULL, approved_at = NULL, file_replaced_by = ? WHERE id = ?""",
+                fileAttachmentId, changeSummary, actor.actorIdOrSystem(), revisionId);
         return revision(revisionId);
     }
 
@@ -170,6 +192,8 @@ public class StructuralService {
     /** A6.2 내부 흐름: request-review(WIP→INTERNAL_REVIEW) · approve(→APPROVED, PM) · reject(→WIP) */
     @Transactional
     public Map<String, Object> move(UUID revisionId, String command) {
+        access.requireRevision("request-review".equals(command) ? "dem:revision:write" : "dem:revision:approve",
+                revisionId);
         var r = lockRevision(revisionId);
         RevisionStatus from = RevisionStatus.valueOf((String) r.get("status"));
         RevisionStatus to = switch (command) {
@@ -183,12 +207,32 @@ public class StructuralService {
         }
         from.assertCanMoveTo(to);
         boolean approve = to == RevisionStatus.APPROVED;
+        UUID by = actor.actorIdOrSystem();
+        if (approve && revisionAuthors(r).contains(by)) {   // DEM-03(c)
+            throw new DomainException(DemErrors.SOD_VIOLATION,
+                    "리비전 작성자 · 검토 요청자 · 파일 교체자는 그 리비전을 승인할 수 없습니다")
+                    .with("reason", "DEM_SOD_VIOLATION");
+        }
         dem.jdbc().update("UPDATE dem.document_revision SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?",
-                to.name(), approve ? actor.actorIdOrSystem() : null, approve ? Timestamp.from(clock.instant()) : null,
-                revisionId);
+                to.name(), approve ? by : null, approve ? Timestamp.from(clock.instant()) : null, revisionId);
+        if (to == RevisionStatus.INTERNAL_REVIEW) {
+            dem.jdbc().update("UPDATE dem.document_revision SET review_requested_by = ?, review_requested_at = ? "
+                    + "WHERE id = ?", by, Timestamp.from(clock.instant()), revisionId);
+        }
         audit.append("DEM", approve ? AuditLog.Action.APPROVE : AuditLog.Action.UPDATE, "document-revision", revisionId,
                 Map.of("status", from.name()), Map.of("status", to.name()));
         return revision(revisionId);
+    }
+
+    /** 리비전 작성 측(작성자 · 검토 요청자 · 파일 교체자) — DEM-03(c)(d) */
+    private static Set<UUID> revisionAuthors(Map<String, Object> r) {
+        Set<UUID> s = new HashSet<>();
+        for (String k : List.of("created_by", "review_requested_by", "file_replaced_by")) {
+            if (r.get(k) != null) {
+                s.add((UUID) r.get(k));
+            }
+        }
+        return s;
     }
 
     // ------------------------------------------------------------------ 해석모델 버전 (FR-DEM-012)
@@ -196,6 +240,7 @@ public class StructuralService {
     @Transactional
     public Map<String, Object> createModelVersion(UUID wpId, ModelVersion v) {
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL FOR UPDATE", wpId);
+        access.requirePackage("dem:revision:write", wpId, false);
         Integer next = dem.jdbc().queryForObject("SELECT coalesce(max(version_no), 0) + 1 FROM dem.analysis_model_version "
                 + "WHERE work_package_id = ?", Integer.class, wpId);
         UUID id = UuidV7.next();
@@ -221,6 +266,7 @@ public class StructuralService {
             throw new DomainException(DemErrors.INVALID, "발행할 리비전이 없습니다");
         }
         dem.one("업무 패키지", "SELECT id FROM dem.work_package WHERE id = ? AND deleted_at IS NULL", c.workPackageId());
+        access.requirePackage("dem:transmittal:issue", c.workPackageId(), false);
         List<UUID> ids = c.revisionIds().stream().distinct().sorted().toList();
         List<Map<String, Object>> revs = dem.jdbc().queryForList("""
                 SELECT r.id, r.document_id, r.rev_code, r.status, r.model_version_id, d.doc_no, d.work_package_id
@@ -314,6 +360,7 @@ public class StructuralService {
 
     @Transactional
     public Map<String, Object> addComment(UUID revisionId, NewComment c) {
+        access.requireRevision("dem:comment:write", revisionId);
         var r = lockRevision(revisionId);
         if (RevisionStatus.valueOf((String) r.get("status")) == RevisionStatus.SUPERSEDED) {
             throw new DomainException(DemErrors.INVALID, "대체(SUPERSEDED)된 리비전에는 의견을 달 수 없습니다");
@@ -335,7 +382,8 @@ public class StructuralService {
     /** 회신 · 상태 변경(A6.3). 회신 기록은 append-only, OPEN → CLOSED(철회)는 사유(body) 필수 */
     @Transactional
     public Map<String, Object> reply(UUID commentId, String body, String resultingStatus) {
-        var c = dem.one("검토의견", "SELECT id, revision_id, status FROM dem.review_comment WHERE id = ? FOR UPDATE",
+        access.requireComment("dem:comment:write", commentId);
+        var c = dem.one("검토의견", "SELECT id, revision_id, status, author_id FROM dem.review_comment WHERE id = ? FOR UPDATE",
                 commentId);
         CommentStatus from = CommentStatus.valueOf((String) c.get("status"));
         CommentStatus to;
@@ -348,9 +396,21 @@ public class StructuralService {
         if (body == null || body.isBlank()) {
             throw new DomainException(DemErrors.INVALID, "회신 · 사유 본문 필수");
         }
+        UUID by = actor.actorIdOrSystem();
+        if (to == CommentStatus.ACCEPTED || to == CommentStatus.CLOSED) {   // DEM-03(d)
+            var rev = dem.one("리비전", "SELECT created_by, review_requested_by, file_replaced_by FROM dem.document_revision "
+                    + "WHERE id = ?", c.get("revision_id"));
+            boolean revisionAuthor = revisionAuthors(rev).contains(by);
+            boolean commentAuthor = by.equals(c.get("author_id"));
+            if (revisionAuthor || !(commentAuthor || access.hasPermission("dem:revision:approve"))) {
+                throw new DomainException(DemErrors.COMMENT_CLOSE_NOT_ALLOWED,
+                        "검토의견 수용 · 종결은 의견 작성자 또는 검토자만 할 수 있습니다(리비전 작성자 불가)")
+                        .with("reason", "DEM_COMMENT_CLOSE_NOT_ALLOWED");
+            }
+        }
         dem.jdbc().update("""
                 INSERT INTO dem.review_reply(id, comment_id, author_id, body, previous_status, resulting_status)
-                VALUES (?, ?, ?, ?, ?, ?)""", UuidV7.next(), commentId, actor.actorIdOrSystem(), body, from.name(), to.name());
+                VALUES (?, ?, ?, ?, ?, ?)""", UuidV7.next(), commentId, by, body, from.name(), to.name());
         dem.jdbc().update("UPDATE dem.review_comment SET status = ?, updated_at = now(), version = version + 1 WHERE id = ?",
                 to.name(), commentId);
         if (to == CommentStatus.CLOSED) {
@@ -380,7 +440,9 @@ public class StructuralService {
         return m;
     }
 
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> comments(UUID revisionId) {
+        access.requireRevision("dem:revision:read", revisionId);
         return dem.jdbc().queryForList("SELECT id FROM dem.review_comment WHERE revision_id = ? ORDER BY comment_no",
                 UUID.class, revisionId).stream().map(this::comment).toList();
     }

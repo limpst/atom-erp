@@ -13,6 +13,8 @@ public final class QarCodes {
     public static final String NOT_ASSIGNEE = "QAR-403-003";
     /** 보고서 작성 측(PM · ENG)만 할 수 있는 동작 */
     public static final String NOT_AUTHOR_SIDE = "QAR-403-004";
+    /** QAR-03b 수동 배정 · 재배정에서 자기 자신을 QA 검토자로 지정 */
+    public static final String SELF_ASSIGNMENT = "QAR-403-005";
     /** 전이 표에 없는 (상태, 명령) — QAR_STATE */
     public static final String STATE = "QAR-409-001";
     /** 가드 실패 — 사유 전체 목록(violations) 포함(TC-QAR-001) */

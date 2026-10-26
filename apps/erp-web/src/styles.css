@@ -165,3 +165,19 @@ table.simple td.num, table.simple th.num { text-align: right; font-variant-numer
 .gtree .node { display: flex; gap: 8px; align-items: center; }
 .hash { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
 .ag-row.row-replacement { background: color-mix(in srgb, var(--ok) 20%, transparent) !important; }
+
+/* 4차 화면: 헤더 "내 할 일" 배지 · 영업 파이프라인 칸반 · 오프라인 초안 */
+.inbox-link { text-decoration: none; color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.inbox-link .count { min-width: 20px; text-align: center; border-radius: 999px; padding: 0 6px; background: var(--surface-2); font-weight: 600; }
+.inbox-link .count.has { background: var(--danger); color: #fff; }
+.kanban { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding-bottom: 6px; }
+.kanban .col { background: var(--surface-2); border-radius: var(--radius); padding: 8px; min-height: 160px; border: 1px dashed transparent; }
+.kanban .col.drop-ok { border-color: var(--ok); }
+.kanban .col.drop-no { border-color: var(--danger); opacity: 0.7; }
+.kanban .col h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-2); display: flex; justify-content: space-between; }
+.kanban .opp { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; margin-bottom: 6px; font-size: 12px; cursor: grab; }
+.kanban .opp.sel { outline: 2px solid var(--primary); }
+.kanban .opp .t { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.kanban .opp .moves { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.kanban .opp .moves button { padding: 1px 6px; font-size: 11px; }
+.draft-chip { font-size: 12px; border: 1px dashed var(--warn); color: var(--warn); border-radius: var(--radius); padding: 2px 8px; }

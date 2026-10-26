@@ -77,3 +77,17 @@ export function allowedResolutions(c: Pick<Conflict, 'strategy'>): Resolution[] 
   return c.strategy === 'REMOVE_WINS' ? ['KEEP_SERVER'] : ['KEEP_SERVER', 'KEEP_CLIENT', 'MERGE'];
 }
 export const shortHash = (h: string | null | undefined) => (h ? `${h.slice(0, 10)}…` : '—');
+
+// ------------------------------------------------------------------ 4차: 회차 만들기 · 구역 설정(데스크톱 관리)
+export interface RoundInput {
+  projectId: string; buildingId: string; roundNo?: number | null; surveyType: string; evidenceMode?: boolean;
+  startedOn?: string | null;
+}
+export interface ZoneInput { zoneName: string; floorNodeId?: string | null; assigneeId: string }
+export const fldSetupApi = {
+  /** 같은 대화상자의 재시도는 같은 멱등 키 → 서버가 같은 회차를 돌려준다 */
+  createRound: (body: RoundInput, idempotencyKey?: string) => http.post<Round>('/fld/rounds', body, { idempotencyKey }),
+  addZone: (roundId: string, body: ZoneInput, idempotencyKey?: string) =>
+    http.post<Zone>(`/fld/rounds/${roundId}/zones`, body, { idempotencyKey }),
+  round: (id: string) => http.get<Round>(`/fld/rounds/${id}`),
+};

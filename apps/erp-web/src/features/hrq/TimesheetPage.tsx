@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   hrqApi, isoWeekOf, shiftWeek, TS_STATUS_LABEL, weekDates, WORK_TYPE_LABEL, type TimesheetRow, type WorkType,
@@ -338,7 +339,9 @@ function ApprovalView({ week, projectName }: { week: string; projectName: (id: s
   const { hasRole } = useAuth();
   const qc = useQueryClient();
   const employees = useQuery({ queryKey: ['hrq', 'employees'], queryFn: hrqApi.employees });
-  const [empId, setEmpId] = useState<string>();
+  const [params] = useSearchParams();
+  // "내 할 일" 링크(?emp=&week=) 로 들어오면 그 직원 · 주를 바로 연다
+  const [empId, setEmpId] = useState<string | undefined>(params.get('emp') ?? undefined);
   useEffect(() => {
     if (!empId && employees.data?.length) {
       setEmpId(employees.data.find((e) => e.name === '정참여')?.id ?? employees.data[0].id);
@@ -402,7 +405,8 @@ function ApprovalView({ week, projectName }: { week: string; projectName: (id: s
 
 export function TimesheetPage() {
   const { hasRole, session } = useAuth();
-  const [week, setWeek] = useState(() => shiftWeek(isoWeekOf(new Date()), -1));
+  const [params] = useSearchParams();
+  const [week, setWeek] = useState(() => params.get('week') ?? shiftWeek(isoWeekOf(new Date()), -1));
   const projects = useQuery({ queryKey: ['projects'], queryFn: () => coreApi.projects(), meta: { silent: true } });
   const pmap = useMemo(() => new Map((projects.data ?? []).map((p) => [p.id, `${p.projectNo} ${p.name}`])), [projects.data]);
   const projectName = (id: string) => pmap.get(id) ?? id.slice(0, 8);

@@ -1,4 +1,4 @@
-import { http } from './http';
+import { http, request } from './http';
 
 /** DEM 해체 · 감리 (설계 10) — 프로젝트 → 업무 패키지 · 감리자 · 감리일지 · 도서 리비전 · 트랜스미털 · 검토의견 */
 export interface WorkPackage {
@@ -122,3 +122,66 @@ export function credentialWarning(c: Pick<CredentialCheck, 'status' | 'expiresOn
 export function constructionBlockers(docs: DemDocument[], revisionIds: string[]) {
   return docs.filter((d) => d.revisions.some((r) => revisionIds.includes(r.id)) && d.unresolvedComments > 0);
 }
+
+// ------------------------------------------------------------------ 4차: 감리일지 작성(오프라인 초안) · 정정 요청
+//
+// ⚠️ 정정(correction) 흐름은 "요청 → 다른 사람 승인" 모양으로 만든다. 보안 검토 DEM-03b(본인 일지 정정은 다른 사람이 승인하는
+// 요청으로)와 DEM-02(PM/ENG 는 PROJECT 범위)는 다른 에이전트가 서버에 동시에 넣는 중이라, 서버 호출은 아래 함수에만 모았다.
+// 병합 뒤 엔드포인트 · 본문이 달라지면 이 파일의 demLogApi 만 고치면 된다.
+//  - 현재 서버: POST /dem/daily-logs/{id}/amendments 는 PM(dem:log-amendment:create)이 부르면 바로 APPLIED.
+//               잠긴 일지를 감리원이 다시 PUT 하면 202 + PENDING 정정 초안(LATE_SYNC).
+//  - 승인 · 반려(POST /dem/amendments/{id}:approve|:reject)는 아직 서버에 없다(404 → 화면이 "승인 API 준비 중" 안내).
+
+export interface ChecklistTemplateItem { id: string; seq: number; title: string; photoRequired: boolean; defaultSeverity: string | null }
+export interface ChecklistTemplate {
+  id: string; phaseCode: string; versionNo: number; effectiveFrom: string; legalBasis: string | null; example: boolean;
+  items: ChecklistTemplateItem[];
+}
+export type CheckResult = 'PASS' | 'FAIL' | 'NA';
+export interface ChecklistInput {
+  templateItemId: string; result: CheckResult; severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null; note?: string | null;
+  photoIds?: string[];
+}
+export interface DailyLogInput {
+  clientOpId: string; phaseCode: string; progressPct?: number | null; workersCount?: number | null;
+  weather?: Record<string, unknown> | null; checklist?: ChecklistInput[]; remarks?: string | null;
+  deviceSignedAt?: string | null; submit: boolean;
+}
+export interface UpsertResult {
+  id: string; workPackageId: string; logDate: string; status: 'DRAFT' | 'SUBMITTED' | 'LOCKED'; version: number;
+  contentSha256: string | null; lateSync: boolean; replayed: boolean; amendmentPending: boolean; amendmentId?: string;
+  correctiveOrders: { orderNo: string; severity: string; dueAt: string; stopWorkRequested: boolean }[];
+  warnings: string[];
+}
+export interface Amendment {
+  id: string; fieldPath: string; oldValue: unknown; newValue: unknown; reason: string;
+  status: 'APPLIED' | 'PENDING' | 'REJECTED' | string; amendedBy: string; amendedAt: string;
+}
+export interface DailyLogFull extends Omit<DailyLogDetail, 'amendments'> {
+  amendments: Amendment[];
+  effective?: Record<string, unknown>;
+}
+/** 정정할 수 있는 항목(서버 DailyLogService.AMENDABLE 과 같음) */
+export const AMENDABLE_FIELDS: Record<string, string> = {
+  remarks: '특기 사항', progressPct: '공정률(%)', workersCount: '작업 인원', phaseCode: '공정', weather: '날씨', equipment: '장비',
+  checklist: '점검표',
+};
+export const AMENDMENT_STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'danger' | 'info' }> = {
+  APPLIED: { label: '적용됨', tone: 'ok' }, PENDING: { label: '승인 대기', tone: 'warn' }, REJECTED: { label: '반려', tone: 'danger' },
+  APPROVED: { label: '승인 · 적용', tone: 'ok' },
+};
+export interface CorrectionRequest { fieldPath: string; newValue: unknown; reason: string }
+
+export const demLogApi = {
+  template: (phaseCode: string, date: string) => http.get<ChecklistTemplate>(`/dem/checklist-templates/${phaseCode}`, { date }),
+  /** 감리일지 업서트 — clientOpId 가 같으면 서버가 저장된 같은 응답을 돌려준다(Idempotent-Replayed) */
+  upsert: (wpId: string, date: string, body: DailyLogInput) =>
+    request<UpsertResult>('PUT', `/dem/daily-logs/${wpId}/${date}`, { body }).then((r) => ({ ...r.data, httpStatus: r.status, replayed: r.data.replayed || r.replayed })),
+  log: (id: string) => http.get<DailyLogFull>(`/dem/daily-logs/${id}`),
+  /** 정정 요청(잠긴 일지). 응답의 해당 정정 행 status 로 즉시 적용(APPLIED)인지 승인 대기(PENDING)인지 판단한다 */
+  requestCorrection: (logId: string, body: CorrectionRequest, idempotencyKey?: string) =>
+    http.post<DailyLogFull>(`/dem/daily-logs/${logId}/amendments`, body, { idempotencyKey }),
+  /** 정정 요청 결정(요청자가 아닌 사람) — ⚠️ 서버 API 는 DEM-03b 병합 후 확정(지금은 404) */
+  decideCorrection: (amendmentId: string, decision: 'approve' | 'reject', comment?: string) =>
+    http.post<DailyLogFull>(`/dem/amendments/${amendmentId}:${decision}`, { comment }),
+};

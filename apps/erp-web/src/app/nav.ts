@@ -19,6 +19,7 @@ export const NAV: NavGroup[] = [
     label: '공통',
     items: [
       { label: '대시보드', module: 'HOME', path: '/' },
+      { label: '내 할 일', module: 'ALL', path: '/inbox' },
       { label: '프로젝트', module: 'CORE·CST', path: '/projects' },
       { label: '관리 › 영업팀장 그룹', module: 'SAL', path: '/admin/sales-group', roles: ['ADMIN'] },
       { label: '관리 › QA 검토자', module: 'QAR', path: '/admin/qa-reviewers', roles: ['ADMIN'] },
@@ -30,6 +31,7 @@ export const NAV: NavGroup[] = [
     label: 'G1 현장·비전 AI',
     items: [
       { label: '현장조사 (관리)', module: 'FLD', path: '/fld', roles: ['PM', 'ENG', 'QA', 'EXEC', 'AUDITOR', 'ADMIN'] },
+      { label: '조사 회차 · 구역 설정', module: 'FLD', path: '/fld/setup', roles: ['PM', 'ADMIN'] },
       { label: 'AI Job · 모델 · 제안', module: 'AIP', path: '/aip', roles: ['EXEC', 'PM', 'ENG', 'QA', 'SYSADMIN', 'AUDITOR'] },
     ],
   },
@@ -58,6 +60,7 @@ export const NAV: NavGroup[] = [
     id: 'G4',
     label: 'G4 영업·견적·고객',
     items: [
+      { label: '영업 파이프라인 · 공고', module: 'SAL', path: '/sal/pipeline', roles: ['SALES', 'EXEC', 'ADMIN'] },
       { label: '영업기회 · 견적', module: 'SAL', path: '/sal/estimates' },
       { label: '고객 포털(고객 전용 /portal)', module: 'PTL' },
     ],
@@ -77,6 +80,9 @@ export const NAV: NavGroup[] = [
   {
     id: 'G6',
     label: 'G6 감리·해체',
-    items: [{ label: '해체 · 감리', module: 'DEM', path: '/dem', roles: ['EXEC', 'SALES', 'PM', 'ENG', 'QA', 'ADMIN'] }],
+    items: [
+      { label: '해체 · 감리', module: 'DEM', path: '/dem', roles: ['EXEC', 'SALES', 'PM', 'ENG', 'QA', 'ADMIN'] },
+      { label: '감리일지 작성 · 정정', module: 'DEM', path: '/dem/logs', roles: ['PM', 'ENG', 'EXEC', 'QA', 'ADMIN'] },
+    ],
   },
 ];

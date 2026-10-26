@@ -31,6 +31,10 @@ import { FcdRulesetsPage } from '@/features/fcd/FcdRulesetsPage';
 import { FcdCardsPage } from '@/features/fcd/FcdCardsPage';
 import { AipPage } from '@/features/aip/AipPage';
 import { RevisionDetailPage } from '@/features/rpt/RevisionDetailPage';
+import { SalPipelinePage } from '@/features/sal/SalPipelinePage';
+import { DemLogWritePage } from '@/features/dem/DemLogWritePage';
+import { FldSetupPage } from '@/features/fld/FldSetupPage';
+import { InboxPage } from '@/features/inbox/InboxPage';
 import { PortalLayout } from '@/features/ptl/PortalLayout';
 import { PortalHomePage, PortalNotificationsPage, PortalReportsPage, PortalRequestsPage } from '@/features/ptl/PortalPages';
 
@@ -80,6 +84,10 @@ function Themed() {
           <Route path="fcd/cards" element={<FcdCardsPage />} />
           <Route path="aip" element={<AipPage />} />
           <Route path="reports/:id/revisions/:revId" element={<RevisionDetailPage />} />
+          <Route path="inbox" element={<InboxPage />} />
+          <Route path="sal/pipeline" element={<SalPipelinePage />} />
+          <Route path="dem/logs" element={<DemLogWritePage />} />
+          <Route path="fld/setup" element={<FldSetupPage />} />
           <Route path="*" element={<div className="empty">페이지를 찾을 수 없습니다</div>} />
         </Route>
         <Route path="portal" element={<PortalLayout />}>

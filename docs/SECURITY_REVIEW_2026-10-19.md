@@ -56,7 +56,7 @@
 
 전체 빌드 결과는 §9 를 보세요.
 
-## 2. 정책 결정 필요 (요약 · 권장안)
+## 2. 정책 결정 필요 (요약 · 권장안 · 3차 적용 상태)
 
 | ID | 심각도 | 결정할 것 | 권장안 | 상태 (2026-10-26) |
 |---|---|---|---|---|
@@ -277,13 +277,41 @@
   - `KeycloakRealmExportTest.claimNames` 는 클레임 이름이 없는 audience 매퍼를 건너뜀.
 - 운영 배포 시 꼭 할 일(추가): `ATOM_AIP_WORKER_SECRET`(32바이트 이상, ERP · 워커 같은 값), `ATOM_SECURITY_AUDIENCES`(realm 매퍼와 같은 값), `SPRING_PROFILES_ACTIVE=prod` + `atom.evidence.local-root`(영구 경로), Keycloak User Profile 에서 `client_id` · `employee_id` 관리자 전용(`deploy/keycloak/README.md`).
 - 운영 배포 시 꼭 할 일: **`atom.fcd.token-hmac.v1` 에 32바이트 이상 비밀 키 주입**(FCD-01). 주입하지 않으면 OIDC 모드 기동이 실패합니다.
+- **3차(2026-10-26, 정책 결정 적용): `./gradlew build` BUILD SUCCESSFUL — 시험 941개 중 실패 0, 건너뜀 5(PostGIS 1 + 작업 폴더에 .venv 가 없어 건너뛴 실워커 계약 4 — 따로 .venv 를 붙여 `AipWorkerLiveContractTest` 4개 통과 확인).** 웹: `npm run build` 통과, Vitest 16파일 98개 통과, Playwright E2E 20파일 37개 통과(직무 분리 E2E `w4-sod.spec.ts` 포함).
+- 3차 운영 배포 시 꼭 할 일(추가): `deploy/prod/run-erp.sh`(또는 `.ps1`)로만 기동 — `SPRING_PROFILES_ACTIVE=prod` 고정 · 환경 파일 `/etc/atom-erp/erp.env`(양식 `deploy/prod/erp.env.example`, 비밀값 빈 칸). prod 는 `PG_APP_PASSWORD`(기본값 `atom_app_local` · 빈 값 거부), S3 호환 Object Lock 버킷(미리 Object Lock 을 켜고 생성) · `ATOM_EVIDENCE_S3_ENDPOINT` · `ATOM_EVIDENCE_S3_ACCESS_KEY` · `ATOM_EVIDENCE_S3_SECRET_KEY`(환경변수만), 실제 HRQ 투입 가능성 · 조종 자격 어댑터(스텁이면 기동 실패)가 필요합니다.
 
 ## 10. 다음 단계 권장 순서
 
-2차에서 1 · 3 · 5 · 6(CMN-05 · AIP-03 · AIP-06 · FLD-02 · CORE-01)을 마쳤습니다. 남은 순서:
+3차에서 정책 결정 32건을 모두 적용했습니다(§11). 남은 순서:
 
-1. **PTL-01 정책 확정.** CUSTOMER 가 내부 API 를 쓰지 못하게 하고 포털로만 받게 합니다.
-2. **HRQ-01 · HRQ-02** 타임시트 승인 · 정정 정책을 확정합니다(원가에 직접 영향).
-3. **SAL-05** 결정 — 지금은 PM 이 영업기회 · 장비 엔드포인트 12개에서 403 입니다(실패하는 쪽으로 닫힘).
-4. **AIP-02 · AIP-01b** 모델 승격 정책, **AIP-07** 나머지(워커 `cv2.imdecode` 픽셀 상한).
-5. 미수정 Low/Info(CMN-08 · 10 · 11 · 12 · 13, FCD-08, RPT-04 · 05 · 08, SAL-08).
+1. 미수정 Low/Info: CMN-08(actuator SYSADMIN 한정) · CMN-10 · CMN-11 · CMN-12 · FCD-08 · RPT-04 · RPT-05 · RPT-08.
+2. 일부 수정의 나머지: AIP-07(워커 `cv2.imdecode` 픽셀 상한) · AIP-04(전역 멱등 인덱스) · QAR-04(waiver 를 QA_REVIEWING/PENDING_APPROVAL 만 — 기존 SELF_CHECK 흐름 재검토 필요).
+3. 3차 적용에서 남긴 한계(§11 "남은 한계")를 운영 전에 재확인: PTL-03 다중 노드 속도 제한, S3 어댑터 대용량(멀티파트), RPT-07 자격 코드 확정, FLD-02b 현장 기기 최대 원본 크기 실측.
+
+## 11. 3차 — 정책 결정 일괄 적용 (2026-10-26)
+
+사용자가 §2 의 권장안을 **그대로 일괄 적용**하도록 승인했습니다. 항목마다 회귀 시험(DisplayName 이 항목 ID 로 시작)을 붙였고, §2 와 모듈 표의 상태 열에 커밋 · 시험 이름을 적었습니다.
+
+**모듈별 적용 건수(집계 대상 32건)**: HRQ 5 · CORE 1 · CST 2 · PTL 2 · SAL 3 · EQP 4 · FCD 7 · QAR 1 · RPT 1 · DEM 2 · AIP 2 · CMN 2. 집계 밖 하위 항목 5건(AIP-01b · QAR-03b · QAR-04b · RPT-02b · FLD-02b)과 남은 부분 2건(CMN-04 배포 절차 · CMN-07 Object Lock 어댑터), 운영 가드 2건(SAL-08 · CMN-13, 미수정 → 수정), 웹 3차에서 찾은 SYSADMIN 조회 공백 2건(`cst:period:read` · 모델 레지스트리 `aip:model:read`)도 함께 적용했습니다.
+
+| 커밋 | 항목 |
+|---|---|
+| `03e1aa9` | 시험 보조: `PermissionMatrixTest` 정책 덮어쓰기(`permission-policy/*.csv`) |
+| `7a96545` · `48bbec8` | HRQ-01 · 02 · 03 · 06 · 07, CORE-02(오류 코드 CORE-403-011), CST-01 · 02, SYSADMIN 회계기간 조회 — `V0039` · `V0040` |
+| `ae344c8` | PTL-01 · 03, SAL-03 · 05 · 06 · 08, EQP-01 · 02 · 03 · 04 — `V0042` · `V0043` · `V0044` |
+| `081bdfd` | FCD-10 · 11 · 12 · 13 · 14 · 17 · 18 — `V0045` |
+| `ec67e19` | QAR-01 · 03b · 04b, RPT-07 · 02b, DEM-02 · 03 — `V0047` · `V0048` |
+| `2ccdf38` · `5d03028` · `41f9276` · `9ed7dc4` · `9092337` · `09fbee0` | AIP-02 · 01b · 08 + SYSADMIN 모델 조회(`V0050`), FLD-02b, CMN-04 · 13, CMN-07, CMN-09, CMN-14(`V0051`) |
+
+**권장안에서 세부를 정한 곳(더 엄격한 쪽 또는 업무 흐름 유지)**
+- HRQ-01: RESP 판정 기준일은 **오늘**(근무일 아님). 대리 승인 사유 5자 이상, `approval_mode=DELEGATED` · `delegation_reason` 기록 + 감사. HRQ-02: 정정자가 본인이면 어떤 역할이든 SUBMITTED. HRQ-06: 본인 자격 "등록"은 허용, 승인 · 반려 · 등급 변경 · 초기 등급 자기 등록은 거부.
+- CST-01: 상신 API `:submit` 신설, REVIEWED 도 결재 불가. CST-02: 마감 기간을 덮는 소급은 거부하되 **승인된 요율이 없는 새 키**는 시작 달이 열려 있으면 허용(마감 기간 금액이 바뀌지 않음).
+- PTL-01: 포털 realm · CUSTOMER 는 `/api/v1/ptl/**` + `/actuator/health` 만(403 CORE-403-010). SAL-03: CONTRACTED 수동 이동도 금지. SAL-05: PM 의 장비 create/update 도 삭제(장비 대장은 ADMIN). EQP-01: "그 프로젝트 PM" = PM 역할 + 투입(RESP 까지는 아님). EQP-02: 2분 이내 시계 오차는 서버 시각으로 맞춤.
+- FCD-10: PM 승인 경로가 설계에 없어 투입 확인만. FCD-11: SoD 를 SEPARATE 에도 적용. FCD-14: "FIN 승인" = FIN 이 소급 배정을 직접 등록(FIN 본인 배정 소급은 거부).
+- QAR-03b: QA_LEAD 역할이 없어 **자기 배정 금지**로 구현. QAR-04b 결과로 SELF_CHECK 단계에는 QA 측 waiver 서명이 불가(담당 QA 가 없음). RPT-07: 책임기술자 = 프로젝트 RESP + 유효 자격(⚠️ 예시 코드 ARCH_STRUCT_PE · ARCH_ENG · SAFETY_DIAG_CERT), RPT → `hrq::api` 의존 추가(`ModularityTests#rptBoundary` 는 hrq 내부 패키지만 금지). RPT-02b: `cst.project_facility` 를 채우는 흐름이 없어 "FAC 에 있고 소유 고객 = 발주 고객"으로 판정, `buildingId` 없는 스냅샷 건물은 허용(FAC 등급을 쓰지 않음).
+- DEM-02: `dem:checklist:read` 는 기준 자료라 ALL 유지. DEM-03(b): PM 이 **남의** 일지를 정정하면 즉시 적용(본인 일지만 승인 대기), 정정 결정은 append-only `dem.log_amendment_decision`.
+- AIP-08: 라벨 제출 API 가 아직 없어 `label_task.labeled_by` 열 + 판정 서비스 · DB 트리거로 강제(피드백 결정자도 라벨러로 봄). CMN-04: 배포 표식(`ATOM_DEPLOY_ENVIRONMENT=prod`)이 있는데 prod 프로필이 아니면 기동 거부(OIDC 모드 전체에 prod 를 강제하면 로컬 Keycloak 개발이 막혀 넣지 않음). CMN-07: prod 는 `atom.evidence.store=s3` 만(로컬은 `atom.evidence.allow-local-in-prod=true` 명시 때만).
+
+**남은 한계**: CMN-09 재확인은 `scopeCheckedInService` 엔드포인트에서 역할 → 권한까지만(서비스 안 행 검사는 재실행하지 않음). PTL-03 속도 제한은 노드 메모리 기준(서버 여러 대면 대마다 따로), 원본 · 결과 바이트는 여전히 메모리(`byte[]` 응답). S3 어댑터는 한 건 256MB 상한(메모리 적재, 멀티파트 없음). CMN-14 시험용 대역 transport 는 예전 경로.
+
+**사용자가 느끼는 변화(요약)**: 타임시트는 책임자만 · 본인 것 불가 · 정정은 재승인, 예산은 상신 후 결재, PM 은 RESP 지정 불가, 고객 계정은 포털 API 만, 할인 한도는 작성자 기준 · 본인 승인 불가, 입찰 품의 승인은 EXEC 버튼 · 수주는 견적 수락으로만, PM 이 영업기회 · 장비를 다시 조회, 장비 예약 · 반출은 투입 프로젝트만 · 본인 예약 본인 승인 불가 · 서버 시각, 카드 배치 롤백은 FIN 요청 + AUDITOR 승인, 보고서 최종 승인은 작성에 관여하지 않은 PM, QA 자기 배정 불가, 등급 결정은 RESP + 자격, 본인 감리일지 정정은 다른 사람 승인, AI canary 25% 초과는 EXEC 승인 먼저, SYSADMIN 이 회계기간 목록 · 모델 목록을 봄. 웹 화면도 이에 맞춰 버튼을 숨기거나 안내 문구를 보입니다(저장소 README 4-16 절 · `apps/erp-web/README.md`).

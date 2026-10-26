@@ -1,4 +1,4 @@
-# apps/erp-web — 에이톰 ERP 웹 (1 · 2 · 3차 화면)
+# apps/erp-web — 에이톰 ERP 웹 (1 · 2 · 3 · 4차 화면)
 
 React 18 + TypeScript + Vite + TanStack Query + AG Grid Community + sonner(토스트) + uPlot(선 그래프, MIT · 약 50KB). 유료 의존성 없음. 로컬 전용(127.0.0.1).
 
@@ -21,7 +21,7 @@ npm run dev
 ```bash
 npm run build            # tsc -b + vite build
 npm test                 # Vitest + MSW 계약 목(Idempotency-Key · ETag/If-Match · problem+json)
-npm run e2e              # Playwright(설치된 Edge) — 백엔드 · Vite 를 자동으로 띄우고 실제 API 로 15개 파일 흐름 구동
+npm run e2e              # Playwright(설치된 Edge) — 백엔드 · Vite 를 자동으로 띄우고 실제 API 로 20개 파일 흐름 구동
 ```
 
 E2E 는 새 DB(백엔드 새로 기동)를 전제로 합니다. 이미 떠 있는 서버를 재사용하면 시드 상태가 바뀌어 일부 시험(타임시트 · FCD)이 실패할 수 있습니다. 스크린샷은 `e2e/screenshots/`.
@@ -67,9 +67,17 @@ E2E 는 새 DB(백엔드 새로 기동)를 전제로 합니다. 이미 떠 있�
 | G3 › 법인카드 목록 | `/fcd/cards` | 마스킹 번호만(긴 숫자열이 오면 화면에서 다시 가림), 한도 · 소지자 · 퇴사자 비활성 권고 |
 | G1 › AI Job · 모델 · 제안 | `/aip?tab=jobs\|models\|suggestions\|audit` | Job 상태 칩 · 상태 필터 · 상세(job_event 이력) · 대기 Job 취소, 모델 레지스트리(단계 · 별칭 shadow/canary/production · 트래픽 %, QA/EXEC 승인 기록, SYSADMIN 단계 전이 대화상자, 승격 요청 표), 제안(결정 대기 → 수락/거절 사유, 결정됨), 추론 감사(AUDITOR — **해시 · 모델 · 지연만**, params · provenance 는 화면 데이터에서 제거) |
 | G2 › 보고서 리비전 상세 | `/reports/:id/revisions/:revId` | 블록 본문 읽기 보기(🔒 수치 블록 · 자동/사람 편집 · 표 블록), **앵커 오버레이**(A4 쪽 축소판 위 추정 위치 상자 — 누르면 블록 강조, 목록), 등급 트리(동 → 층 → 부재 + 근거 지표 · 구간 상한 · 결함), HWPX · 층별 DXF 다운로드 |
+| **4차** G4 › 영업 파이프라인 (SALES · EXEC · ADMIN) | `/sal/pipeline?tab=board\|notices\|sim` | 단계별 칸반(건수 · 가중 금액) — 단계 버튼 · 끌어 놓기 → `:move`(응답 version 으로 If-Match), LOST/DROPPED 는 사유 대화상자, 서버 403/409/412/422/428 은 보드 안 배너(412 는 다시 읽기). 입찰 품의 승인(BID_APPROVED)은 EXEC `:approve-bid`, WON · CONTRACTED 는 견적 수락 · 계약 서명으로만(SAL-03). 나라장터 공고 목록(상태 · 키워드 서버 검색 + 마감 N일 · 최저가 · 정정/취소 숨김), 수집 로그 · ADMIN/SYSADMIN "지금 수집", SALES "기회 만들기". 적격심사 모의계산(항목별 점수 · 투찰률 시나리오 · 추천 투찰률 · 사용한 실적) |
+| **4차** G6 › 감리일지 작성 · 정정 (PM · ENG · EXEC · QA · ADMIN) | `/dem/logs` | 점검표 템플릿 · 공정 · 공정률 · 인원 · 날씨 · 특기 사항. **초안은 localStorage** `atom-erp.dem-log-draft.{wp}.{date}` 에 저장 · 초안마다 고정 clientOpId → 네트워크 실패면 "전송 대기", `online` 이벤트(또는 버튼)로 **같은 clientOpId** 재전송(서버 `Idempotent-Replayed`). 잠긴 일지는 정정 요청(항목 · 새 값 · 사유 필수) — 본인 일지 정정은 "승인 대기", 요청자 · 일지 작성자가 아닌 PM/EXEC 가 승인 · 반려(반려는 메모 필수, 늦은 동기화 초안은 반려만 — DEM-03b) |
+| **4차** G1 › 현장조사 회차 설정 (PM · ADMIN) | `/fld/setup` | 회차 만들기(프로젝트 · 건물 · 유형 · 증거 모드 · 시작일 · 회차 번호, 재시도는 같은 Idempotency-Key) → 구역 추가(이름 · FAC 층 노드 · 프로젝트 투입자 담당), 서버 403/409/422 는 화면 안 |
+| **4차** 공통 › 내 할 일 (모두) | `/inbox` + 머리글 배지 `내 할 일 N` | 지금 사용자가 처리할 승인만 모음: 할인 승인(SAL 수신함 API) · 예산 결재(CST) · 타임시트(HRQ, RESP 인 프로젝트) · QAR 배정 · 기준 요율 승인 · FCD 룰셋 4-eyes · 감리일지 정정 · AI 모델 승인 — 본인이 만든 건은 빼고(직무 분리), 항목마다 처리 화면 링크 |
 | 고객 포털 (CUSTOMER 전용, 별도 레이아웃) | `/portal`, `/portal/reports`, `/portal/requests`, `/portal/notifications` | 내 시설물 · 안전등급 · 점검 일정(D-day), 납품 보고서(정정본 대체 배너 · 열람만 / 최신본 워터마크 PDF — download-id · SHA-256 표시), 서비스 요청(긴급은 사유 필수 · 멱등 키), 알림 읽음. 직원이 /portal 에 오면 안내, 고객이 내부 화면에 오면 /portal 로 |
 
 ## 백엔드에 추가한 조회 API (웹 화면용)
+
+4차(저장소 README 4-17 절, 읽기 전용 · 마이그레이션 없음): `GET /sal/inbox/discount-approvals` · `GET /cst/inbox/budget-approvals` · `GET /hrq/inbox/timesheet-approvals` · `GET /qar/inbox/assignments` — "내 할 일" 이 브라우저에서 "본인 것 제외 · RESP 인 프로젝트" 를 거를 수 없어 서버에서 실패하는 쪽으로 닫아 거름. dev 사용자 `겸직임원`(SALES+EXEC) · `겸직책임`(PM+ENG+EXEC) 추가(직무 분리 E2E), 시드 `DevSeedRound4`.
+
+보안 정책 적용(저장소 README 4-16 절)으로 바뀐 화면: 견적 — 작성자 본인 EXEC 는 할인 승인 버튼 대신 안내 · 단계 버튼에서 WON/CONTRACTED/BID_APPROVED 제외, 장비 예약 — 본인 신청은 승인 버튼 숨김 · 취소는 신청자/PM, 프로젝트 상세 — 예산 "상신" → 결재(작성 · 상신자 본인은 비활성), HRQ 월 마감 재개 · CST 재오픈은 SYSADMIN(회계기간 목록 행에서), AI 모델 탭 SYSADMIN 표시 · canary 25% 상한 안내 · QA/EXEC 같은 사람 승인 버튼 숨김, FCD — 본인 카드 중복은 병합 · 분리 비활성, AUDITOR 만 검토 실행 재정의(사유), 직원에게 룰 적중 요약만, 보고서 — "나를 QA 검토자로 배정" 삭제(자기 배정 금지).
 
 3차(저장소 README 4-15 절, 읽기 전용 · 마이그레이션 · 권한 시드 변경 없음): `GET /hrq/credentials?status=` · `GET /hrq/month-close` · `GET /cst/periods` · `GET /cst/periods/{ym}/reconciliations` · `GET /cst/projects/{id}/evm/snapshots` · `GET /fcd/imports` · `GET /aip/jobs?status=&serviceCode=` · `GET /aip/suggestions?status=`. dev 사용자에 `시스템관리`(SYSADMIN, D-013) 추가 — CST 재오픈 · AI 모델 단계 전이.
 

@@ -382,6 +382,9 @@ class AipIntegrationTest extends IntegrationTestBase {
                 .isFalse();
         assertThat(empty.get("count").asInt()).isGreaterThanOrEqualTo(0);
         call(json(post("/api/v1/aip/datasets/crack-seg/commits"), "{\"tag\":\"" + "x".repeat(41) + "\"}"), sys, "SYSADMIN", 422);
+        // AIP-08: 원천 라벨(MODIFIED 정정)을 만든 기술자는 QA 역할이 있어도 자기 라벨을 판정할 수 없다
+        assertThat(call(json(post("/api/v1/aip/label-tasks/" + task + "/adjudication"), "{\"approved\":true,\"finalResult\":{}}"),
+                eng, "QA", 403).get("code").asText()).isEqualTo("AIP-403-002");
         call(json(post("/api/v1/aip/label-tasks/" + task + "/adjudication"), "{\"approved\":true,\"finalResult\":{\"class\":\"CRACK\"},"
                 + "\"agreementIou\":0.82}"), sys, "QA", 200);
         JsonNode ds = call(json(post("/api/v1/aip/datasets/crack-seg/commits"), "{\"tag\":\"v-" + task + "\"}"), sys,
@@ -475,6 +478,89 @@ class AipIntegrationTest extends IntegrationTestBase {
         assertThat(registry.resolve("SITE_HAZARD", UUID.randomUUID()).modelVersionId()).isEqualTo(m);
         assertThat(outbox("aip.model.promoted", m).get("alias").asText()).isEqualTo("production");
         call(json(post(base + "/promote"), "{\"targetStage\":\"EVALUATED\"}"), ml, "PM", 403);
+    }
+
+    private UUID shadowModel(String name, UUID qaApprover, UUID execApprover) {
+        return jdbc.queryForObject("""
+                INSERT INTO aip.model_version(name, version, artifact_uri, artifact_sha256, stage, approved_by, exec_approved_by)
+                VALUES (?, ?, 'mlflow:/models/policy/1', ?, 'SHADOW', ?, ?) RETURNING id""", UUID.class, name,
+                "9." + System.nanoTime() % 1000000, "3".repeat(64), qaApprover, execApprover);
+    }
+
+    @Test
+    @DisplayName("AIP-02: SHADOW→CANARY trafficPct 25% 초과(100% 포함)는 EXEC 승인 기록 전 403 AIP-403-001, 범위 밖 422, 25% 이하 · EXEC 승인 후는 허용")
+    void aip02CanaryTrafficCap() throws Exception {
+        UUID ml = UUID.randomUUID();
+        UUID m = shadowModel("policy-canary", UUID.randomUUID(), null);
+        String base = "/api/v1/aip/models/" + m + "/promote";
+        JsonNode denied = call(json(post(base), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_A\",\"trafficPct\":100}"),
+                ml, "SYSADMIN", 403);
+        assertThat(denied.get("code").asText()).isEqualTo("AIP-403-001");
+        call(json(post(base), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_A\",\"trafficPct\":26}"), ml, "SYSADMIN", 403);
+        call(json(post(base), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_A\",\"trafficPct\":0}"), ml, "SYSADMIN", 422);
+        call(json(post(base), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_A\",\"trafficPct\":101}"), ml, "SYSADMIN", 422);
+        assertThat(jdbc.queryForObject("SELECT stage FROM aip.model_version WHERE id = ?", String.class, m)).isEqualTo("SHADOW");
+        JsonNode ok = call(json(post(base), "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_A\",\"trafficPct\":25}"),
+                ml, "SYSADMIN", 200);
+        assertThat(ok.get("trafficPct").asInt()).isEqualTo(25);
+
+        // EXEC 최종 승인이 먼저 기록된 모델은 25% 초과 canary 허용
+        UUID m2 = shadowModel("policy-canary-exec", UUID.randomUUID(), null);
+        call(json(post("/api/v1/aip/models/" + m2 + "/approval"), "{\"role\":\"EXEC\"}"), UUID.randomUUID(), "EXEC", 200);
+        JsonNode wide = call(json(post("/api/v1/aip/models/" + m2 + "/promote"),
+                "{\"targetStage\":\"CANARY\",\"serviceCode\":\"POLICY_CANARY_B\",\"trafficPct\":50}"), ml, "SYSADMIN", 200);
+        assertThat(wide.get("trafficPct").asInt()).isEqualTo(50);
+    }
+
+    @Test
+    @DisplayName("AIP-01b: 같은 사람(QA+EXEC 겸직)이 QA · EXEC 두 승인을 모두 채우면 403 AIP-403-002 · DB CHECK 도 거부")
+    void aip01bFourEyes() throws Exception {
+        UUID both = UUID.randomUUID();
+        UUID m = jdbc.queryForObject("""
+                INSERT INTO aip.model_version(name, version, artifact_uri, artifact_sha256, stage) VALUES
+                ('policy-4eyes', ?, 'mlflow:/models/policy/2', ?, 'EVALUATED') RETURNING id""", UUID.class,
+                "8." + System.nanoTime() % 1000000, "4".repeat(64));
+        String approval = "/api/v1/aip/models/" + m + "/approval";
+        var asBoth = json(post(approval), "{\"role\":\"QA\"}");
+        call(asBoth, both, "QA", 200);
+        JsonNode denied = flow.call(json(post(approval), "{\"role\":\"EXEC\"}"), both, "EXEC,QA", 403);
+        assertThat(denied.get("code").asText()).isEqualTo("AIP-403-002");
+        assertThat(jdbc.queryForMap("SELECT exec_approved_by FROM aip.model_version WHERE id = ?", m).get("exec_approved_by"))
+                .isNull();
+        assertThatThrownBy(() -> jdbc.update("UPDATE aip.model_version SET exec_approved_by = approved_by WHERE id = ?", m))
+                .hasMessageContaining("ck_model_version_four_eyes");
+        call(json(post(approval), "{\"role\":\"EXEC\"}"), UUID.randomUUID(), "EXEC", 200);
+    }
+
+    @Test
+    @DisplayName("AIP-08: 라벨 판정자 = 라벨 제출자(labeled_by)면 403 AIP-403-002 · DB 트리거도 거부, 다른 QA 는 판정 가능")
+    void aip08AdjudicatorIsNotLabeler() throws Exception {
+        UUID pm = flow.employee("AIP08-PM");
+        UUID project = flow.project(pm);
+        UUID photo = attachment(pm, project);
+        UUID labeler = UUID.randomUUID();
+        UUID task = jdbc.queryForObject("""
+                INSERT INTO aip.label_task(source, project_id, image_attachment_id, image_sha256, priority_score,
+                       guideline_version, labeled_by, status) VALUES ('NEW_COLLECTION', ?, ?, ?, 1, 'g1.0', ?, 'SUBMITTED')
+                RETURNING id""", UUID.class, project, photo, PNG_SHA, labeler);
+        String adj = "/api/v1/aip/label-tasks/" + task + "/adjudication";
+        JsonNode denied = call(json(post(adj), "{\"approved\":true,\"finalResult\":{}}"), labeler, "QA", 403);
+        assertThat(denied.get("code").asText()).isEqualTo("AIP-403-002");
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO aip.adjudication(task_id, approved, final_result, adjudicator_id) "
+                + "VALUES (?, true, '{}'::jsonb, ?)", task, labeler)).hasMessageContaining("AIP_ADJUDICATOR_IS_LABELER");
+        assertThat(call(json(post(adj), "{\"approved\":true,\"finalResult\":{}}"), UUID.randomUUID(), "QA", 200)
+                .get("status").asText()).isEqualTo("DONE");
+    }
+
+    @Test
+    @DisplayName("AIP-MODEL-READ(웹 3차): SYSADMIN · EXEC · QA · PM · ENG 는 모델 레지스트리 조회 200, LABELER · AUDITOR 는 403")
+    void modelRegistryReadableBySysadmin() throws Exception {
+        assertThat(call(get("/api/v1/aip/models"), UUID.randomUUID(), "SYSADMIN", 200).size()).isGreaterThanOrEqualTo(3);
+        for (String role : List.of("EXEC", "QA", "PM", "ENG")) {
+            call(get("/api/v1/aip/models"), UUID.randomUUID(), role, 200);
+        }
+        call(get("/api/v1/aip/models"), UUID.randomUUID(), "LABELER", 403);
+        call(get("/api/v1/aip/models"), UUID.randomUUID(), "AUDITOR", 403);
     }
 
     // ------------------------------------------------------------------ RPT · QAR 동기 호출(aip::api)

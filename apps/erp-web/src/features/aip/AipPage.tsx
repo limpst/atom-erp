@@ -16,6 +16,8 @@ import { Badge, Banner, Card, ErrorBox, Field, fmtDateTime, fmtNum, Kpi, Modal }
 type Tab = 'jobs' | 'models' | 'suggestions' | 'audit';
 const devName = new Map(DEV_USERS.map((u) => [u.id, u.name]));
 const who = (id?: string | null) => (id ? devName.get(id) ?? id.slice(0, 8) : '—');
+/** 보안 검토 AIP-02 — 서버 ModelRegistryService.MAX_CANARY_PCT_WITHOUT_EXEC 와 같다 */
+const CANARY_MAX_WITHOUT_EXEC = 25;
 const ALIAS_TONE: Record<string, 'ok' | 'warn' | 'info'> = { production: 'ok', canary: 'warn', shadow: 'info' };
 
 function JobChip({ s }: { s: JobStatus }) {
@@ -118,6 +120,8 @@ function PromoteDialog({ m, onClose }: { m: ModelRow; onClose: () => void }) {
   const [to, setTo] = useState<ModelStage | ''>(targets[0] ?? '');
   const [svc, setSvc] = useState(m.deployments?.[0]?.serviceCode ?? 'CRACK_DETECT');
   const [pct, setPct] = useState(10);
+  // 보안 검토 AIP-02: EXEC 승인 전 canary 는 25% 이하, EXEC 승인 후에만 그 이상(최대 100)
+  const canaryMax = m.exec_approved_by ? 100 : CANARY_MAX_WITHOUT_EXEC;
   const promote = useMutation({
     mutationFn: () => aipApi.promote(m.id, to as ModelStage, svc, to === 'CANARY' ? pct : undefined),
     onSuccess: (r) => {
@@ -142,8 +146,11 @@ function PromoteDialog({ m, onClose }: { m: ModelRow; onClose: () => void }) {
         </Field>
         {to === 'CANARY' && (
           <Field label="canary 트래픽 %">
-            <input type="number" min={1} max={50} value={pct} onChange={(e) => setPct(Number(e.target.value))} aria-label="canary 비율" />
+            <input type="number" min={1} max={canaryMax} value={pct} onChange={(e) => setPct(Number(e.target.value))} aria-label="canary 비율" />
           </Field>
+        )}
+        {to === 'CANARY' && pct > CANARY_MAX_WITHOUT_EXEC && !m.exec_approved_by && (
+          <Banner tone="warn">canary {CANARY_MAX_WITHOUT_EXEC}% 초과는 EXEC 최종 승인이 먼저 있어야 합니다(서버 AIP-403-001).</Banner>
         )}
       </div>
       <p className="muted" style={{ fontSize: 12 }}>SHADOW 진입은 QA 품질 승인, PRODUCTION 진입은 EXEC 최종 승인이 먼저 있어야 합니다(서버 AIP-409).</p>
@@ -153,7 +160,7 @@ function PromoteDialog({ m, onClose }: { m: ModelRow; onClose: () => void }) {
 
 function ModelsTab() {
   const qc = useQueryClient();
-  const { hasRole } = useAuth();
+  const { hasRole, session } = useAuth();
   const [promoting, setPromoting] = useState<ModelRow>();
   const models = useQuery({ queryKey: ['aip', 'models'], queryFn: aipApi.models });
   const approve = useMutation({
@@ -185,8 +192,9 @@ function ModelsTab() {
               <td>{who(m.exec_approved_by)}</td>
               <td>
                 <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                  {hasRole('QA') && !m.approved_by && <button onClick={() => approve.mutate({ m, role: 'QA' })}>QA 승인</button>}
-                  {hasRole('EXEC') && !m.exec_approved_by && <button onClick={() => approve.mutate({ m, role: 'EXEC' })}>EXEC 승인</button>}
+                  {/* 보안 검토 AIP-01b: 한 사람이 QA · EXEC 두 승인을 모두 할 수 없다 */}
+                  {hasRole('QA') && !m.approved_by && m.exec_approved_by !== session?.actorId && <button onClick={() => approve.mutate({ m, role: 'QA' })}>QA 승인</button>}
+                  {hasRole('EXEC') && !m.exec_approved_by && m.approved_by !== session?.actorId && <button onClick={() => approve.mutate({ m, role: 'EXEC' })}>EXEC 승인</button>}
                   {hasRole('SYSADMIN') && NEXT_STAGES[m.stage].length > 0 && <button onClick={() => setPromoting(m)}>단계 전이…</button>}
                 </div>
               </td>
@@ -210,7 +218,7 @@ function ModelsTab() {
         </tbody>
       </table>
       <p className="muted" style={{ fontSize: 12 }}>
-        단계: 학습 → 평가 → Shadow(QA 승인, 비교만) → Canary(트래픽 일부, 사진 해시 버킷 고정) → Production(EXEC 승인). 전이는 시스템 관리자(SYSADMIN)만.
+        단계: 학습 → 평가 → Shadow(QA 승인, 비교만) → Canary(트래픽 일부 — EXEC 승인 전 25% 이하, 사진 해시 버킷 고정) → Production(EXEC 승인). QA · EXEC 승인자는 서로 다른 사람. 전이는 시스템 관리자(SYSADMIN)만.
       </p>
       {promoting && <PromoteDialog m={promoting} onClose={() => setPromoting(undefined)} />}
     </>
@@ -337,7 +345,8 @@ export function AipPage() {
   const canJobs = hasRole('EXEC', 'PM', 'ENG', 'QA');
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'jobs', label: 'Job', show: canJobs },
-    { key: 'models', label: '모델 레지스트리', show: canJobs },
+    // aip:model:read — EXEC · PM · ENG · QA + SYSADMIN(단계 전이 담당, 웹 3차 보완)
+    { key: 'models', label: '모델 레지스트리', show: hasRole('EXEC', 'PM', 'ENG', 'QA', 'SYSADMIN') },
     { key: 'suggestions', label: 'AI 제안', show: hasRole('PM', 'ENG', 'QA', 'SYSADMIN') },
     { key: 'audit', label: '추론 감사', show: hasRole('AUDITOR') },
   ];
@@ -347,7 +356,7 @@ export function AipPage() {
     <>
       <h1>AI Job · 모델</h1>
       {!visible.length ? (
-        <div className="empty">AI 플랫폼 화면은 EXEC · PM · ENG · QA · AUDITOR 역할이 사용합니다.</div>
+        <div className="empty">AI 플랫폼 화면은 EXEC · PM · ENG · QA · SYSADMIN · AUDITOR 역할이 사용합니다.</div>
       ) : (
         <Card>
           <div className="tabs" role="tablist">

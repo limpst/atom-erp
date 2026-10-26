@@ -274,8 +274,12 @@ class AipController {
 
     // ------------------------------------------------------------------ 레지스트리 · 감사
 
+    /**
+     * 모델 레지스트리 · 승격 요청 조회. 보안 검토(웹 3차): 예전에는 aip:inference-job:read 라 SYSADMIN(전이 담당)이 목록을 못 봤다 →
+     * 전용 aip:model:read(ALL — 레지스트리는 프로젝트 자원이 아님, V0050: EXEC · PM · ENG · QA · SYSADMIN).
+     */
     @GetMapping("/models")
-    @RequirePermission(value = "aip:inference-job:read", scopeCheckedInService = true)
+    @RequirePermission("aip:model:read")
     List<Map<String, Object>> models() {
         return AipJdbc.cleanAll(registry.models());
     }

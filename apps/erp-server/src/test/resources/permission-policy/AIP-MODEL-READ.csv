@@ -1,0 +1,6 @@
+# 보안 검토(웹 3차 · AIP): 모델 레지스트리 조회 전용 권한 — SYSADMIN(승격 담당)이 목록을 못 보던 문제, 지금 읽던 역할 유지
+EXEC,aip:model:read,ALL,AIP-MODEL-READ
+PM,aip:model:read,ALL,AIP-MODEL-READ
+ENG,aip:model:read,ALL,AIP-MODEL-READ
+QA,aip:model:read,ALL,AIP-MODEL-READ
+SYSADMIN,aip:model:read,ALL,AIP-MODEL-READ

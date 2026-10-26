@@ -41,7 +41,7 @@ export interface DailyLogSummary {
 export interface DailyLogDetail extends Omit<DailyLogSummary, 'amendments' | 'locked' | 'pendingAmendments'> {
   remarks: string | null; weather: Record<string, unknown> | null; equipment: unknown[] | null;
   checklist: { id: string; seq: number; title: string; result: string; severity: string | null; note: string | null; correctiveOrderNo: string | null }[];
-  amendments: { id: string; fieldPath: string; reason: string; status: 'APPLIED' | 'PENDING'; amendedAt: string }[];
+  amendments: { id: string; fieldPath: string; reason: string; status: 'APPLIED' | 'PENDING' | 'REJECTED'; amendedAt: string }[];
 }
 export const PHASE_LABEL: Record<string, string> = {
   TEMPORARY: '가설', ASBESTOS_CHECK: '석면 확인', UPPER_DEMOLITION: '상부 해체', LOWER_DEMOLITION: '하부 해체',
@@ -128,9 +128,10 @@ export function constructionBlockers(docs: DemDocument[], revisionIds: string[])
 // ⚠️ 정정(correction) 흐름은 "요청 → 다른 사람 승인" 모양으로 만든다. 보안 검토 DEM-03b(본인 일지 정정은 다른 사람이 승인하는
 // 요청으로)와 DEM-02(PM/ENG 는 PROJECT 범위)는 다른 에이전트가 서버에 동시에 넣는 중이라, 서버 호출은 아래 함수에만 모았다.
 // 병합 뒤 엔드포인트 · 본문이 달라지면 이 파일의 demLogApi 만 고치면 된다.
-//  - 현재 서버: POST /dem/daily-logs/{id}/amendments 는 PM(dem:log-amendment:create)이 부르면 바로 APPLIED.
-//               잠긴 일지를 감리원이 다시 PUT 하면 202 + PENDING 정정 초안(LATE_SYNC).
-//  - 승인 · 반려(POST /dem/amendments/{id}:approve|:reject)는 아직 서버에 없다(404 → 화면이 "승인 API 준비 중" 안내).
+//  - POST /dem/daily-logs/{id}/amendments: 일지 작성자 본인이면 PENDING(다른 사람 승인 필요, DEM-03b),
+//    PM 이 남의 일지를 정정하면 바로 APPLIED. 잠긴 일지를 감리원이 다시 PUT 하면 202 + PENDING 정정 초안(LATE_SYNC, fieldPath "$").
+//  - 승인 · 반려: POST /dem/daily-logs/{logId}/amendments/{amendmentId}:approve|:reject ({note}, 반려는 note 필수).
+//    결정자 ≠ 요청자 · 일지 작성자(DEM-403-003), 이미 결정된 요청은 409 DEM-409-009, LATE_SYNC 초안("$")은 반려만.
 
 export interface ChecklistTemplateItem { id: string; seq: number; title: string; photoRequired: boolean; defaultSeverity: string | null }
 export interface ChecklistTemplate {
@@ -156,6 +157,7 @@ export interface UpsertResult {
 export interface Amendment {
   id: string; fieldPath: string; oldValue: unknown; newValue: unknown; reason: string;
   status: 'APPLIED' | 'PENDING' | 'REJECTED' | string; amendedBy: string; amendedAt: string;
+  decidedBy?: string | null; decidedAt?: string | null; decisionNote?: string | null;
 }
 export interface DailyLogFull extends Omit<DailyLogDetail, 'amendments'> {
   amendments: Amendment[];
@@ -181,7 +183,7 @@ export const demLogApi = {
   /** 정정 요청(잠긴 일지). 응답의 해당 정정 행 status 로 즉시 적용(APPLIED)인지 승인 대기(PENDING)인지 판단한다 */
   requestCorrection: (logId: string, body: CorrectionRequest, idempotencyKey?: string) =>
     http.post<DailyLogFull>(`/dem/daily-logs/${logId}/amendments`, body, { idempotencyKey }),
-  /** 정정 요청 결정(요청자가 아닌 사람) — ⚠️ 서버 API 는 DEM-03b 병합 후 확정(지금은 404) */
-  decideCorrection: (amendmentId: string, decision: 'approve' | 'reject', comment?: string) =>
-    http.post<DailyLogFull>(`/dem/amendments/${amendmentId}:${decision}`, { comment }),
+  /** 정정 요청 결정(요청자 · 일지 작성자가 아닌 사람, DEM-03b) — 반려는 note 필수 */
+  decideCorrection: (logId: string, amendmentId: string, decision: 'approve' | 'reject', note?: string) =>
+    http.post<DailyLogFull>(`/dem/daily-logs/${logId}/amendments/${amendmentId}:${decision}`, note ? { note } : {}),
 };

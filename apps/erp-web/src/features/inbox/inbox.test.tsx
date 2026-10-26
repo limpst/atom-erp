@@ -18,7 +18,7 @@ useMswServer(
     await record(request);
     return HttpResponse.json([{ estimateId: 'e1', estimateNo: 'EST-2026-0002', versionNo: 1, opportunityId: 'o1', oppNo: 'OPP-2026-0006', opportunityTitle: '(합성) 겸직 할인 B', discountRate: 0.08, discountLimit: 0.05, offerAmount: 1, createdBy: devUserId(14), requestedAt: '2026-10-26T01:00:00Z' }]);
   }),
-  mswHttp.get('*/api/v1/cst/inbox/budget-approvals', () => HttpResponse.json([{ revisionId: 'b1', projectId: 'p4', revNo: 0, status: 'DRAFT', bacKrw: 15543260, contractAmountKrw: 37938000, expectedMarginPct: 59.03, createdBy: devUserId(0), requestedAt: null, version: 0 }])),
+  mswHttp.get('*/api/v1/cst/inbox/budget-approvals', () => HttpResponse.json([{ revisionId: 'b1', projectId: 'p4', revNo: 0, status: 'SUBMITTED', bacKrw: 15543260, contractAmountKrw: 37938000, expectedMarginPct: 59.03, createdBy: devUserId(0), requestedAt: null, version: 0 }])),
   mswHttp.get('*/api/v1/cst/rates', () => HttpResponse.json([
     { id: 'r1', rateKind: 'STD_LABOR', keyCode: 'INTER', value: 300000, validFrom: '2026-10-12', validTo: null, sourceRef: '', version: 0, status: 'DRAFT', createdBy: devUserId(9), createdAt: null },
     { id: 'r2', rateKind: 'STD_LABOR', keyCode: 'SENIOR', value: 1, validFrom: '2000-01-01', validTo: null, sourceRef: '', version: 1, status: 'APPROVED', createdBy: devUserId(9), createdAt: null },
@@ -67,7 +67,7 @@ describe('내 할 일 화면', () => {
     const table = await screen.findByTestId('inbox-items');
     const sal = await within(table).findByRole('link', { name: 'EST-2026-0002 v1 — 할인 8% 승인' });
     expect(sal).toHaveAttribute('href', '/sal/estimates?opp=o1');
-    expect(await within(table).findByRole('link', { name: '실행예산 Rev.0 결재 (DRAFT)' })).toHaveAttribute('href', '/projects/p4');
+    expect(await within(table).findByRole('link', { name: '실행예산 Rev.0 결재 (SUBMITTED)' })).toHaveAttribute('href', '/projects/p4');
     expect(await within(table).findByText('STD_LABOR INTER 300,000 승인')).toBeInTheDocument();
     expect(within(table).queryByText(/MASTER/)).toBeNull();
     expect(await within(table).findByText('룰셋 2026.6.0-dev 승인')).toBeInTheDocument();

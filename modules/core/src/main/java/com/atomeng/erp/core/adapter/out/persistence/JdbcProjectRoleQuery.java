@@ -2,6 +2,8 @@ package com.atomeng.erp.core.adapter.out.persistence;
 
 import com.atomeng.erp.core.api.ProjectRoleQuery;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -27,5 +29,18 @@ class JdbcProjectRoleQuery implements ProjectRoleQuery {
                                   AND ? BETWEEN from_date AND to_date)""",
                 Boolean.class, employeeId, projectId, roleInProject, asOf);
         return Boolean.TRUE.equals(exists);
+    }
+
+    private static final Set<String> ROLES = Set.of("RESP", "PART", "QA", "SUPPORT");
+
+    @Override
+    public Set<UUID> projectsWithRole(UUID employeeId, String roleInProject, LocalDate asOf) {
+        if (employeeId == null || asOf == null || roleInProject == null || !ROLES.contains(roleInProject)) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>(jdbc.queryForList("""
+                SELECT DISTINCT m.project_id FROM core.project_member m JOIN core.project p ON p.id = m.project_id
+                 WHERE m.employee_id = ? AND m.role_in_project = ? AND ? BETWEEN m.from_date AND m.to_date
+                   AND p.deleted_at IS NULL""", UUID.class, employeeId, roleInProject, asOf));
     }
 }

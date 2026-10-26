@@ -2,7 +2,7 @@ package com.atomeng.erp.hrq.application;
 
 import com.atomeng.common.identity.AtomAuthentication;
 import com.atomeng.common.identity.AtomPrincipal;
-import com.atomeng.erp.core.api.ProjectRoleQueryApi;
+import com.atomeng.erp.core.api.ProjectRoleQuery;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -29,10 +29,10 @@ public class TimesheetInboxService {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final JdbcTemplate jdbc;
-    private final ProjectRoleQueryApi projectRoles;
+    private final ProjectRoleQuery projectRoles;
     private final Clock clock;
 
-    public TimesheetInboxService(JdbcTemplate jdbc, ProjectRoleQueryApi projectRoles, Clock clock) {
+    public TimesheetInboxService(JdbcTemplate jdbc, ProjectRoleQuery projectRoles, Clock clock) {
         this.jdbc = jdbc;
         this.projectRoles = projectRoles;
         this.clock = clock;

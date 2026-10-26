@@ -164,7 +164,7 @@ class InboxIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("CST GET /inbox/budget-approvals — 결재 가능 상태 · 라인 있는 판만, 작성 · 수정자 본인 제외, PM 403")
+    @DisplayName("CST GET /inbox/budget-approvals — 결재 가능 상태(SUBMITTED) · 라인 있는 판만, 작성 · 수정 · 상신자 본인 제외, PM 403")
     void cstBudgetInbox() throws Exception {
         UUID pm = actor();
         UUID p = project(pm, "합성 수신함 CST " + UUID.randomUUID().toString().substring(0, 6));
@@ -178,15 +178,26 @@ class InboxIntegrationTest extends IntegrationTestBase {
         jdbc.update("INSERT INTO cst.budget_revision(id, project_id, rev_no, status, bac_krw, contract_amount_krw, created_by) "
                 + "VALUES (?, ?, 0, 'APPROVED', 1000000, 2000000, ?)", approved, p, author);
         jdbc.update("INSERT INTO cst.budget_revision(id, project_id, rev_no, status, bac_krw, contract_amount_krw, created_by) "
-                + "VALUES (?, ?, 1, 'DRAFT', 1200000, 2000000, ?)", withLines, p, author);
+                + "VALUES (?, ?, 1, 'SUBMITTED', 1200000, 2000000, ?)", withLines, p, author);
         jdbc.update("INSERT INTO cst.budget_revision(id, project_id, rev_no, status, bac_krw, contract_amount_krw, created_by) "
-                + "VALUES (?, ?, 2, 'DRAFT', 0, 2000000, ?)", empty, p, author);
+                + "VALUES (?, ?, 2, 'SUBMITTED', 0, 2000000, ?)", empty, p, author);
+        // CST-01: 상신(SUBMITTED) 전 DRAFT 는 결재 대상이 아니다
+        UUID draft = UUID.randomUUID();
+        jdbc.update("INSERT INTO cst.budget_revision(id, project_id, rev_no, status, bac_krw, contract_amount_krw, created_by) "
+                + "VALUES (?, ?, 3, 'DRAFT', 1200000, 2000000, ?)", draft, p, author);
+        jdbc.update("INSERT INTO cst.budget_line(id, revision_id, wbs_id, cost_element, qty, unit_cost_krw) "
+                + "VALUES (?, ?, ?, 'LABOR', 4, 300000)", UUID.randomUUID(), draft, wbs);
         jdbc.update("INSERT INTO cst.budget_line(id, revision_id, wbs_id, cost_element, qty, unit_cost_krw) "
                 + "VALUES (?, ?, ?, 'LABOR', 4, 300000)", UUID.randomUUID(), withLines, wbs);
 
         JsonNode list = call(get("/api/v1/cst/inbox/budget-approvals"), actor(), "EXEC", 200);
         assertThat(list.findValuesAsText("revisionId")).contains(withLines.toString())
-                .doesNotContain(empty.toString(), approved.toString());
+                .doesNotContain(empty.toString(), approved.toString(), draft.toString());
+        // 상신자 본인에게도 안 보인다(CST-01 maker-checker)
+        UUID submitter = actor();
+        jdbc.update("UPDATE cst.budget_revision SET submitted_by = ?, submitted_at = now() WHERE id = ?", submitter, withLines);
+        assertThat(call(get("/api/v1/cst/inbox/budget-approvals"), submitter, "EXEC", 200).findValuesAsText("revisionId"))
+                .doesNotContain(withLines.toString());
         // maker-checker: 작성자(ADMIN 겸) 본인 · 마지막 수정자 본인에게는 안 보인다
         assertThat(call(get("/api/v1/cst/inbox/budget-approvals"), author, "ADMIN", 200).findValuesAsText("revisionId"))
                 .doesNotContain(withLines.toString());

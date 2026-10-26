@@ -37,12 +37,13 @@ public class BudgetInboxService {
         return jdbc.queryForList("""
                 SELECT b.id AS "revisionId", b.project_id AS "projectId", b.rev_no AS "revNo", b.status,
                        b.bac_krw AS "bacKrw", b.contract_amount_krw AS "contractAmountKrw",
-                       b.expected_margin_pct AS "expectedMarginPct", b.created_by AS "createdBy",
+                       b.expected_margin_pct AS "expectedMarginPct", b.created_by AS "createdBy", b.submitted_by AS "submittedBy",
                        coalesce(b.updated_at, b.created_at) AS "requestedAt", b.version
                   FROM cst.budget_revision b
                  WHERE b.deleted_at IS NULL AND b.status = ANY(?::text[])
                    AND b.created_by <> ? AND (b.updated_by IS NULL OR b.updated_by <> ?)
+                   AND (b.submitted_by IS NULL OR b.submitted_by <> ?)
                    AND b.bac_krw > 0 AND EXISTS (SELECT 1 FROM cst.budget_line l WHERE l.revision_id = b.id)
-                 ORDER BY coalesce(b.updated_at, b.created_at)""", statuses, me, me);
+                 ORDER BY coalesce(b.updated_at, b.created_at)""", statuses, me, me, me);
     }
 }

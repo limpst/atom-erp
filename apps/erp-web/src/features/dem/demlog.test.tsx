@@ -53,15 +53,16 @@ useMswServer(
   }),
   mswHttp.get('*/api/v1/dem/daily-logs/:id', () => HttpResponse.json(lockedLog([
     { id: 'am-pm', fieldPath: 'workersCount', oldValue: 12, newValue: 11, reason: '(합성) 인원 오기', status: 'APPLIED', amendedBy: PM, amendedAt: '2026-10-21T01:00:00Z' },
-    { id: 'am-eng', fieldPath: '$', oldValue: null, newValue: { remarks: '늦은 동기화' }, reason: 'LATE_SYNC_AFTER_LOCK', status: 'PENDING', amendedBy: ENG, amendedAt: '2026-10-21T02:00:00Z' },
+    { id: 'am-eng', fieldPath: 'workersCount', oldValue: 12, newValue: 13, reason: '(합성) 본인 정정 요청', status: 'PENDING', amendedBy: ENG, amendedAt: '2026-10-21T02:00:00Z' },
+    { id: 'am-late', fieldPath: '$', oldValue: null, newValue: { remarks: '늦은 동기화' }, reason: 'LATE_SYNC_AFTER_LOCK', status: 'PENDING', amendedBy: ENG, amendedAt: '2026-10-21T03:00:00Z' },
   ]))),
   mswHttp.post('*/api/v1/dem/daily-logs/:id/amendments', async ({ request }) => {
     await record(request);
     return amendReply();
   }),
-  mswHttp.post('*/api/v1/dem/amendments/:cmd', async ({ request }) => {
+  mswHttp.post('*/api/v1/dem/daily-logs/:id/amendments/:cmd', async ({ request }) => {
     await record(request);
-    return problem(404, 'CORE-404-000', '없음', 'No static resource');
+    return amendReply();
   }),
 );
 
@@ -118,24 +119,27 @@ describe('감리일지 작성 · 정정 화면', () => {
     expect(loadDraft('wp-sup', today)).toBeNull();
   });
 
-  it('잠긴 일지: 정정 이력 · 본인 요청은 승인 버튼 없음, 정정 요청 본문, 승인 API 미구현은 화면 안 안내', async () => {
+  it('잠긴 일지: 정정 이력 · 본인 요청은 승인 버튼 없음, 정정 요청 본문, 다른 사람 요청 승인(DEM-03b) · LATE_SYNC 초안은 반려만', async () => {
     const user = userEvent.setup();
     renderAs(PM, ['PM'], <DemLogWritePage />, { route: '/?wp=wp-sup&log=l-old' });
     const am = await screen.findByTestId('dem-amendments');
     expect(within(am).getByText('적용됨')).toBeInTheDocument();
-    expect(within(am).getByText('승인 대기')).toBeInTheDocument();
+    expect(within(am).getAllByText('승인 대기').length).toBeGreaterThan(0);
     // 다른 사람(정참여)의 대기 정정 → PM 에게 승인 · 반려 버튼
+    expect(within(am).queryByRole('button', { name: /^정정 승인 am-late/ })).toBeNull();
+    expect(within(am).getByRole('button', { name: /^정정 반려 am-late/ })).toBeDisabled();
     await user.click(within(am).getByRole('button', { name: /^정정 승인 am-eng/ }));
-    expect(await screen.findByTestId('correction-refused')).toHaveTextContent('DEM-03b');
-    expect(seen[0].url).toBe('/api/v1/dem/amendments/am-eng:approve');
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    expect(seen[0].url).toBe('/api/v1/dem/daily-logs/l-old/amendments/am-eng:approve');
+    seen.length = 0;
 
     await user.selectOptions(screen.getByLabelText('정정 항목'), 'workersCount');
     await user.type(screen.getByLabelText('정정 값'), '10');
     await user.type(screen.getByLabelText('정정 사유'), '(합성) 현장 기록 대조');
     await user.click(screen.getByTestId('correction-request'));
-    await waitFor(() => expect(seen[1]?.url).toBe('/api/v1/dem/daily-logs/l-old/amendments'));
-    expect(seen[1].body).toEqual({ fieldPath: 'workersCount', newValue: 10, reason: '(합성) 현장 기록 대조' });
-    expect(seen[1].headers['idempotency-key']).toBeTruthy();
+    await waitFor(() => expect(seen[0]?.url).toBe('/api/v1/dem/daily-logs/l-old/amendments'));
+    expect(seen[0].body).toEqual({ fieldPath: 'workersCount', newValue: 10, reason: '(합성) 현장 기록 대조' });
+    expect(seen[0].headers['idempotency-key']).toBeTruthy();
   });
 
   it('작성자 본인 화면: 본인 대기 정정에는 승인 버튼 대신 안내, 권한 없는 정정 요청은 403 을 화면 안에', async () => {
@@ -144,7 +148,7 @@ describe('감리일지 작성 · 정정 화면', () => {
     renderAs(ENG, ['ENG'], <DemLogWritePage />, { route: '/?wp=wp-sup&log=l-old' });
     const am = await screen.findByTestId('dem-amendments');
     expect(within(am).queryByRole('button', { name: /^정정 승인/ })).toBeNull();
-    expect(within(am).getByText('본인 요청 — 다른 사람이 승인')).toBeInTheDocument();
+    expect(within(am).getAllByText('본인 요청 — 다른 사람이 승인')[0]).toBeInTheDocument();
     await user.type(screen.getByLabelText('정정 값'), '(합성) 특기 사항 보완');
     await user.type(screen.getByLabelText('정정 사유'), '(합성) 누락');
     await user.click(screen.getByTestId('correction-request'));

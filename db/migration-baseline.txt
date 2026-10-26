@@ -41,3 +41,13 @@
 0036 | sal | db/migration/sal/V0036__sal_sales_group_admin.sql | 0bef8e5572acaf07eec749bc231b5302b34502f3a575417b9d52c2087366d312
 0037 | qar | db/migration/qar/V0037__qar_reviewer_profile_admin.sql | 7e5b31932903e4ed5be3bdf41075b5d4524f580d8eed78f5448d5ac208ea9fc1
 0038 | cst | db/migration/cst/V0038__cst_rate_approval.sql | 055dfad7392ee696d5de08a03feee864f4cbe3801bd882a7dda825827514c542
+0039 | hrq | db/migration/hrq/V0039__hrq_timesheet_approval_policy.sql | 127af32a78f06192b698901928da29546fe54c1c98d6713d0d800232cc06cbf1
+0040 | cst | db/migration/cst/V0040__cst_budget_submit_period_read.sql | 6d331141831da11472fc8bf1ee54c89bcb96ae398315470a00fc9b2126bb96b7
+0042 | core | db/migration/core/V0042__core_portal_and_pm_scope_policy.sql | 07c0f1bd88e37f779001ef9e3988d27901317e7694e8d77bbfa3fd6b6cf89eb6
+0043 | sal | db/migration/sal/V0043__sal_estimate_author_limit.sql | d0dab8a08c8a9785b37a1dbd87d55236c069be6f2d456831ca2d617930332b58
+0044 | eqp | db/migration/eqp/V0044__eqp_project_scope_and_override_4eyes.sql | a994a39eef59ce630ad8469fea7e76a7aa3e1fcfa53369877033b19f9ec7d668
+0045 | fcd | db/migration/fcd/V0045__fcd_policy_rollback_review.sql | 6ad0dc9ec76cdb09a10b12d7d22b5c5f7a2982daa631811c6e9f2b10386a2837
+0047 | dem | db/migration/dem/V0047__dem_permission_project_scope.sql | 17731ed165ff60e2540cd44cf9d210ff4e19a34e9721cbbaf1e3eef3470037c2
+0048 | dem | db/migration/dem/V0048__dem_sod_review_columns.sql | 672a31e8f6bd83d9e4b00d0c79996b1655871827e2e3043ee9bcabf1ad0759be
+0050 | aip | db/migration/aip/V0050__aip_policy_sod_canary_model_read.sql | 2a69031c632324eb9d4b50b503538ddb311da6248f21e7d3c801615675f09168
+0051 | core | db/migration/core/V0051__core_outbox_subscriber_delivery.sql | 01fc0e1b1d440b9fd99612985d8df10eee41d4eacf260228eb5d6b6144e978ac

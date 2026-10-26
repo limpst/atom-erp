@@ -210,6 +210,7 @@ function CorrectionPanel({ logId }: { logId: string }) {
   const [field, setField] = useState('remarks');
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
   const [key, setKey] = useState(newIdempotencyKey); // 같은 요청 재시도 = 같은 멱등 키
   const [refused, setRefused] = useState<string>();
   const refresh = () => { qc.invalidateQueries({ queryKey: ['dem'] }); qc.invalidateQueries({ queryKey: ['inbox'] }); };
@@ -229,12 +230,11 @@ function CorrectionPanel({ logId }: { logId: string }) {
     onError: (e) => { if (e instanceof ProblemError && e.status < 500) setRefused(`${describeError(e).title} — ${e.problem.detail ?? ''}`); else toastError(e); },
   });
   const decide = useMutation({
-    mutationFn: (v: { id: string; d: 'approve' | 'reject' }) => demLogApi.decideCorrection(v.id, v.d),
+    mutationFn: (v: { id: string; d: 'approve' | 'reject' }) => demLogApi.decideCorrection(logId, v.id, v.d, note.trim() || undefined),
     meta: { silent: true },
-    onSuccess: () => { toast.success('정정 요청을 처리했습니다'); setRefused(undefined); refresh(); },
+    onSuccess: () => { toast.success('정정 요청을 처리했습니다'); setRefused(undefined); setNote(''); refresh(); },
     onError: (e) => {
-      if (e instanceof ProblemError && (e.status === 404 || e.status === 405)) setRefused('정정 승인 API 는 서버 정책(DEM-03b) 반영 후 열립니다 — 지금은 처리할 수 없습니다.');
-      else if (e instanceof ProblemError && e.status < 500) setRefused(`${describeError(e).title} — ${e.problem.detail ?? ''}`);
+      if (e instanceof ProblemError && e.status < 500) setRefused(`${describeError(e).title} — ${e.problem.detail ?? ''}`);
       else toastError(e);
     },
   });
@@ -254,7 +254,8 @@ function CorrectionPanel({ logId }: { logId: string }) {
         <tbody>
           {d.amendments.map((a) => {
             const st = AMENDMENT_STATUS[a.status] ?? { label: a.status, tone: 'info' as const };
-            const canDecide = a.status === 'PENDING' && a.amendedBy !== session?.actorId && hasRole('PM', 'EXEC');
+            const canDecide = a.status === 'PENDING' && a.amendedBy !== session?.actorId && d.authorId !== session?.actorId
+              && hasRole('PM', 'EXEC');
             return (
               <tr key={a.id}>
                 <td>{AMENDABLE_FIELDS[a.fieldPath] ?? a.fieldPath}</td>
@@ -265,8 +266,9 @@ function CorrectionPanel({ logId }: { logId: string }) {
                 <td><Badge tone={st.tone}>{st.label}</Badge></td>
                 <td className="row" style={{ gap: 4 }}>
                   {canDecide && <>
-                    <button onClick={() => decide.mutate({ id: a.id, d: 'approve' })} aria-label={`정정 승인 ${a.id.slice(0, 8)}`}>승인</button>
-                    <button onClick={() => decide.mutate({ id: a.id, d: 'reject' })} aria-label={`정정 반려 ${a.id.slice(0, 8)}`}>반려</button>
+                    {a.fieldPath !== '$' && <button onClick={() => decide.mutate({ id: a.id, d: 'approve' })} aria-label={`정정 승인 ${a.id.slice(0, 8)}`}>승인</button>}
+                    <button disabled={!note.trim()} title={note.trim() ? undefined : '반려 사유(결정 메모)를 먼저 적으세요'}
+                      onClick={() => decide.mutate({ id: a.id, d: 'reject' })} aria-label={`정정 반려 ${a.id.slice(0, 8)}`}>반려</button>
                   </>}
                   {a.status === 'PENDING' && a.amendedBy === session?.actorId && <span className="muted">본인 요청 — 다른 사람이 승인</span>}
                 </td>
@@ -276,6 +278,9 @@ function CorrectionPanel({ logId }: { logId: string }) {
           {d.amendments.length === 0 && <tr><td colSpan={7} className="muted">정정 없음</td></tr>}
         </tbody>
       </table>
+      {d.amendments.some((a) => a.status === 'PENDING') && hasRole('PM', 'EXEC') && (
+        <Field label="결정 메모(반려 시 필수)"><input aria-label="정정 결정 메모" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      )}
       {locked && hasRole('PM', 'ENG') && (
         <div style={{ marginTop: 12 }}>
           <h3>정정 요청</h3>

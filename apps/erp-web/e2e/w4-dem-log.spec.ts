@@ -62,7 +62,7 @@ test('DEM 잠긴 일지 정정 — PM 이 다른 사람 일지 정정(이력 추
 
 /**
  * [정책 병합 대기: DEM-03b] 본인 일지 정정 = 요청(PENDING) → 다른 사람(PM) 승인.
- * 현재 서버: ENG 는 dem:log-amendment:create 권한이 없어 403, 승인 API(/dem/amendments/{id}:approve) 없음 → 실패가 정상.
+ * 현재 서버: ENG 는 dem:log-amendment:create 권한이 없어 403, 승인 API 없음 → 실패했음(정책 병합으로 통과).
  */
 test('DEM-03b 본인 일지 정정 요청 → 다른 사람 승인 @policy', async ({ page }) => {
   await gotoAs(page, '/dem/logs', '정참여');

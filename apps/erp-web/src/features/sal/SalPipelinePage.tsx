@@ -65,6 +65,7 @@ function MoveDialog({ opp, to, onClose, onConfirm }: {
 
 function Board() {
   const qc = useQueryClient();
+  const { hasRole } = useAuth();
   const { label, employees } = useEmployees();
   const owner = (id: string | null) => (employees.length ? label(id) : id ? '담당 지정됨' : '담당 없음');
   const opps = useQuery({ queryKey: ['sal', 'opps', 'board'], queryFn: () => salApi.listOpportunities({ size: 300 }) });
@@ -72,8 +73,10 @@ function Board() {
   const [asking, setAsking] = useState<{ opp: Opportunity; to: OpportunityStage }>();
   const [refused, setRefused] = useState<{ oppId: string; head: string; detail: string }>();
   const move = useMutation({
+    // SAL-03: 입찰 품의(BID_APPROVED)는 EXEC 승인 API, 수주 · 계약은 견적 수락 · 계약 서명으로만(보드에서 버튼 없음)
     mutationFn: (v: { opp: Opportunity; to: OpportunityStage; note?: string; lostReason?: LostReason }) =>
-      salApi.moveOpportunity(v.opp, { toStage: v.to, note: v.note, lostReason: v.lostReason }),
+      v.to === 'BID_APPROVED' ? salApi.approveBid(v.opp, v.note)
+        : salApi.moveOpportunity(v.opp, { toStage: v.to, note: v.note, lostReason: v.lostReason }),
     meta: { silent: true },
     onSuccess: (o) => {
       setRefused(undefined);
@@ -139,9 +142,10 @@ function Board() {
                   {o.criteriaChanged && <Badge tone="warn">공고 정정됨</Badge>}
                   {o.lostReason && <Badge tone="danger">{LOST_REASON_LABEL[o.lostReason]}</Badge>}
                   <div className="moves">
-                    {STAGE_NEXT[o.stage].map((to) => (
+                    {STAGE_NEXT[o.stage].filter((to) => to !== 'WON' && to !== 'CONTRACTED'
+                      && (to !== 'BID_APPROVED' || hasRole('EXEC'))).map((to) => (
                       <button key={to} disabled={move.isPending} onClick={() => request(o, to)} aria-label={`${o.oppNo} → ${STAGE_LABEL[to]}`}>
-                        → {STAGE_LABEL[to]}
+                        {to === 'BID_APPROVED' ? '입찰 품의 승인' : `→ ${STAGE_LABEL[to]}`}
                       </button>
                     ))}
                   </div>

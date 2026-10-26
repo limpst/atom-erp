@@ -91,6 +91,14 @@ final class DevSeedRound2 {
         equipment("NDT-RH", "SYN-RH-01", "(합성) 반발경도 시험기", today.minusDays(375), today.minusDays(10));
         UUID eqCore = equipment("NDT-CORE", "SYN-CORE-01", "(합성) 코어 채취기", null, null);
         equipment("SRV-LVL", "SYN-LVL-01", "(합성) 레벨 측량기", null, null);
+        // 장비 일 손료(⚠️ 예시 · 합성 값) — 없으면 반납 이벤트(eqp.equipment.returned)를 CST 가 원가로 못 올려 재시도 · DLQ
+        JsonNode eqList = call("GET", "/api/v1/eqp/equipment?size=100", null, ADMIN, "ADMIN");
+        for (JsonNode e : eqList.has("content") ? eqList.get("content") : eqList) {
+            JsonNode rate = call("POST", "/api/v1/cst/rates", map("rateKind", "EQUIP_DAILY", "keyCode",
+                    e.get("code").asText(), "value", 30000, "validFrom", "2000-01-01",
+                    "sourceRef", "⚠️ 예시 — (합성) 개발 시드 장비 손료"), ADMIN, "ADMIN");
+            s.call("POST", "/api/v1/cst/rates/" + id(rate) + ":approve", map(), EXEC, "EXEC", etag(rate));
+        }
         JsonNode r1 = call("POST", "/api/v1/eqp/reservations", map("equipmentId", eqCrack, "projectId", projectA,
                 "from", today.plusDays(5).toString(), "to", today.plusDays(7).toString()), ENG, "ENG");
         call("POST", "/api/v1/eqp/reservations/" + id(r1) + ":approve", map(), ADMIN, "ADMIN");

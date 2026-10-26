@@ -14,9 +14,9 @@ test('SAL 파이프라인 보드 — 버튼 · 끌어 놓기 이동, 전이표 �
   await qual.dragTo(page.getByTestId('col-PROPOSING'));
   const proposing = page.getByTestId('col-PROPOSING').locator('.opp', { hasText: '(합성) 예시빌딩 정기점검 문의' });
   await expect(proposing).toBeVisible();
-  // 전이표 밖(제안 → 수주)으로 끌면 서버가 409 SAL-409-001 — 보드 위 배너
+  // 제안 → 수주로 끌면 서버가 409 SAL-409-012(수주는 견적 수락으로만 — SAL-03) — 보드 위 배너
   await proposing.dragTo(page.getByTestId('col-WON'));
-  await expect(page.getByTestId('board-refused')).toContainText('SAL-409-001');
+  await expect(page.getByTestId('board-refused')).toContainText('SAL-409-012');
   await expect(proposing).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/48-sal-pipeline-board.png`, fullPage: true });
 

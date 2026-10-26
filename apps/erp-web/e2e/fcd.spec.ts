@@ -18,7 +18,7 @@ test('FCD 케이스: 소명 요청 → 본인 소명 → 감사 판정', async (
 
   await loginAs(page, '오감사');
   await page.getByRole('gridcell', { name: caseNo }).click();
-  await page.getByLabel('사유').fill('(합성) 긴급 구매 증빙 확인');
+  await page.getByLabel('사유', { exact: true }).fill('(합성) 긴급 구매 증빙 확인');
   await page.getByRole('button', { name: '판정 확정' }).click();
   await expect(page.getByTestId('case-status')).toHaveText('판정: 정당');
   await page.screenshot({ path: `${SHOTS}/07-fcd-resolved.png`, fullPage: true });

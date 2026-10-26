@@ -110,7 +110,8 @@ final class DevSeedRound4 {
         }
         seedSal(client);
         seedHrq(client, project);
-        seedCst(client);
+        seedCst(client, "(합성) 4차 예산 결재 연습", false);
+        seedCst(client, "(합성) 4차 수신함 예산", true);
         seedDem();
     }
 
@@ -166,9 +167,13 @@ final class DevSeedRound4 {
         log("HRQ 4차 연습 프로젝트 + 겸직책임 제출 타임시트 3건(한빛타워 2 · 연습 1)");
     }
 
-    private void seedCst(UUID client) throws Exception {
+    /**
+     * 두 번째 · 세 번째 계약 → 실행예산 Rev.0 초안. {@code submit} 이면 겸직책임(RESP)이 상신(CST-01) — 임원 "내 할 일" 결재 대상.
+     * 상신하지 않은 쪽(4차 예산 결재 연습)은 직무 분리 E2E 가 DRAFT 결재 거부부터 확인한다.
+     */
+    private void seedCst(UUID client, String name, boolean submit) throws Exception {
         JsonNode opp = s.call("POST", "/api/v1/sal/opportunities", map("source", "INQUIRY", "clientId", client,
-                "serviceType", "PRECISE_DIAG", "title", "(합성) 4차 예산 결재 연습 — 별관 정밀진단", "ownerId", SALES,
+                "serviceType", "PRECISE_DIAG", "title", name + " — 별관 정밀진단", "ownerId", SALES,
                 "expectedAmount", 40000000), SALES, "SALES", null);
         long v = s.call("POST", "/api/v1/sal/opportunities/" + id(opp) + ":move", map("toStage", "QUALIFYING"), SALES,
                 "SALES", etag(opp)).get("version").asLong();
@@ -180,7 +185,7 @@ final class DevSeedRound4 {
         s.call("POST", "/api/v1/sal/estimates/" + id(est) + ":send", map(), SALES, "SALES", null);
         s.call("POST", "/api/v1/sal/estimates/" + id(est) + ":accept", map(), SALES, "SALES", null);
         JsonNode contract = s.call("POST", "/api/v1/sal/contracts", map("opportunityId", id(opp), "estimateId", id(est),
-                "title", "(합성) 4차 예산 결재 연습 용역", "contractMethod", "PRIVATE_SECTOR",
+                "title", name + " 용역", "contractMethod", "PRIVATE_SECTOR",
                 "amount", est.get("offerAmount").decimalValue(), "signDate", today.toString(),
                 "startDate", today.toString(), "endDate", today.plusDays(120).toString()), SALES, "SALES", null);
         JsonNode pending = s.call("POST", "/api/v1/sal/contracts/" + id(contract) + ":approve",
@@ -199,7 +204,14 @@ final class DevSeedRound4 {
                 Thread.sleep(250);
             }
         }
-        log("CST 두 번째 계약 " + signed.get("projectNo").asText() + " · 실행예산 초안 " + (draft ? "결재 대기" : "생성 지연"));
+        if (draft && submit) {
+            JsonNode rev = s.call("GET", "/api/v1/cst/projects/" + project + "/budget-revisions", null, EXEC, "EXEC", null)
+                    .get(0);
+            s.call("POST", "/api/v1/cst/projects/" + project + "/budget-revisions/" + id(rev) + ":submit", map(),
+                    PM_ENG_EXEC, "PM", "\"v" + rev.get("version").asLong() + "\"");
+        }
+        log("CST 계약 " + signed.get("projectNo").asText() + " · 실행예산 초안 "
+                + (!draft ? "생성 지연" : submit ? "상신(결재 대기)" : "DRAFT"));
     }
 
     private void seedDem() throws Exception {

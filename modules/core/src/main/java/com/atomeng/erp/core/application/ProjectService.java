@@ -108,6 +108,7 @@ public class ProjectService implements ProjectCommandApi {
     @Transactional
     public UUID assignMember(ProjectMember m) {
         Project p = get(m.projectId());
+        requireAssignAllowed(m);
         if (!members.activeEmployee(m.employeeId())) {
             throw new DomainException(CoreErrors.VALIDATION_FAILED, "재직 중인 직원이 아닙니다: " + m.employeeId(),
                     java.util.List.of(Map.of("field", "employeeId", "reason", "NOT_FOUND")));
@@ -121,6 +122,36 @@ public class ProjectService implements ProjectCommandApi {
                 Map.of("employeeId", m.employeeId().toString(), "roleInProject", m.roleInProject(),
                         "fromDate", m.fromDate().toString(), "toDate", m.toDate().toString()));
         return id;
+    }
+
+    /** CORE-02: RESP 지정 · 본인 투입 변경은 core:project-member:assign 이 ALL 인 역할(EXEC · ADMIN)만 */
+    public static final String MEMBER_ASSIGN_FORBIDDEN = "CORE-403-010";
+
+    /**
+     * 보안 검토 CORE-02 — 범위가 ALL 이 아닌 지정자(PROJECT 범위 PM)는 PART · QA · SUPPORT 만 지정할 수 있고,
+     * 책임기술자(RESP, pm_id 변경)와 <b>본인</b> 투입(역할 · 기간 연장 포함)은 지정할 수 없다. 시스템 실행(인증 없음)은 통과.
+     */
+    private void requireAssignAllowed(ProjectMember m) {
+        var principal = com.atomeng.common.identity.AtomAuthentication.currentPrincipal().orElse(null);
+        if (principal == null) {
+            return;
+        }
+        var scope = registry.scopeFor(principal.roles(), "core:project-member:assign")
+                .orElseThrow(() -> new DomainException(CoreErrors.PERMISSION_DENIED,
+                        "권한 없음: core:project-member:assign"));
+        if (scope == com.atomeng.common.identity.PermissionScope.ALL) {
+            return;
+        }
+        if (m.isResponsible()) {
+            throw new DomainException(MEMBER_ASSIGN_FORBIDDEN,
+                    "책임기술자(RESP) 지정은 임원 · 경영지원(전체 범위)만 할 수 있습니다")
+                    .with("roleInProject", m.roleInProject());
+        }
+        if (m.employeeId().equals(principal.actorId())) {
+            throw new DomainException(MEMBER_ASSIGN_FORBIDDEN,
+                    "본인 투입(역할 · 기간)은 직접 바꿀 수 없습니다 — 임원 · 경영지원이 처리합니다")
+                    .with("employeeId", m.employeeId().toString());
+        }
     }
 
     /**

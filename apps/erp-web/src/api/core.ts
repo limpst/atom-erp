@@ -39,6 +39,8 @@ export interface BudgetWbs {
 export interface BudgetRevision {
   id: string; projectId: string; revNo: number; status: BudgetStatus; bacKrw: number; contractAmountKrw: number;
   expectedMarginPct: number; approvedBy: string | null; approvedAt: string | null; version: number; wbs: BudgetWbs[];
+  /** CST-01 maker-checker — 작성 · 상신자는 같은 판을 결재할 수 없다 */
+  createdBy?: string | null; submittedBy?: string | null; submittedAt?: string | null;
 }
 export interface Profitability {
   projectId: string; projectNo: string; basis: 'REAL' | 'STANDARD'; budgetRevNo: number | null;
@@ -154,6 +156,11 @@ export const coreApi = {
 
 export const cstApi = {
   budgets: (projectId: string) => http.get<BudgetRevision[]>(`/cst/projects/${projectId}/budget-revisions`),
+  /** CST-01: DRAFT → SUBMITTED(상신, PM · ADMIN · FIN). 결재는 SUBMITTED 만 */
+  submitBudget: (projectId: string, rev: Pick<BudgetRevision, 'id' | 'version'>) =>
+    http.post<BudgetRevision>(`/cst/projects/${projectId}/budget-revisions/${rev.id}:submit`, undefined, {
+      ifMatch: `"v${rev.version}"`,
+    }),
   approveBudget: (projectId: string, rev: Pick<BudgetRevision, 'id' | 'version'>) =>
     http.post<BudgetRevision>(`/cst/projects/${projectId}/budget-revisions/${rev.id}:approve`, undefined, {
       ifMatch: `"v${rev.version}"`,

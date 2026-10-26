@@ -60,6 +60,7 @@ public class CredentialService {
         if (!"PENDING".equals(c.status())) {
             throw new DomainException(HrqErrors.INVALID_STATE, "PENDING 만 승인 가능(현재 " + c.status() + ")");
         }
+        EmployeeService.requireNotSelf(c.employeeId(), actor.actorIdOrSystem(), "본인 자격은 승인할 수 없습니다(HRQ-06)");
         LocalDate today = HrqErrors.today(clock);
         String next = c.expiresOn() == null ? "VALID"
                 : c.expiresOn().isBefore(today) ? "EXPIRED"
@@ -79,6 +80,7 @@ public class CredentialService {
         if (!"PENDING".equals(c.status())) {
             throw new DomainException(HrqErrors.INVALID_STATE, "PENDING 만 반려 가능");
         }
+        EmployeeService.requireNotSelf(c.employeeId(), actor.actorIdOrSystem(), "본인 자격은 반려할 수 없습니다(HRQ-06)");
         if (reason == null || reason.isBlank()) {
             throw new DomainException(HrqErrors.INVALID, "반려 사유 필수");
         }

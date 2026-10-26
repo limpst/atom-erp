@@ -43,7 +43,7 @@ async function enterHours(page: import('@playwright/test').Page, label: string) 
   await page.getByTestId('ts-submit').click();
 }
 
-test('CST 월 마감 → 그 달 전기(타임시트) 차단 → SYSADMIN · ADMIN 재오픈 → 다시 전기', async ({ page }) => {
+test('CST 월 마감 → 그 달 전기(타임시트) 차단 → SYSADMIN 이 CST · HRQ 재오픈 → 다시 전기', async ({ page }) => {
   test.setTimeout(180_000);
   const t = target();
   const key = t.ym.replace('-', '');
@@ -84,22 +84,23 @@ test('CST 월 마감 → 그 달 전기(타임시트) 차단 → SYSADMIN · ADM
   await expect(page.getByTestId('ts-month-closed')).toContainText('HRQ-409-001');
   await page.screenshot({ path: `${SHOTS}/36-posting-blocked-closed-month.png`, fullPage: true });
 
-  // 5. SYSADMIN 이 CST 재오픈(사유) — 목록 권한 없이 월 입력
+  // 5. SYSADMIN 이 CST 재오픈(사유) — 회계기간 목록(cst:period:read, V0040)의 마감 행에서
   await loginAs(page, '시스템관리');
   await page.goto('/cst/periods');
-  await page.getByLabel('CST 재오픈 월').fill(t.ym);
-  await page.getByTestId('cst-reopen').click();
+  await page.getByRole('button', { name: `CST 재오픈 ${t.ym}` }).click();
   await page.getByLabel('재오픈 사유').fill('(합성) E2E — 마감 후 타임시트 누락분 반영');
   await page.getByTestId('reopen-confirm').click();
   await expect(page.getByText(`CST ${t.ym} 재오픈`)).toBeVisible();
 
-  // 6. ADMIN 이 HRQ 재오픈(사유) → CST 목록에 재오픈 표시
-  await loginAs(page, '서경영');
+  // 6. HRQ 재오픈도 SYSADMIN(hrq:month-close:reopen, HRQ-07) — ADMIN 은 마감만
   await page.goto('/hrq/month-close');
   await page.getByRole('button', { name: `HRQ 재오픈 ${t.ym}` }).click();
   await page.getByLabel('재오픈 사유').fill('(합성) E2E — 누락 타임시트 반영');
   await page.getByTestId('reopen-confirm').click();
   await expect(page.getByTestId(`hrq-month-${key}`)).toContainText('재오픈');
+  await loginAs(page, '서경영');
+  await page.goto('/hrq/month-close');
+  await expect(page.getByRole('button', { name: `HRQ 재오픈 ${t.ym}` })).toHaveCount(0);
   await page.goto('/cst/periods');
   await expect(page.getByTestId(`cst-period-${key}`)).toContainText('재오픈');
 

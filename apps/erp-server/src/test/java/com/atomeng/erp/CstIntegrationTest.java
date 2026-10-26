@@ -86,7 +86,23 @@ class CstIntegrationTest extends IntegrationTestBase {
         UUID client = createClient(actor(), "합성발주처-cst-" + UUID.randomUUID());
         var r = mvc.perform(as(postJson("/api/v1/core/projects", "{\"name\":\"합성 CST 프로젝트\",\"serviceType\":"
                 + "\"PRECISE_DIAG\",\"clientId\":\"" + client + "\"}"), pm, "PM")).andExpect(status().isCreated()).andReturn();
-        return UUID.fromString(json(r).get("id").asText());
+        UUID id = UUID.fromString(json(r).get("id").asText());
+        member(id, pm, "RESP");   // HRQ-01: 승인 · 정정 PM 은 이 프로젝트의 책임기술자
+        return id;
+    }
+
+    /** core.employee 행 보장(합성) — 투입(project_member) FK 용 */
+    private void coreEmployee(UUID id) {
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성직원', DATE '2020-01-01', ?, ?) ON CONFLICT (id) DO NOTHING", id,
+                "P-" + id.toString().substring(0, 13), id, id);
+    }
+
+    /** 투입 지정(합성, 넓은 기간) — HRQ-01 승인자 RESP · HRQ-03 입력자 투입 */
+    private void member(UUID project, UUID emp, String role) {
+        coreEmployee(emp);
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, ?, DATE '2020-01-01', DATE '2035-12-31') ON CONFLICT DO NOTHING", project, emp, role);
     }
 
     private MockHttpServletRequestBuilder putJson(String url, String body) {
@@ -94,6 +110,7 @@ class CstIntegrationTest extends IntegrationTestBase {
     }
 
     private String submit(UUID emp, String week, UUID project, String date, int hours) throws Exception {
+        member(project, emp, "PART");   // HRQ-03: 투입된 프로젝트만 입력
         var r = mvc.perform(as(putJson("/api/v1/hrq/timesheets/" + emp + "/weeks/" + week,
                 "{\"entries\":[{\"projectId\":\"%s\",\"workDate\":\"%s\",\"workType\":\"FIELD\",\"hours\":%d}],\"submit\":true}"
                         .formatted(project, date, hours)), emp, "ENG")).andExpect(status().isOk()).andReturn();

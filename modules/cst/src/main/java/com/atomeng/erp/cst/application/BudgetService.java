@@ -47,7 +47,8 @@ public class BudgetService {
     private Map<String, Object> view(UUID revisionId) {
         Map<String, Object> r = jdbc.queryForMap("""
                 SELECT id, project_id, rev_no, status, bac_krw, contract_amount_krw, expected_margin_pct, approved_by,
-                       approved_at, version FROM cst.budget_revision WHERE id = ?""", revisionId);
+                       approved_at, created_by, submitted_by, submitted_at, version
+                  FROM cst.budget_revision WHERE id = ?""", revisionId);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", r.get("id"));
         m.put("projectId", r.get("project_id"));
@@ -58,6 +59,9 @@ public class BudgetService {
         m.put("expectedMarginPct", r.get("expected_margin_pct"));
         m.put("approvedBy", r.get("approved_by"));
         m.put("approvedAt", r.get("approved_at"));
+        m.put("createdBy", r.get("created_by"));
+        m.put("submittedBy", r.get("submitted_by"));
+        m.put("submittedAt", r.get("submitted_at"));
         m.put("version", r.get("version"));
         m.put("wbs", jdbc.queryForList("""
                 SELECT w.id, w.code, w.name, w.weight_pct AS "weightPct", w.milestone_event AS "milestoneEvent",
@@ -67,11 +71,35 @@ public class BudgetService {
         return m;
     }
 
-    /** 실행예산 결재(EXEC, If-Match) → APPROVED(Baseline 1개, 이전 APPROVED 는 SUPERSEDED) + 감사 */
+    /**
+     * 실행예산 상신(If-Match) — DRAFT → SUBMITTED, 상신자 기록(CST-01). cst:budget:update(PM 은 투입 프로젝트, ADMIN · FIN 전체).
+     * 라인 · BAC 가 비어 있으면 422. 상신자는 같은 판을 결재할 수 없다.
+     */
     @Transactional
-    public Map<String, Object> approve(UUID projectId, UUID revisionId, long expectedVersion) {
+    public Map<String, Object> submit(UUID projectId, UUID revisionId, long expectedVersion) {
+        Map<String, Object> r = lockRevision(projectId, revisionId, expectedVersion);
+        if (!"DRAFT".equals(r.get("status"))) {
+            throw new DomainException(BUDGET_STATE, "초안(DRAFT)만 상신할 수 있습니다: " + r.get("status"));
+        }
+        Integer lines = jdbc.queryForObject("SELECT count(*) FROM cst.budget_line WHERE revision_id = ?", Integer.class,
+                revisionId);
+        BudgetApproval.Rejection rej = BudgetApproval.check("SUBMITTED", lines == null ? 0 : lines,
+                (BigDecimal) r.get("bac_krw"));
+        if (rej != null) {
+            throw new DomainException(CstErrors.INVALID, "실행예산 라인 · BAC 가 비어 있어 상신할 수 없습니다(" + rej + ")");
+        }
+        UUID by = actor.actorIdOrSystem();
+        jdbc.update("""
+                UPDATE cst.budget_revision SET status = 'SUBMITTED', submitted_by = ?, submitted_at = now(),
+                       updated_at = now(), updated_by = ?, version = version + 1 WHERE id = ?""", by, by, revisionId);
+        audit.append("CST", AuditLog.Action.UPDATE, "budget_revision", revisionId, Map.of("status", "DRAFT"),
+                Map.of("status", "SUBMITTED", "projectId", projectId.toString()));
+        return view(revisionId);
+    }
+
+    private Map<String, Object> lockRevision(UUID projectId, UUID revisionId, long expectedVersion) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT project_id, status, version, bac_krw FROM cst.budget_revision
+                SELECT project_id, status, version, bac_krw, created_by, updated_by, submitted_by FROM cst.budget_revision
                  WHERE id = ? AND deleted_at IS NULL FOR UPDATE""", revisionId);
         if (rows.isEmpty() || !projectId.equals(rows.get(0).get("project_id"))) {
             throw new DomainException(CstErrors.NOT_FOUND, "프로젝트의 실행예산 판이 아닙니다: " + revisionId);
@@ -80,6 +108,16 @@ public class BudgetService {
         if (((Number) r.get("version")).longValue() != expectedVersion) {
             throw new DomainException(CoreErrors.VERSION_MISMATCH, "실행예산이 그새 바뀌었습니다(If-Match 불일치)");
         }
+        return r;
+    }
+
+    /**
+     * 실행예산 결재(EXEC · ADMIN · FIN, If-Match) → APPROVED(Baseline 1개, 이전 APPROVED 는 SUPERSEDED) + 감사.
+     * CST-01: SUBMITTED 만(DRAFT → 409 CST-409-005), 결재자 ≠ 작성 · 마지막 수정 · 상신자(403 CST-403-002).
+     */
+    @Transactional
+    public Map<String, Object> approve(UUID projectId, UUID revisionId, long expectedVersion) {
+        Map<String, Object> r = lockRevision(projectId, revisionId, expectedVersion);
         Integer lines = jdbc.queryForObject("SELECT count(*) FROM cst.budget_line WHERE revision_id = ?", Integer.class,
                 revisionId);
         BudgetApproval.Rejection rej = BudgetApproval.check((String) r.get("status"), lines == null ? 0 : lines,
@@ -91,6 +129,13 @@ public class BudgetService {
             throw new DomainException(CstErrors.INVALID, "실행예산 라인 · BAC 가 비어 있어 결재할 수 없습니다(" + rej + ")");
         }
         UUID by = actor.actorIdOrSystem();
+        for (String col : List.of("created_by", "updated_by", "submitted_by")) {
+            if (by.equals(r.get(col))) {
+                throw new DomainException(CstErrors.BUDGET_SAME_APPROVER,
+                        "실행예산을 작성 · 수정 · 상신한 사람은 같은 판을 결재할 수 없습니다(maker-checker)")
+                        .with("reason", "CST_BUDGET_SOD").with("field", col);
+            }
+        }
         jdbc.update("""
                 UPDATE cst.budget_revision SET status = 'SUPERSEDED', updated_at = now(), updated_by = ?, version = version + 1
                  WHERE project_id = ? AND status = 'APPROVED' AND id <> ?""", by, projectId, revisionId);

@@ -22,16 +22,14 @@ class BudgetGlueTest {
     }
 
     @Test
-    @DisplayName("결재 판정: DRAFT · SUBMITTED · REVIEWED 만 · 라인 1개 이상 · BAC > 0, APPROVED · SUPERSEDED · CLOSED 재결재 거부")
+    @DisplayName("CST-01 결재 판정: 상신(SUBMITTED)만 · 라인 1개 이상 · BAC > 0, DRAFT 직접 결재 · APPROVED · SUPERSEDED · CLOSED 거부")
     void approvalPolicy() {
-        for (String s : new String[] {"DRAFT", "SUBMITTED", "REVIEWED"}) {
-            assertThat(BudgetApproval.check(s, 3, new BigDecimal("1000"))).isNull();
-        }
-        for (String s : new String[] {"APPROVED", "SUPERSEDED", "CLOSED", null}) {
+        assertThat(BudgetApproval.check("SUBMITTED", 3, new BigDecimal("1000"))).isNull();
+        for (String s : new String[] {"DRAFT", "REVIEWED", "APPROVED", "SUPERSEDED", "CLOSED", null}) {
             assertThat(BudgetApproval.check(s, 3, new BigDecimal("1000"))).isEqualTo(Rejection.NOT_APPROVABLE_STATUS);
         }
-        assertThat(BudgetApproval.check("DRAFT", 0, new BigDecimal("1000"))).isEqualTo(Rejection.NO_LINES);
-        assertThat(BudgetApproval.check("DRAFT", 2, BigDecimal.ZERO)).isEqualTo(Rejection.ZERO_BAC);
-        assertThat(BudgetApproval.check("DRAFT", 2, null)).isEqualTo(Rejection.ZERO_BAC);
+        assertThat(BudgetApproval.check("SUBMITTED", 0, new BigDecimal("1000"))).isEqualTo(Rejection.NO_LINES);
+        assertThat(BudgetApproval.check("SUBMITTED", 2, BigDecimal.ZERO)).isEqualTo(Rejection.ZERO_BAC);
+        assertThat(BudgetApproval.check("SUBMITTED", 2, null)).isEqualTo(Rejection.ZERO_BAC);
     }
 }

@@ -68,7 +68,23 @@ class HrqIntegrationTest extends IntegrationTestBase {
         UUID client = createClient(actor(), "합성발주처-hrq-" + UUID.randomUUID());
         var r = mvc.perform(as(postJson("/api/v1/core/projects", "{\"name\":\"합성 HRQ 프로젝트\",\"serviceType\":"
                 + "\"PRECISE_DIAG\",\"clientId\":\"" + client + "\"}"), pm, "PM")).andExpect(status().isCreated()).andReturn();
-        return UUID.fromString(json(r).get("id").asText());
+        UUID id = UUID.fromString(json(r).get("id").asText());
+        member(id, pm, "RESP");   // HRQ-01: 승인 · 정정 PM 은 이 프로젝트의 책임기술자
+        return id;
+    }
+
+    /** core.employee 행 보장(합성) — 투입(project_member) FK 용 */
+    private void coreEmployee(UUID id) {
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성직원', DATE '2020-01-01', ?, ?) ON CONFLICT (id) DO NOTHING", id,
+                "P-" + id.toString().substring(0, 13), id, id);
+    }
+
+    /** 투입 지정(합성, 넓은 기간) — HRQ-01 승인자 RESP · HRQ-03 입력자 투입 */
+    private void member(UUID project, UUID emp, String role) {
+        coreEmployee(emp);
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, ?, DATE '2020-01-01', DATE '2035-12-31') ON CONFLICT DO NOTHING", project, emp, role);
     }
 
     private int events(String type, UUID aggregate) {
@@ -86,8 +102,12 @@ class HrqIntegrationTest extends IntegrationTestBase {
         return put(url).contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
-    /** 주간 저장(본인) → 엔트리 id 목록 */
+    /** 주간 저장(본인) → 엔트리 id 목록. HRQ-03: 입력 프로젝트에 PART 로 투입해 둔다 */
     private JsonNode saveWeek(UUID emp, String week, String entries, boolean submit) throws Exception {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"projectId\":\"([0-9a-f-]{36})\"").matcher(entries);
+        while (m.find()) {
+            member(UUID.fromString(m.group(1)), emp, "PART");
+        }
         var r = mvc.perform(as(putJson("/api/v1/hrq/timesheets/" + emp + "/weeks/" + week,
                 "{\"entries\":[" + entries + "],\"submit\":" + submit + "}"), emp, "ENG"))
                 .andExpect(status().isOk()).andReturn();
@@ -350,6 +370,9 @@ class HrqIntegrationTest extends IntegrationTestBase {
         // 재오픈(사유·감사) 후에는 원 월에 정정 반영 → 재마감 시 새 합계
         mvc.perform(as(postJson("/api/v1/hrq/month-close/202604:reopen", "{\"reason\":\"현장 일지 누락 확인(합성)\"}"),
                         admin, "ADMIN"))
+                .andExpect(status().isForbidden());   // HRQ-07: 마감(ADMIN)과 재오픈(SYSADMIN) 분리
+        mvc.perform(as(postJson("/api/v1/hrq/month-close/202604:reopen", "{\"reason\":\"현장 일지 누락 확인(합성)\"}"),
+                        actor(), "SYSADMIN"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REOPENED"));
         mvc.perform(as(correct(e2, "{\"hours\":2,\"reason\":\"재오픈 정정\"}", UUID.randomUUID().toString()), pm, "PM"))
                 .andExpect(status().isCreated())

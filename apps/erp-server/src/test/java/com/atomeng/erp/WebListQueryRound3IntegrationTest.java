@@ -85,15 +85,17 @@ class WebListQueryRound3IntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("HRQ GET /month-close — EXEC · PM · ADMIN 만, SELF 범위(ENG) 403 CORE-403-002, 권한 없음 403 CORE-403-001")
+    @DisplayName("HRQ GET /month-close — hrq:month-close:read(EXEC · PM · ADMIN · SYSADMIN) 만, ENG · QA 403 CORE-403-001 (HRQ-07)")
     void hrqMonthCloseList() throws Exception {
         String ym = YearMonth.now(clock.withZone(ZoneId.of("Asia/Seoul"))).minusYears(3)
                 .format(DateTimeFormatter.ofPattern("yyyyMM"));
         call(postJson("/api/v1/hrq/month-close/" + ym, "{}"), admin, "ADMIN", 200);
         JsonNode list = call(get("/api/v1/hrq/month-close"), actor(), "PM", 200);
         assertThat(list.findValuesAsText("year_month")).contains(ym);
+        assertThat(call(get("/api/v1/hrq/month-close"), actor(), "SYSADMIN", 200).findValuesAsText("year_month"))
+                .contains(ym);   // HRQ-07: 재오픈하는 SYSADMIN 도 목록을 본다
         assertThat(call(get("/api/v1/hrq/month-close"), actor(), "ENG", 403).get("code").asText())
-                .isEqualTo("CORE-403-002");
+                .isEqualTo("CORE-403-001");
         assertThat(call(get("/api/v1/hrq/month-close"), actor(), "QA", 403).get("code").asText())
                 .isEqualTo("CORE-403-001");
     }

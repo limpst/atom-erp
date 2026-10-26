@@ -43,12 +43,16 @@ export function ReopenDialog({ title, onClose, onConfirm, pending }: {
   );
 }
 
-/** G5 › HRQ 월 마감 — 미승인 0건이면 인·일 집계 → 타임시트 LOCKED → hrq.manday.closed(→ CST 대사). 재오픈은 사유 필수 */
+/**
+ * G5 › HRQ 월 마감 — 미승인 0건이면 인·일 집계 → 타임시트 LOCKED → hrq.manday.closed(→ CST 대사).
+ * 마감은 ADMIN(hrq:month-close:write), 재오픈은 SYSADMIN(hrq:month-close:reopen, 사유 필수) — 보안 검토 HRQ-07(CST 와 같은 분리).
+ */
 export function HrqMonthClosePage() {
   const { hasRole } = useAuth();
   const qc = useQueryClient();
   const { label } = useEmployees();
   const isAdmin = hasRole('ADMIN');
+  const canReopen = hasRole('SYSADMIN');
   const [ym, setYm] = useState(prevMonth());
   const [reopenFor, setReopenFor] = useState<string>();
   const list = useQuery({ queryKey: ['hrq', 'month-close'], queryFn: hrqApi.monthCloses });
@@ -100,7 +104,7 @@ export function HrqMonthClosePage() {
         {list.error && <ErrorBox error={list.error} />}
         <table className="simple" data-testid="hrq-month-list">
           <thead>
-            <tr><th>월</th><th>상태</th><th className="num">인·일</th><th>마감</th><th>재오픈</th><th>사유</th>{isAdmin && <th />}</tr>
+            <tr><th>월</th><th>상태</th><th className="num">인·일</th><th>마감</th><th>재오픈</th><th>사유</th>{canReopen && <th />}</tr>
           </thead>
           <tbody>
             {(list.data ?? []).map((m) => (
@@ -111,7 +115,7 @@ export function HrqMonthClosePage() {
                 <td>{fmtDateTime(m.closed_at)} {m.closed_by && <span className="muted">· {label(m.closed_by)}</span>}</td>
                 <td>{fmtDateTime(m.reopened_at)} {m.reopened_by && <span className="muted">· {label(m.reopened_by)}</span>}</td>
                 <td>{m.reopen_reason ?? '—'}</td>
-                {isAdmin && (
+                {canReopen && (
                   <td>
                     {m.status === 'CLOSED' && (
                       <button className="danger" onClick={() => setReopenFor(m.year_month)} aria-label={`HRQ 재오픈 ${ymLabel(m.year_month)}`}>

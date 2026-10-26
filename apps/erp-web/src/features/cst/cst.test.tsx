@@ -103,16 +103,25 @@ describe('원가 회계기간', () => {
     expect(run).toHaveTextContent('차이 1');
   });
 
-  it('SYSADMIN 재오픈: 목록 권한 없이 월 입력 + 사유', async () => {
+  it('SYSADMIN 재오픈: 목록(cst:period:read)이 보이고 마감 행에서 사유와 함께 재오픈, 마감 버튼은 없음', async () => {
     const user = userEvent.setup();
     renderAs(devUserId(13), ['SYSADMIN'], <CstPeriodsPage />);
-    expect(screen.queryByTestId('cst-periods')).toBeNull();
-    await user.click(screen.getByTestId('cst-reopen'));
-    const dlg = screen.getByRole('dialog');
+    await screen.findByTestId('cst-period-202608');
+    expect(screen.queryByTestId('cst-close')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'CST 재오픈 2026-08' }));
+    const dlg = screen.getByRole('dialog', { name: 'CST 2026-08 재오픈' });
     await user.type(within(dlg).getByLabelText('재오픈 사유'), '(합성) 원가 정정 반영');
     await user.click(within(dlg).getByTestId('reopen-confirm'));
     await waitFor(() => expect(toasts.success[0]).toContain('재오픈'));
-    expect(seen[0].url).toMatch(/\/api\/v1\/cst\/periods\/\d{6}:reopen$/);
-    expect(seen[0].body).toEqual({ reason: '(합성) 원가 정정 반영' });
+    const req = seen.find((s) => s.url.endsWith(':reopen'));
+    expect(req?.url).toMatch(/\/api\/v1\/cst\/periods\/202608:reopen$/);
+    expect(req?.body).toEqual({ reason: '(합성) 원가 정정 반영' });
+  });
+
+  it('ADMIN 은 마감만, 재오픈 버튼 없음', async () => {
+    renderAs(devUserId(9), ['ADMIN'], <CstPeriodsPage />);
+    await screen.findByTestId('cst-period-202608');
+    expect(screen.getByTestId('cst-close')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'CST 재오픈 2026-08' })).toBeNull();
   });
 });

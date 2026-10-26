@@ -73,6 +73,7 @@ public class RateService {
                     "같은 요율(" + r.rateKind() + "/" + r.keyCode() + ")의 승인 대기 초안이 이미 있습니다 — 그 초안을 수정하세요");
         }
         precheckPredecessor(r.rateKind(), r.keyCode(), r.validFrom());
+        requireOpenPeriods(r.rateKind(), r.keyCode(), r.validFrom(), r.validTo(), null);
         var by = actor.actorIdOrSystem();
         RateRow row = new RateRow(UuidV7.next(), r.rateKind(), r.keyCode(), r.value(), r.validFrom(), r.validTo(),
                 r.sourceRef(), 0, "DRAFT", by, null, null, null, null, null);
@@ -95,6 +96,7 @@ public class RateService {
         String src = e.sourceRef() != null ? e.sourceRef() : cur.sourceRef();
         validate(value, from, to, src);
         precheckPredecessor(cur.rateKind(), cur.keyCode(), from);
+        requireOpenPeriods(cur.rateKind(), cur.keyCode(), from, to, id);
         jdbc.updateDraft(id, value, from, to, src, actor.actorIdOrSystem());
         RateRow after = get(id);
         audit.append("CST", AuditLog.Action.UPDATE, "Rate", id, snapshot(cur), snapshot(after));
@@ -115,6 +117,7 @@ public class RateService {
             throw new DomainException(CstErrors.RATE_SAME_APPROVER,
                     "요율 등록 · 수정자는 같은 요율을 승인할 수 없습니다(4-eyes)").with("reason", "CST_RATE_SOD");
         }
+        requireOpenPeriods(cur.rateKind(), cur.keyCode(), cur.validFrom(), cur.validTo(), cur.id());   // 그새 마감됐을 수 있다
         // 무기한 초안만 직전 무기한 행을 이어받아 마감한다(한정 기간 초안은 중간 끼워 넣기 금지 — 겹치면 409)
         jdbc.lockOpenEndedRate(cur.rateKind(), cur.keyCode()).ifPresent(prev -> {
             if (cur.validTo() == null && cur.validFrom().isAfter(prev.validFrom())) {
@@ -199,6 +202,27 @@ public class RateService {
         }
         if (sourceRef == null || sourceRef.isBlank()) {
             throw new DomainException(CstErrors.INVALID, "근거(sourceRef) 필수 - ADMIN 확인 값만 등록");
+        }
+    }
+
+    /**
+     * CST-02 소급 금지 — 적용 구간 [validFrom, validTo) 에 마감(CLOSED) 회계기간이 들어 있으면서
+     * ① 시작일의 월 자체가 마감이거나 ② 그 구간에 이미 승인된 같은 (종류, 키) 요율이 있어(=기존 단가를 바꾼다) 마감 기간의
+     * 단가가 달라지면 409 CST-409-008. 처음 등록하는 키(승인 행 없음)는 시작 월이 열려 있으면 과거 시작일도 허용한다
+     * (그 키로 전기된 원장이 없으므로 마감 기간 금액이 바뀌지 않음).
+     */
+    private void requireOpenPeriods(String kind, String key, LocalDate from, LocalDate to, UUID self) {
+        java.time.format.DateTimeFormatter ym = java.time.format.DateTimeFormatter.ofPattern("yyyyMM");
+        List<String> closed = jdbc.closedPeriods(from.format(ym), to == null ? null : to.minusDays(1).format(ym));
+        if (closed.isEmpty()) {
+            return;
+        }
+        boolean startClosed = closed.contains(from.format(ym));
+        if (startClosed || !jdbc.overlappingApproved(kind, key, from, to, self).isEmpty()) {
+            throw new DomainException(CstErrors.RATE_PERIOD_CLOSED,
+                    "적용 시작일(" + from + ")이 마감된 회계기간(" + String.join(", ", closed) + ")의 단가를 바꿉니다 — "
+                            + "열린 기간부터 적용하거나 회계기간 재오픈(SYSADMIN) 후 등록하세요")
+                    .with("closedPeriods", closed);
         }
     }
 

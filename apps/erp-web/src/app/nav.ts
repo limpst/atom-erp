@@ -69,7 +69,7 @@ export const NAV: NavGroup[] = [
       { label: '타임시트', module: 'HRQ', path: '/hrq/timesheets' },
       { label: '인력 · 자격', module: 'HRQ', path: '/hrq/people', roles: ['EXEC', 'PM', 'QA', 'ADMIN', 'SYSADMIN', 'AUDITOR', 'ENG'] },
       { label: '등록요건 · 예측', module: 'HRQ', path: '/hrq/compliance', roles: ['EXEC', 'SALES', 'PM', 'QA', 'ADMIN', 'SYSADMIN'] },
-      { label: 'HRQ 월 마감', module: 'HRQ', path: '/hrq/month-close', roles: ['EXEC', 'PM', 'ADMIN'] },
+      { label: 'HRQ 월 마감', module: 'HRQ', path: '/hrq/month-close', roles: ['EXEC', 'PM', 'ADMIN', 'SYSADMIN'] },
       { label: '장비 · 교정', module: 'EQP', path: '/eqp/equipment' },
       { label: '장비 예약 · 반출', module: 'EQP', path: '/eqp/reservations', roles: ['PM', 'ENG', 'ADMIN', 'EXEC'] },
     ],

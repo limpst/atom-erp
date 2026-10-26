@@ -28,7 +28,7 @@ function Unavailable({ error }: { error: unknown }) {
 export function ProjectDetailPage() {
   const { id = '' } = useParams();
   const qc = useQueryClient();
-  const { hasRole } = useAuth();
+  const { hasRole, session } = useAuth();
   const project = useQuery({ queryKey: ['project', id], queryFn: () => coreApi.project(id), ...silent });
   const members = useQuery({ queryKey: ['project', id, 'members'], queryFn: () => coreApi.members(id), ...silent, enabled: project.isSuccess });
   const budgets = useQuery({ queryKey: ['cst', id, 'budgets'], queryFn: () => cstApi.budgets(id), ...silent, enabled: project.isSuccess });
@@ -44,6 +44,13 @@ export function ProjectDetailPage() {
     onSuccess: () => {
       toast.success('투입 지정 완료');
       qc.invalidateQueries({ queryKey: ['project', id] });
+    },
+  });
+  const submitBudget = useMutation({
+    mutationFn: (rev: { id: string; version: number }) => cstApi.submitBudget(id, rev),
+    onSuccess: (r) => {
+      toast.success(`실행예산 Rev.${r.revNo} 상신 — 다른 결재자(EXEC · ADMIN · FIN)가 승인합니다`);
+      qc.invalidateQueries({ queryKey: ['cst', id] });
     },
   });
   const approve = useMutation({
@@ -182,8 +189,18 @@ export function ProjectDetailPage() {
                   <Badge tone={b.status === 'APPROVED' ? 'ok' : b.status === 'DRAFT' ? 'warn' : undefined}>{b.status}</Badge>
                   <span>BAC {fmtMoney(b.bacKrw)}</span>
                   <span className="muted">예상 이익률 {fmtNum(b.expectedMarginPct)}%</span>
-                  {['DRAFT', 'SUBMITTED', 'REVIEWED'].includes(b.status) && hasRole('EXEC', 'ADMIN', 'FIN') && (
-                    <button className="primary" onClick={() => approve.mutate(b)} disabled={approve.isPending}>
+                  {b.status === 'DRAFT' && hasRole('PM', 'ADMIN', 'FIN') && (
+                    <button onClick={() => submitBudget.mutate(b)} disabled={submitBudget.isPending}>
+                      상신 (If-Match v{b.version})
+                    </button>
+                  )}
+                  {b.status === 'SUBMITTED' && hasRole('EXEC', 'ADMIN', 'FIN') && (
+                    <button
+                      className="primary"
+                      onClick={() => approve.mutate(b)}
+                      disabled={approve.isPending || (!!session && [b.createdBy, b.submittedBy].includes(session.actorId))}
+                      title={session && [b.createdBy, b.submittedBy].includes(session.actorId) ? '작성 · 상신자는 결재할 수 없습니다(CST-01)' : undefined}
+                    >
                       승인 (If-Match v{b.version})
                     </button>
                   )}

@@ -121,9 +121,13 @@ final class DevSeed {
         }
         if (budgets != null && budgets.size() > 0) {
             JsonNode draft = budgets.get(0);
+            // CST-01: 책임기술자(PM) 상신 → EXEC 결재(작성 · 상신자 ≠ 결재자)
+            JsonNode submitted = call("POST", "/api/v1/cst/projects/" + project + "/budget-revisions/"
+                    + draft.get("id").asText() + ":submit", map(), PM, "PM",
+                    "\"v" + draft.get("version").asLong() + "\"");
             JsonNode approved = call("POST", "/api/v1/cst/projects/" + project + "/budget-revisions/"
                     + draft.get("id").asText() + ":approve", map(), EXEC, "EXEC",
-                    "\"v" + draft.get("version").asLong() + "\"");
+                    "\"v" + submitted.get("version").asLong() + "\"");
             for (JsonNode w : approved.get("wbs")) {
                 if (w.get("code").asText().endsWith("-FIELD")) {
                     call("POST", "/api/v1/cst/projects/" + project + "/progress", map("wbsId", w.get("id").asText(),

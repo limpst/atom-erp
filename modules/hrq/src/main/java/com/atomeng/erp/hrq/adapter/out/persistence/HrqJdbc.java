@@ -35,9 +35,21 @@ public class HrqJdbc {
     public record CredentialRow(UUID id, UUID employeeId, String typeCode, String certNo, LocalDate acquiredOn,
                                 LocalDate expiresOn, String status) {}
 
+    /**
+     * 타임시트 행. approvedBy · approvalMode(RESP · DELEGATED) · delegationReason 은 승인 이력 표시용(HRQ-01, V0039) —
+     * 정정으로 바로 확정된 리비전은 approvalMode 가 없다(정정자 = approvedBy).
+     */
     public record TimesheetRow(UUID id, UUID employeeId, UUID projectId, LocalDate workDate, String workType,
                                BigDecimal hours, String status, UUID timesheetKey, int revisionNo, UUID supersedesId,
-                               String correctionReason, String postingPeriod) {}
+                               String correctionReason, String postingPeriod, UUID approvedBy, String approvalMode,
+                               String delegationReason) {
+        public TimesheetRow(UUID id, UUID employeeId, UUID projectId, LocalDate workDate, String workType,
+                            BigDecimal hours, String status, UUID timesheetKey, int revisionNo, UUID supersedesId,
+                            String correctionReason, String postingPeriod) {
+            this(id, employeeId, projectId, workDate, workType, hours, status, timesheetKey, revisionNo, supersedesId,
+                    correctionReason, postingPeriod, null, null, null);
+        }
+    }
 
     private final JdbcTemplate jdbc;
 
@@ -283,8 +295,57 @@ public class HrqJdbc {
     }
 
     public int deleteOpenEntries(UUID empId, LocalDate from, LocalDate to) {
+        // 정정 리비전(revision_no > 1, 재승인 대기 SUBMITTED)은 주간 저장으로 지우지 않는다(HRQ-02)
         return jdbc.update("DELETE FROM hrq.timesheet_entry WHERE employee_id = ? AND work_date BETWEEN ? AND ? "
-                + "AND status IN ('DRAFT','SUBMITTED')", empId, d(from), d(to));
+                + "AND status IN ('DRAFT','SUBMITTED') AND revision_no = 1", empId, d(from), d(to));
+    }
+
+    /**
+     * 하루 합계(시간) — 주간 저장으로 교체되지 않는 행만: SUPERSEDED 제외, 최초 리비전의 DRAFT · SUBMITTED 제외
+     * (확정 행 · 재승인 대기 정정 리비전은 포함). HRQ-03 하루 24h 상한.
+     */
+    public BigDecimal retainedHoursOn(UUID empId, LocalDate day) {
+        return jdbc.queryForObject("""
+                SELECT coalesce(sum(hours), 0) FROM hrq.timesheet_entry
+                 WHERE employee_id = ? AND work_date = ? AND status <> 'SUPERSEDED'
+                   AND NOT (status IN ('DRAFT','SUBMITTED') AND revision_no = 1)""", BigDecimal.class, empId, d(day));
+    }
+
+    /** 하루 합계(시간) — SUPERSEDED 만 제외(정정 시 상한 검사용, 열린 입력 포함) */
+    public BigDecimal activeHoursOn(UUID empId, LocalDate day) {
+        return jdbc.queryForObject("""
+                SELECT coalesce(sum(hours), 0) FROM hrq.timesheet_entry
+                 WHERE employee_id = ? AND work_date = ? AND status <> 'SUPERSEDED'""", BigDecimal.class, empId, d(day));
+    }
+
+    /** 근무일 기준 프로젝트 투입(core.project_member, 역할 무관) — HRQ-03 */
+    public boolean assignedOn(UUID empId, UUID projectId, LocalDate on) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM core.project_member
+                                WHERE employee_id = ? AND project_id = ? AND ? BETWEEN from_date AND to_date)""",
+                Boolean.class, empId, projectId, d(on)));
+    }
+
+    /** 기준일에 그 프로젝트의 책임기술자(RESP)로 투입 중인가 — HRQ-01 · HRQ-02 */
+    public boolean responsibleOn(UUID empId, UUID projectId, LocalDate on) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM core.project_member
+                                WHERE employee_id = ? AND project_id = ? AND role_in_project = 'RESP'
+                                  AND ? BETWEEN from_date AND to_date)""",
+                Boolean.class, empId, projectId, d(on)));
+    }
+
+    public UUID timesheetCreatedBy(UUID id) {
+        return jdbc.queryForObject("SELECT created_by FROM hrq.timesheet_entry WHERE id = ?", UUID.class, id);
+    }
+
+    /** SUBMITTED → APPROVED + 승인 방식(RESP · DELEGATED) · 대리 승인 사유 기록 */
+    public void approveTimesheet(UUID id, UUID by, String mode, String delegationReason) {
+        jdbc.update("""
+                UPDATE hrq.timesheet_entry SET status = 'APPROVED', approved_by = ?, approved_at = now(),
+                       approval_mode = ?, delegation_reason = ?,
+                       updated_at = now(), updated_by = ?, version = version + 1 WHERE id = ?""",
+                by, mode, delegationReason, by, id);
     }
 
     public List<TimesheetRow> entries(UUID empId, LocalDate from, LocalDate to) {
@@ -339,7 +400,8 @@ public class HrqJdbc {
                 rs.getObject("project_id", UUID.class), ld(rs, "work_date"), rs.getString("work_type"),
                 rs.getBigDecimal("hours"), rs.getString("status"), rs.getObject("timesheet_key", UUID.class),
                 rs.getInt("revision_no"), rs.getObject("supersedes_id", UUID.class), rs.getString("correction_reason"),
-                rs.getString("posting_period"));
+                rs.getString("posting_period"), rs.getObject("approved_by", UUID.class), rs.getString("approval_mode"),
+                rs.getString("delegation_reason"));
     }
 
     // ================================================================ month close

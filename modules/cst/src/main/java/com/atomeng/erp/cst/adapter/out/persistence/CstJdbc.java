@@ -49,6 +49,14 @@ public class CstJdbc {
                 .stream().findFirst();
     }
 
+    /** 마감(CLOSED) 회계기간 중 [fromYm, toYm] 에 드는 월(toYm null = 끝 없음) — CST-02 요율 소급 검사 */
+    public List<String> closedPeriods(String fromYm, String toYm) {
+        return jdbc.queryForList("""
+                SELECT period_ym FROM cst.accounting_period
+                 WHERE status = 'CLOSED' AND period_ym >= ? AND (?::text IS NULL OR period_ym <= ?)
+                 ORDER BY period_ym""", String.class, fromYm, toYm, toYm);
+    }
+
     public Optional<String> lockPeriod(String ym) {
         return jdbc.queryForList("SELECT status FROM cst.accounting_period WHERE period_ym = ? FOR UPDATE",
                 String.class, ym).stream().findFirst();

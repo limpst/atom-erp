@@ -59,14 +59,17 @@ function ReconPanel({ ym }: { ym: string }) {
   );
 }
 
-/** G3 › 원가 회계기간 — 마감(ADMIN, 체크리스트) · 재오픈(SYSADMIN, 사유) · HRQ↔CST 인·일 대사 결과 */
+/**
+ * G3 › 원가 회계기간 — 마감(ADMIN, 체크리스트) · 재오픈(SYSADMIN, 목록 행에서 사유와 함께) · HRQ↔CST 인·일 대사 결과.
+ * SYSADMIN 도 cst:period:read(V0040)로 목록을 본다.
+ */
 export function CstPeriodsPage() {
   const { hasRole } = useAuth();
   const qc = useQueryClient();
-  const canRead = hasRole('EXEC', 'ADMIN', 'FIN', 'AUDITOR');
+  const canRead = hasRole('EXEC', 'ADMIN', 'FIN', 'AUDITOR', 'SYSADMIN');
+  const canReopen = hasRole('SYSADMIN');
   const [ym, setYm] = useState(prevMonth());
-  const [reopenYm, setReopenYm] = useState(prevMonth());
-  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenYm, setReopenYm] = useState<string>();
   const [selected, setSelected] = useState<string>();
   const [result, setResult] = useState<CloseResult>();
   const periods = useQuery({ queryKey: ['cst', 'periods'], queryFn: cstApi.periods, enabled: canRead });
@@ -84,10 +87,10 @@ export function CstPeriodsPage() {
     },
   });
   const reopen = useMutation({
-    mutationFn: (reason: string) => cstApi.reopenPeriod(ymKey(reopenYm), reason),
+    mutationFn: ({ k, reason }: { k: string; reason: string }) => cstApi.reopenPeriod(k, reason),
     onSuccess: (r) => {
       toast.success(`CST ${ymLabel(r.periodYm)} 재오픈`);
-      setReopenOpen(false);
+      setReopenYm(undefined);
       refresh();
     },
   });
@@ -127,17 +130,9 @@ export function CstPeriodsPage() {
             )}
           </Card>
         )}
-        {hasRole('SYSADMIN') && (
+        {canReopen && (
           <Card title="회계 재오픈 (SYSADMIN · 사유 필수)">
-            <div className="row">
-              <Field label="재오픈 월">
-                <input type="month" value={reopenYm} onChange={(e) => setReopenYm(e.target.value)} aria-label="CST 재오픈 월" />
-              </Field>
-              <button className="danger" onClick={() => setReopenOpen(true)} disabled={!reopenYm} data-testid="cst-reopen">
-                {reopenYm} 재오픈…
-              </button>
-            </div>
-            <p className="muted" style={{ fontSize: 12 }}>시스템 관리자는 회계기간 목록 조회 권한이 없어(cst:period:read) 월을 직접 입력합니다.</p>
+            <p className="muted" style={{ fontSize: 12 }}>아래 목록에서 마감된 월의 [재오픈] 버튼을 누르고 사유(5자 이상)를 적습니다. 감사 로그에 남습니다.</p>
           </Card>
         )}
       </div>
@@ -146,7 +141,7 @@ export function CstPeriodsPage() {
           {periods.error && <ErrorBox error={periods.error} />}
           <table className="simple" data-testid="cst-periods">
             <thead>
-              <tr><th>월</th><th>상태</th><th>HRQ 마감 수신</th><th>대사</th><th className="num">HRQ 인·일</th><th className="num">CST 인·일</th><th className="num">차이</th><th>마감 / 재오픈</th></tr>
+              <tr><th>월</th><th>상태</th><th>HRQ 마감 수신</th><th>대사</th><th className="num">HRQ 인·일</th><th className="num">CST 인·일</th><th className="num">차이</th><th>마감 / 재오픈</th>{canReopen && <th />}</tr>
             </thead>
             <tbody>
               {rows.map((p: PeriodRow) => (
@@ -167,6 +162,19 @@ export function CstPeriodsPage() {
                     {p.closed_at && <>마감 {fmtDateTime(p.closed_at)}</>}
                     {p.reopened_at && <div className="muted">재오픈 {fmtDateTime(p.reopened_at)} — {p.reopen_reason}</div>}
                   </td>
+                  {canReopen && (
+                    <td>
+                      {p.status === 'CLOSED' && (
+                        <button
+                          className="danger"
+                          onClick={(e) => { e.stopPropagation(); setReopenYm(p.period_ym); }}
+                          aria-label={`CST 재오픈 ${ymLabel(p.period_ym)}`}
+                        >
+                          재오픈
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -174,15 +182,15 @@ export function CstPeriodsPage() {
           <p className="muted" style={{ fontSize: 12 }}>행을 누르면 그 달의 대사 실행 이력(불일치 상세)을 봅니다.</p>
         </Card>
       ) : (
-        !hasRole('SYSADMIN') && <div className="empty">회계기간은 EXEC · ADMIN · FIN · AUDITOR 역할만 조회할 수 있습니다.</div>
+        <div className="empty">회계기간은 EXEC · ADMIN · FIN · AUDITOR · SYSADMIN 역할만 조회할 수 있습니다.</div>
       )}
       {canRead && selected && <ReconPanel ym={selected} />}
-      {reopenOpen && (
+      {reopenYm && (
         <ReopenDialog
-          title={`CST ${reopenYm} 재오픈`}
-          onClose={() => setReopenOpen(false)}
+          title={`CST ${ymLabel(reopenYm)} 재오픈`}
+          onClose={() => setReopenYm(undefined)}
           pending={reopen.isPending}
-          onConfirm={(reason) => reopen.mutate(reason)}
+          onConfirm={(reason) => reopen.mutate({ k: reopenYm, reason })}
         />
       )}
     </>

@@ -126,15 +126,19 @@ atom:
       visibility-window: 2s              # 05-IMPL Step 10 가시성 지연 창(커밋 지연 대응) — 최장 push 트랜잭션보다 길게
       clock-drift-warn: 5m               # A8-5 / TC-FLD-015 기기 시계 드리프트 경고
       geometry-conflict-window: 5m       # B7.2 기하 동시 변경 충돌 창
-    upload:
+    upload:                              # 보안 검토 FLD-02b 확정값(2026-10-26) — FldProperties.Upload.DEFAULT_* 와 같다
       max-chunk-bytes: 5242880           # FR-FLD-017 5MB 청크
-      session-ttl: 7d
+      session-ttl: 7d                    # 업로드 세션 만료(지나면 PATCH 410 · 정리 배치 EXPIRED)
+      max-file-bytes: 52428800           # 사진 원본 50MB(초과 413 FLD-413-002)
+      max-open-sessions-per-user: 20     # 사용자당 열린 업로드 세션(초과 429 FLD-429-001)
     ai:
       discrepancy-ratio: 2.0             # A8-8 AI ↔ 사람 균열폭 2배 이상 → fld.ai-suggestion.discrepancy(QAR)
   dem:
     log-lock:
       enabled: true
       cron: "0 0 0 * * *"        # BR-DEM-006 매일 00:00 KST 전일 이전 감리일지 자동 잠금
+  attachment:
+    max-bytes: 52428800                  # 첨부 1건 50MB(보안 검토 FLD-02b 확정값, AttachmentService.DEFAULT_MAX_BYTES)
   outbox:
     relay:
       enabled: true
@@ -163,3 +167,17 @@ spring:
 atom:
   security:
     enabled: false
+
+---
+# 운영(prod · production) — deploy/prod/run-erp.sh · run-erp.ps1 이 SPRING_PROFILES_ACTIVE=prod 로 고정 기동(CMN-04).
+#  · DB 비밀번호 기본값 없음: PG_APP_PASSWORD 미설정 · 개발 기본값이면 기동 실패(CMN-13, ProductionGuards)
+#  · 증거 · 발행본 저장소 = S3 호환 Object Lock(COMPLIANCE)(CMN-07). 접속 정보는 환경변수(ATOM_EVIDENCE_S3_*)
+spring:
+  config:
+    activate:
+      on-profile: "prod | production"
+  datasource:
+    password: ${PG_APP_PASSWORD:}
+atom:
+  evidence:
+    store: s3

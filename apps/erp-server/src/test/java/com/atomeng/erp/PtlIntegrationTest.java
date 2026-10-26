@@ -348,6 +348,15 @@ class PtlIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isOk()).andReturn();
         assertThat(d2.getResponse().getHeader("X-Download-Id")).isNotEqualTo(downloadId);
         assertThat(d2.getResponse().getHeader("X-Content-SHA256")).isNotEqualTo(Hashing.sha256Hex(pdf));
+        // 보안 검토 CMN-09: Idempotency-Key 를 붙인 다운로드 재전송도 매번 PDF 본문(바이너리는 멱등 저장 · 빈 200 재반환 안 함)
+        String dlKey = UUID.randomUUID().toString();
+        for (int i = 0; i < 2; i++) {
+            MvcResult k = mvc.perform(asCustomer(post("/api/v1/ptl/reports/" + pub + ":download"), t)
+                    .header("Idempotency-Key", dlKey)).andExpect(status().isOk()).andReturn();
+            assertThat(k.getResponse().getContentType()).isEqualTo("application/pdf");
+            assertThat(k.getResponse().getContentAsByteArray()).isNotEmpty();
+            assertThat(k.getResponse().getHeader("Idempotent-Replayed")).isNull();
+        }
     }
 
     @Test

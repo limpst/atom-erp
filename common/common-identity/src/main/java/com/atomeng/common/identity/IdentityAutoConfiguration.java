@@ -63,10 +63,21 @@ public class IdentityAutoConfiguration {
         return new RequirePermissionAspect(registry, scopes, beans, clock);
     }
 
-    /** CMN-04 · CMN-06: 운영 프로필에서 헤더 인증 금지, OIDC 모드는 audience 필수 — 어기면 기동 실패 */
+    /** CMN-09: 멱등 재반환 전 권한 재확인(IdempotencyFilter 가 이 빈이 있으면 켠다) */
+    @Bean
+    com.atomeng.common.identity.authz.IdempotentReplayAuthorization idempotentReplayAuthorization() {
+        return new com.atomeng.common.identity.authz.IdempotentReplayAuthorization();
+    }
+
+    /**
+     * CMN-04 · CMN-06 · CMN-13: 운영 프로필에서 헤더 인증 금지, OIDC 모드는 audience 필수, 운영 배포 표식이면 prod 프로필 필수,
+     * 운영 DB 비밀번호 기본값 금지 — 어기면 기동 실패
+     */
     @Bean
     Object atomProductionSecurityGuard(org.springframework.core.env.Environment env, AtomSecurityProperties props) {
+        ProductionGuards.checkDeployment(env);
         ProductionGuards.check(env, props);
+        ProductionGuards.checkDatasource(env);
         return new Object();
     }
 

@@ -340,7 +340,7 @@ class HrqCoreCstPolicyRegressionTest extends IntegrationTestBase {
     // ------------------------------------------------------------------ CORE-02
 
     @Test
-    @DisplayName("CORE-02: PM(PROJECT 범위)은 RESP 지정 · 본인 투입 변경 403(CORE-403-010), PART · QA · SUPPORT 는 남에게만, EXEC 는 RESP 지정")
+    @DisplayName("CORE-02: PM(PROJECT 범위)은 RESP 지정 · 본인 투입 변경 403(CORE-403-011), PART · QA · SUPPORT 는 남에게만, EXEC 는 RESP 지정")
     void core02_pmCannotAssignRespOrSelf() throws Exception {
         UUID prj = project();
         UUID pm = actor();
@@ -357,12 +357,12 @@ class HrqCoreCstPolicyRegressionTest extends IntegrationTestBase {
         // PM 이 다른 사람을 RESP 로(pm_id 변경) → 403
         mvc.perform(as(postJson("/api/v1/core/projects/" + prj + "/members", body.formatted(other, "RESP", later)), pm,
                         "PM"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-011"));
         // 본인 RESP 기간 연장 · 본인 PART 추가 → 403
         mvc.perform(as(postJson("/api/v1/core/projects/" + prj + "/members", body.formatted(pm, "RESP", far)), pm, "PM"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-011"));
         mvc.perform(as(postJson("/api/v1/core/projects/" + prj + "/members", body.formatted(pm, "PART", far)), pm, "PM"))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-011"));
         // 남을 PART · QA · SUPPORT 로는 가능
         for (String role : new String[] {"PART", "QA", "SUPPORT"}) {
             mvc.perform(as(postJson("/api/v1/core/projects/" + prj + "/members", body.formatted(other, role, later)), pm,

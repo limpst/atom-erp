@@ -125,7 +125,7 @@ public class ProjectService implements ProjectCommandApi {
     }
 
     /** CORE-02: RESP 지정 · 본인 투입 변경은 core:project-member:assign 이 ALL 인 역할(EXEC · ADMIN)만 */
-    public static final String MEMBER_ASSIGN_FORBIDDEN = "CORE-403-010";
+    public static final String MEMBER_ASSIGN_FORBIDDEN = "CORE-403-011";
 
     /**
      * 보안 검토 CORE-02 — 범위가 ALL 이 아닌 지정자(PROJECT 범위 PM)는 PART · QA · SUPPORT 만 지정할 수 있고,

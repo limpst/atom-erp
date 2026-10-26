@@ -20,9 +20,17 @@ function QueueTools() {
   const { hasRole } = useAuth();
   const [ym, setYm] = useState('2026-05');
   const [policy, setPolicy] = useState<'THRESHOLD' | 'MONTHLY_BUDGET'>('THRESHOLD');
+  const [ovr, setOvr] = useState({ kPer1000: '', minScore: '', reason: '' });
   const [file, setFile] = useState<File>();
+  const isAuditor = hasRole('AUDITOR');
+  const overriding = isAuditor && (ovr.kPer1000 !== '' || ovr.minScore !== '');
   const run = useMutation({
-    mutationFn: () => fcdApi.runReviewQueue(ym, policy),
+    mutationFn: () =>
+      fcdApi.runReviewQueue(ym, policy, overriding ? {
+        kPer1000: ovr.kPer1000 === '' ? undefined : Number(ovr.kPer1000),
+        minScore: ovr.minScore === '' ? undefined : Number(ovr.minScore),
+        reason: ovr.reason,
+      } : undefined),
     onSuccess: (r) => {
       toast.success(`검토 큐 ${r.period}: 거래 ${r.nTxn}건 중 ${r.selected.length}건 선정, 케이스 ${r.casesOpened.length}건 열림`);
       qc.invalidateQueries({ queryKey: ['fcd'] });
@@ -64,7 +72,21 @@ function QueueTools() {
             <option value="MONTHLY_BUDGET">MONTHLY_BUDGET (1,000건당 20건)</option>
           </select>
         </Field>
-        <button className="primary" disabled={run.isPending} onClick={() => run.mutate()}>
+        {isAuditor && (
+          <>
+            {/* FCD-13: 기본값(1,000건당 20건 · 최소 점수 30/60) 재정의는 감사만, 사유 필수 — 서버 범위 k 5~100 · 점수 20~60 */}
+            <Field label="재정의: 1,000건당 k (5~100)">
+              <input type="number" min={5} max={100} value={ovr.kPer1000} onChange={(e) => setOvr({ ...ovr, kPer1000: e.target.value })} />
+            </Field>
+            <Field label="재정의: 최소 점수 (20~60)">
+              <input type="number" min={20} max={60} value={ovr.minScore} onChange={(e) => setOvr({ ...ovr, minScore: e.target.value })} />
+            </Field>
+            <Field label="재정의 사유">
+              <input value={ovr.reason} onChange={(e) => setOvr({ ...ovr, reason: e.target.value })} />
+            </Field>
+          </>
+        )}
+        <button className="primary" disabled={run.isPending || (overriding && !ovr.reason.trim())} onClick={() => run.mutate()}>
           검토 큐 실행
         </button>
       </div>
@@ -149,7 +171,10 @@ function CaseDetailCard({ id }: { id: string }) {
                 <td>{tx?.merchant_name ?? ''}</td>
                 <td className="num">{tx ? fmtMoney(tx.amount_krw) : ''}</td>
                 <td>
-                  {latest
+                  {latest?.summary ? (
+                    // FCD-18: 직원 본인에게는 적중 요약만(규칙 · 임계값 비공개)
+                    <span className="muted" data-testid={`hit-summary-${t}`}>확인이 필요한 항목 {latest.hit_count ?? 0}건 (세부 탐지 기준 비공개)</span>
+                  ) : latest
                     ? parseHits(latest).map((h) => (
                         <div key={h.code}>
                           <span className="mono">{h.code}</span> {h.message}

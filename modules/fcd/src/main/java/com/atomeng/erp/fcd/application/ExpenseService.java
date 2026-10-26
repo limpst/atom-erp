@@ -4,6 +4,7 @@ import com.atomeng.common.audit.AuditLog;
 import com.atomeng.common.core.UuidV7;
 import com.atomeng.common.core.error.DomainException;
 import com.atomeng.common.events.OutboxPublisher;
+import com.atomeng.common.identity.authz.ProjectScopeResolver;
 import com.atomeng.erp.fcd.api.FcdEvents;
 import com.atomeng.erp.fcd.api.FcdSubscriptionContracts.CstVoucherSynced;
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -46,12 +48,34 @@ public class ExpenseService {
     private final OutboxPublisher outbox;
     private final AuditLog audit;
     private final Clock clock;
+    /** core.project_member 투입 판정(common-identity 포트, core 가 구현) — 없으면 프로젝트 귀속 거부(fail-closed) */
+    private final ObjectProvider<ProjectScopeResolver> members;
 
-    public ExpenseService(JdbcTemplate jdbc, OutboxPublisher outbox, AuditLog audit, Clock clock) {
+    public ExpenseService(JdbcTemplate jdbc, OutboxPublisher outbox, AuditLog audit, Clock clock,
+                          ObjectProvider<ProjectScopeResolver> members) {
         this.jdbc = jdbc;
         this.outbox = outbox;
         this.audit = audit;
         this.clock = clock;
+        this.members = members;
+    }
+
+    /**
+     * FCD-10: 정산 라인의 프로젝트 · WBS 는 경비 주인(거래 사용자 = 카드 소지자 · 대여자)이 <b>거래일 기준</b> 투입된
+     * 프로젝트만. 설계에 PM 승인 경로가 없어 투입 확인만 둔다. WBS 는 프로젝트와 함께만(WBS 원장은 CST 소유라 코드만 저장).
+     */
+    void checkProjectAssignment(UUID owner, UUID projectId, String wbsCode, LocalDate txnDate) {
+        if (projectId == null) {
+            if (wbsCode != null && !wbsCode.isBlank()) {
+                throw new DomainException(FcdErrors.WBS_WITHOUT_PROJECT, "WBS 는 프로젝트와 함께 지정해야 합니다");
+            }
+            return;
+        }
+        ProjectScopeResolver r = members.getIfAvailable();
+        if (r == null || !r.isMember(owner, projectId, txnDate)) {
+            throw new DomainException(FcdErrors.PROJECT_NOT_ASSIGNED,
+                    "FCD-10: 사용일(" + txnDate + ")에 투입되지 않은 프로젝트에는 경비를 귀속할 수 없습니다");
+        }
     }
 
     /** 거래별 정산 입력 — 본인 거래만, 정산서는 (사용자, 거래월) 1개 */
@@ -71,6 +95,8 @@ public class ExpenseService {
         if (!t.get("emp").equals(actor.toString())) {
             throw new DomainException(FcdErrors.NOT_OWNER, "본인 거래만 정산할 수 있습니다");
         }
+        checkProjectAssignment(actor, in.projectId(), in.wbsCode(),
+                ((java.time.LocalDateTime) t.get("at")).toLocalDate());
         BigDecimal total = in.supplyAmount().add(in.vatAmount());
         if (total.compareTo((BigDecimal) t.get("net")) != 0) {
             throw new DomainException(FcdErrors.INVALID, "공급가 + 부가세 = 카드 순액(" + t.get("net") + ")이어야 합니다");
@@ -124,7 +150,7 @@ public class ExpenseService {
         return Map.of("reportId", report, "status", "SUBMITTED");
     }
 
-    /** 결재(FIN · EXEC) — 본인 정산서 결재 금지 */
+    /** 결재(FIN · EXEC) — 본인 정산서 결재 금지, FCD-17 그 정산서 거래의 케이스 판정자 결재 금지 */
     @Transactional
     public Map<String, Object> approve(UUID report, UUID approver) {
         Map<String, Object> r = jdbc.queryForMap("SELECT employee_id, status FROM fcd.expense_report WHERE id = ? FOR UPDATE",
@@ -134,6 +160,14 @@ public class ExpenseService {
         }
         if (!"SUBMITTED".equals(r.get("status"))) {
             throw new DomainException(FcdErrors.STATE, "상신된 정산서만 결재할 수 있습니다");
+        }
+        List<String> adjudicated = jdbc.queryForList("""
+                SELECT DISTINCT c.case_no FROM fcd.expense_line l JOIN fcd.case_txn ct ON ct.txn_id = l.txn_id
+                  JOIN fcd.fcd_case c ON c.id = ct.case_id
+                 WHERE l.report_id = ? AND c.resolved_by = ? ORDER BY c.case_no""", String.class, report, approver);
+        if (!adjudicated.isEmpty()) {
+            throw new DomainException(FcdErrors.ADJUDICATOR_APPROVAL,
+                    "FCD-17: 이 정산서 거래의 케이스를 판정한 사람은 결재할 수 없습니다 " + adjudicated);
         }
         jdbc.update("UPDATE fcd.expense_report SET status = 'APPROVED', approved_by = ?, approved_at = now(), "
                 + "version = version + 1 WHERE id = ?", approver, report);

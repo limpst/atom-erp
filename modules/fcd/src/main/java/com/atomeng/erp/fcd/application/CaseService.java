@@ -290,6 +290,27 @@ public class CaseService {
         return m;
     }
 
+    /** FCD-18: 대상 직원(SELF) 화면용 — 탐지 사유(임계값 · 기준선이 든 규칙 메시지)를 요약 문구로 바꾸고 생성 이벤트 메모를 지운다 */
+    public static final String SUBJECT_REASON = "확인이 필요한 사용이 있습니다(세부 탐지 기준은 공개하지 않습니다)";
+
+    public static Map<String, Object> subjectSummary(Map<String, Object> view) {
+        Map<String, Object> m = new LinkedHashMap<>(view);
+        m.put("opened_reason", SUBJECT_REASON);
+        m.put("detail", false);
+        Object h = view.get("history");
+        if (h instanceof List<?> hist) {
+            m.put("history", hist.stream().map(e -> {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> ev = new LinkedHashMap<>((Map<String, Object>) e);
+                if ("open".equals(ev.get("event"))) {
+                    ev.put("note", null);
+                }
+                return ev;
+            }).toList());
+        }
+        return m;
+    }
+
     public List<Map<String, Object>> list(UUID subjectOrNull) {
         return jdbc.queryForList("""
                 SELECT id, case_no, status, grade, score, subject_employee_id, due_on, audit_sample, score_dropped

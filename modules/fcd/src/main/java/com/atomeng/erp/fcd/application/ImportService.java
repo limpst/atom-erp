@@ -169,6 +169,11 @@ public class ImportService {
             throw new DomainException(FcdErrors.NOT_FOUND, "배치 없음: " + id);
         }
         Map<String, Object> m = new LinkedHashMap<>(l.get(0));
+        // FCD-12 최근 롤백 요청(4-eyes 진행 상태)
+        m.put("rollbackRequest", jdbc.queryForList("""
+                SELECT id, status, reason, requested_by, requested_at, decided_by, decided_at
+                  FROM fcd.import_rollback_request WHERE batch_id = ? ORDER BY requested_at DESC, id DESC LIMIT 1""", id)
+                .stream().findFirst().orElse(null));
         try {
             m.put("counts", om.readValue((String) m.get("counts"), Map.class));
             m.put("warnings", om.readValue((String) m.get("warnings"), List.class));
@@ -304,6 +309,9 @@ public class ImportService {
                        EXISTS (SELECT 1 FROM fcd.case_txn ct JOIN fcd.fcd_case c ON c.id = ct.case_id
                                 WHERE ct.txn_id = t.id AND c.status IN ('RESOLVED_LEGIT','RESOLVED_MISUSE','RECOVERY','CLOSED'))
                          AS resolved,
+                       EXISTS (SELECT 1 FROM fcd.case_txn ct JOIN fcd.fcd_case c ON c.id = ct.case_id
+                                WHERE ct.txn_id = t.id AND c.status IN ('OPEN','EXPLANATION_REQUESTED','OVERDUE','SUBMITTED',
+                                                                        'SUPPLEMENT_REQUESTED','ESCALATED')) AS open_case,
                        EXISTS (SELECT 1 FROM fcd.txn_source o WHERE o.txn_id = t.id AND o.id <> s.id AND NOT o.detached
                                 AND o.batch_id IS DISTINCT FROM s.batch_id) AS others
                   FROM fcd.txn_source s LEFT JOIN fcd.txn t ON t.id = s.txn_id
@@ -318,13 +326,17 @@ public class ImportService {
                     action = "KEEP_POSTED";
                 } else if (rs.getBoolean("resolved")) {
                     action = "KEEP_RESOLVED_CASE";
+                } else if (rs.getBoolean("open_case")) {
+                    action = "KEEP_OPEN_CASE";      // FCD-12 조사 중 케이스 거래는 지우지 않는다
                 } else if (rs.getBoolean("others")) {
                     action = "DETACH_SOURCE";
                 } else {
                     action = "DELETE_TXN";
                 }
             } else {
-                action = rs.getBoolean("posted") ? "KEEP_POSTED" : "DETACH_SOURCE";
+                // FCD-12: 조사 중 케이스 거래는 원천도 떼지 않는다(금액 · 상태가 조사 도중 바뀌지 않게)
+                action = rs.getBoolean("posted") ? "KEEP_POSTED"
+                        : rs.getBoolean("open_case") ? "KEEP_OPEN_CASE" : "DETACH_SOURCE";
             }
             out.add(new PlanItem(sid, tid, action));
         }, batchId);
@@ -337,11 +349,73 @@ public class ImportService {
         return m;
     }
 
+    /**
+     * FCD-12 롤백 4-eyes ① 요청(FIN · ADMIN, 사유 필수) — 바로 실행하지 않고 대기 요청만 남긴다. 영향 미리보기를 함께 돌려준다.
+     */
     @Transactional
-    public Map<String, Object> rollback(UUID id, String reason, UUID actor) {
+    public Map<String, Object> requestRollback(UUID id, String reason, UUID actor) {
         if (reason == null || reason.isBlank()) {
             throw new DomainException(FcdErrors.INVALID, "롤백 사유 필수");
         }
+        String status = lockStatus(id);
+        if (!List.of("COMMITTED", "PARTIALLY_ROLLED_BACK").contains(status)) {
+            throw new DomainException(FcdErrors.STATE, "커밋된 배치만 롤백 가능");
+        }
+        if (pendingRollback(id) != null) {
+            throw new DomainException(FcdErrors.ROLLBACK_REQUEST_STATE, "이미 승인 대기 중인 롤백 요청이 있습니다");
+        }
+        UUID req = UuidV7.next();
+        jdbc.update("""
+                INSERT INTO fcd.import_rollback_request(id, batch_id, reason, status, requested_by)
+                VALUES (?, ?, ?, 'PENDING', ?)""", req, id, reason, actor);
+        Map<String, Integer> impact = rollbackImpact(id);
+        audit.append("FCD", AuditLog.Action.UPDATE, "import_batch", id, Map.of("status", status),
+                Map.of("rollbackRequested", req.toString(), "reason", reason, "impact", impact));
+        Map<String, Object> out = new LinkedHashMap<>(batch(id));
+        out.put("rollbackImpact", impact);
+        return out;
+    }
+
+    private Map<String, Object> pendingRollback(UUID batchId) {
+        List<Map<String, Object>> l = jdbc.queryForList("""
+                SELECT id, reason, requested_by FROM fcd.import_rollback_request
+                 WHERE batch_id = ? AND status = 'PENDING' FOR UPDATE""", batchId);
+        return l.isEmpty() ? null : l.get(0);
+    }
+
+    private Map<String, Object> lockPendingForDecision(UUID id, UUID approver) {
+        lockStatus(id);
+        Map<String, Object> req = pendingRollback(id);
+        if (req == null) {
+            throw new DomainException(FcdErrors.ROLLBACK_REQUEST_STATE, "승인 대기 중인 롤백 요청이 없습니다");
+        }
+        if (approver.equals(req.get("requested_by"))) {
+            throw new DomainException(FcdErrors.FOUR_EYES, "4-eyes: 롤백 요청자 본인은 승인 · 반려할 수 없습니다");
+        }
+        return req;
+    }
+
+    /** FCD-12 롤백 4-eyes ② 승인(AUDITOR, 요청자 ≠ 승인자) — 이 시점의 계획으로 실행한다 */
+    @Transactional
+    public Map<String, Object> approveRollback(UUID id, UUID approver) {
+        Map<String, Object> req = lockPendingForDecision(id, approver);
+        jdbc.update("UPDATE fcd.import_rollback_request SET status = 'APPROVED', decided_by = ?, decided_at = now() "
+                + "WHERE id = ?", approver, req.get("id"));
+        return executeRollback(id, (String) req.get("reason"), (UUID) req.get("requested_by"), approver);
+    }
+
+    /** FCD-12 롤백 요청 반려(AUDITOR, 요청자 ≠ 반려자) — 배치는 그대로 */
+    @Transactional
+    public Map<String, Object> rejectRollback(UUID id, UUID approver, String note) {
+        Map<String, Object> req = lockPendingForDecision(id, approver);
+        jdbc.update("UPDATE fcd.import_rollback_request SET status = 'REJECTED', decided_by = ?, decided_at = now(), "
+                + "decision_note = ? WHERE id = ?", approver, note, req.get("id"));
+        audit.append("FCD", AuditLog.Action.UPDATE, "import_batch", id, null,
+                Map.of("rollbackRejected", req.get("id").toString(), "by", approver.toString()));
+        return batch(id);
+    }
+
+    private Map<String, Object> executeRollback(UUID id, String reason, UUID requestedBy, UUID approver) {
         String status = lockStatus(id);
         if (!List.of("COMMITTED", "PARTIALLY_ROLLED_BACK").contains(status)) {
             throw new DomainException(FcdErrors.STATE, "커밋된 배치만 롤백 가능");
@@ -364,7 +438,7 @@ public class ImportService {
                         recompute.add(p.txnId());
                     }
                 }
-                default -> kept.add(p.txnId());
+                default -> kept.add(p.txnId());   // KEEP_POSTED · KEEP_RESOLVED_CASE · KEEP_OPEN_CASE
             }
         }
         recompute.removeAll(removed);
@@ -373,9 +447,10 @@ public class ImportService {
         String next = kept.isEmpty() ? "ROLLED_BACK" : "PARTIALLY_ROLLED_BACK";
         jdbc.update("""
                 UPDATE fcd.import_batch SET status = ?, rolled_back_at = now(), rolled_back_by = ?, rollback_reason = ?
-                 WHERE id = ?""", next, actor, reason, id);
+                 WHERE id = ?""", next, approver, reason, id);
         audit.append("FCD", AuditLog.Action.UPDATE, "import_batch", id, Map.of("status", status),
-                Map.of("status", next, "reason", reason, "counts", counts));
+                Map.of("status", next, "reason", reason, "counts", counts, "requestedBy", requestedBy.toString(),
+                        "approvedBy", approver.toString()));
         outbox.publish(new FcdEvents.ImportRolledBack(id, removed, kept, reason));
         Map<String, Object> out = new LinkedHashMap<>(batch(id));
         out.put("rollback", counts);
@@ -411,9 +486,29 @@ public class ImportService {
         if (!"null".equals(c.get("decision"))) {
             throw new DomainException(FcdErrors.STATE, "이미 결정된 후보");
         }
+        UUID target = (UUID) c.get("target");
+        UUID dup = (UUID) c.get("dup");
+        // FCD-11 직무 분리: 결정자는 두 거래 어느 쪽의 사용자 · 카드 소지자도 아니어야 한다(MERGE · SEPARATE 모두)
+        Integer own = jdbc.queryForObject("""
+                SELECT count(*) FROM fcd.txn t LEFT JOIN fcd.card k ON k.id = t.card_id
+                 WHERE t.id IN (?, ?) AND (t.employee_id = ? OR k.holder_employee_id = ?)""", Integer.class,
+                target, dup, actor, actor);
+        if (own != null && own > 0) {
+            throw new DomainException(FcdErrors.DEDUP_SELF, "FCD-11: 본인 카드 거래의 중복 여부는 다른 담당자가 결정해야 합니다");
+        }
         if (decision.equals("MERGE")) {
-            UUID target = (UUID) c.get("target");
-            UUID dup = (UUID) c.get("dup");
+            // FCD-11: 미결 케이스 · 정산 라인이 걸린 거래는 병합(제거) 금지 — 조사 · 정산 대상이 사라지지 않게
+            List<String> blockers = jdbc.queryForList("""
+                    SELECT 'case ' || c.case_no FROM fcd.case_txn ct JOIN fcd.fcd_case c ON c.id = ct.case_id
+                     WHERE ct.txn_id IN (?, ?) AND c.status IN ('OPEN','EXPLANATION_REQUESTED','OVERDUE','SUBMITTED',
+                                                                 'SUPPLEMENT_REQUESTED','ESCALATED')
+                    UNION ALL
+                    SELECT 'expense_line ' || l.id FROM fcd.expense_line l WHERE l.txn_id IN (?, ?)""", String.class,
+                    target, dup, target, dup);
+            if (!blockers.isEmpty()) {
+                throw new DomainException(FcdErrors.MERGE_BLOCKED,
+                        "FCD-11: 미결 케이스 또는 정산 라인이 있는 거래는 병합할 수 없습니다(별개 유지 또는 케이스 판정 후) " + blockers);
+            }
             jdbc.update("UPDATE fcd.txn SET removed_at = now(), removed_reason = '중복 확인 큐 병합' WHERE id = ?", dup);
             jdbc.update("UPDATE fcd.txn_source SET txn_id = ?, match_method = 'MANUAL' WHERE id = ?", target,
                     c.get("source"));

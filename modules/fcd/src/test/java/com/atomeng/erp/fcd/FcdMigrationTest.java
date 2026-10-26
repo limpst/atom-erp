@@ -63,7 +63,7 @@ class FcdMigrationTest {
             assertThat(scalar(st, "SELECT masked_no FROM fcd.card WHERE id = '" + card + "'")).isEqualTo("999999******0001");
             assertThat(scalar(st, "SELECT count(*) FROM fcd.import_profile")).isEqualTo(4L);
             assertThat(scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'fcd:%'"))
-                    .isEqualTo(54L);
+                    .isEqualTo(55L);   // 54 + V0045 AUDITOR fcd:import:rollback-approve(FCD-12)
         }
     }
 

@@ -31,9 +31,14 @@ export interface Txn {
   amount_krw: number; cancelled_amount_krw: number; status: string; merchant_name: string;
   risk_score: number | null; risk_grade: RiskGrade | null;
 }
+/**
+ * 위험 점수 이력. FIN · AUDITOR 는 상세(hits · reasons), 직원 본인(SELF)은 FCD-18 요약만
+ * (summary=true · hit_count — 규칙 코드 · 메시지 · 임계값 없음, 탐지 회피 학습 방지).
+ */
 export interface RiskScoreRow {
-  scored_at: string; trigger: string; rule_set_version: string; model_version: string | null; score: number;
-  grade: RiskGrade; hits: string; mitigations: string; reasons: string; l3_status: string;
+  scored_at: string; trigger?: string; rule_set_version: string; model_version?: string | null; score?: number;
+  grade: RiskGrade; hits?: string; mitigations?: string; reasons?: string; l3_status?: string;
+  summary?: boolean; hit_count?: number;
 }
 export interface RuleHit { code: string; layer: string; kind: string; s: number; severity: string; message: string; legal_basis?: string }
 export interface ImportBatch {
@@ -43,7 +48,10 @@ export interface ImportBatch {
 }
 export interface ReviewRunResult {
   period: string; policy: string; nTxn: number; budget: number | null; selected: string[]; casesOpened: string[];
+  kPer1000?: number; minScore?: number; override?: boolean;
 }
+/** FCD-13 검토 실행 파라미터 재정의(기본값과 다른 k · 최소 점수) — AUDITOR 만, 사유 필수. 서버 범위: k 5~100 · 점수 20~60 */
+export interface ReviewOverride { kPer1000?: number; minScore?: number; reason: string }
 
 export interface ImportBatchRow {
   id: string; channel: string; filename: string | null; status: string; file_kind: string | null;
@@ -93,8 +101,8 @@ export const fcdApi = {
   escalate: (id: string) => http.post(`/fcd/cases/${id}:escalate`),
   resolve: (id: string, body: { label: CaseLabel; reason: string; recoveryAmount?: number }) =>
     http.post<{ caseNo: string; status: CaseStatus; label: CaseLabel }>(`/fcd/cases/${id}:resolve`, body),
-  runReviewQueue: (ym: string, policy: 'MONTHLY_BUDGET' | 'THRESHOLD') =>
-    http.post<ReviewRunResult>(`/fcd/review-queue/${ym}:run`, { policy }),
+  runReviewQueue: (ym: string, policy: 'MONTHLY_BUDGET' | 'THRESHOLD', override?: ReviewOverride) =>
+    http.post<ReviewRunResult>(`/fcd/review-queue/${ym}:run`, { policy, ...(override ?? {}) }),
   uploadStatement: (file: File) => {
     const fd = new FormData();
     fd.append('file', file);
@@ -120,6 +128,7 @@ export const fcdApi = {
 };
 
 export function parseHits(row: RiskScoreRow): RuleHit[] {
+  if (row.summary || !row.hits) return [];
   try {
     return JSON.parse(row.hits) as RuleHit[];
   } catch {

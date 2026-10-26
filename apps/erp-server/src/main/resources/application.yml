@@ -72,6 +72,11 @@ atom:
     review:
       k-per-1000: 20        # 월 검토 예산(거래 1,000건당) — 프로토타입 라운드 3 채택값
       min-score: 30
+      # FCD-13 검토 실행 파라미터 허용 범위 — 기본값과 다른 값(재정의)은 AUDITOR 만 사유와 함께
+      k-per-1000-min: 5
+      k-per-1000-max: 100
+      min-score-min: 20
+      min-score-max: 60
     aip:
       base-url: ${FCD_AIP_URL:}   # Python atomeng_aip.fraud 서비스(비우면 스텁: 맥락 없음 · L3 DISABLED)
       timeout: 800ms

@@ -72,7 +72,8 @@ class FcdController {
 
     record ScoringRequest(@NotNull LocalDate from, @NotNull LocalDate to) {}
 
-    record ReviewRequest(String policy, Double kPer1000, Integer minScore) {}
+    /** FCD-13: policy = MONTHLY_BUDGET | THRESHOLD, kPer1000 · minScore 재정의는 AUDITOR + reason */
+    record ReviewRequest(String policy, Double kPer1000, Integer minScore, String reason) {}
 
     record ExplanationRequest(@NotBlank String purpose, @NotBlank String text, JsonNode attendees) {}
 
@@ -117,6 +118,10 @@ class FcdController {
         return registry.scopeFor(me().roles(), permission).isPresent();
     }
 
+    private static Set<String> roleNames() {
+        return me().roles().stream().map(Enum::name).collect(Collectors.toSet());
+    }
+
     private boolean selfOnly(String permission) {
         AtomPrincipal p = me();
         return registry.scopeFor(p.roles(), permission).map(s -> s == PermissionScope.SELF).orElse(true);
@@ -146,7 +151,8 @@ class FcdController {
         if (selfOnly("fcd:card:assign") && !r.employeeId().equals(me().actorId())) {
             throw new DomainException(FcdErrors.NOT_OWNER, "본인 대여만 신청할 수 있습니다");
         }
-        return Map.of("id", cards.assign(id, r.employeeId(), r.start(), r.end(), r.purpose(), r.projectId(), me().actorId()));
+        return Map.of("id", cards.assign(id, r.employeeId(), r.start(), r.end(), r.purpose(), r.projectId(), me().actorId(),
+                selfOnly("fcd:card:assign"), roleNames()));
     }
 
     // ------------------------------------------------------------------ 가져오기
@@ -199,15 +205,33 @@ class FcdController {
     }
 
     @GetMapping("/imports/{id}/rollback-impact")
-    @RequirePermission("fcd:import:rollback")
+    @RequirePermission("fcd:import:read")
     public Map<String, Integer> rollbackImpact(@PathVariable UUID id) {
+        // FCD-12: 승인자(AUDITOR · fcd:import:read)도 영향 미리보기를 본다 — 요청 · 승인 권한 중 하나 필요
+        if (!has("fcd:import:rollback") && !has("fcd:import:rollback-approve")) {
+            throw new DomainException(FcdErrors.NOT_OWNER, "롤백 요청 · 승인 권한 필요");
+        }
         return imports.rollbackImpact(id);
     }
 
+    /** FCD-12 롤백 4-eyes ① 요청(FIN · ADMIN) — 실행은 AUDITOR 승인 때 */
     @PostMapping("/imports/{id}:rollback")
     @RequirePermission("fcd:import:rollback")
     public Map<String, Object> rollback(@PathVariable UUID id, @Valid @RequestBody ReasonRequest r) {
-        return imports.rollback(id, r.reason(), me().actorId());
+        return imports.requestRollback(id, r.reason(), me().actorId());
+    }
+
+    /** FCD-12 롤백 4-eyes ② 승인(AUDITOR, 요청자 ≠ 승인자) → 실행 */
+    @PostMapping("/imports/{id}:approve-rollback")
+    @RequirePermission("fcd:import:rollback-approve")
+    public Map<String, Object> approveRollback(@PathVariable UUID id) {
+        return imports.approveRollback(id, me().actorId());
+    }
+
+    @PostMapping("/imports/{id}:reject-rollback")
+    @RequirePermission("fcd:import:rollback-approve")
+    public Map<String, Object> rejectRollback(@PathVariable UUID id, @RequestBody(required = false) NoteRequest r) {
+        return imports.rejectRollback(id, me().actorId(), r == null ? null : r.note());
     }
 
     @GetMapping("/dedup-candidates")
@@ -255,8 +279,8 @@ class FcdController {
     @PostMapping("/review-queue/{ym}:run")
     @RequirePermission("fcd:review:run")
     public Map<String, Object> runReview(@PathVariable String ym, @RequestBody(required = false) ReviewRequest r) {
-        ReviewRequest q = r == null ? new ReviewRequest(null, null, null) : r;
-        return review.run(YearMonth.parse(ym), q.policy(), q.kPer1000(), q.minScore(), me().actorId());
+        ReviewRequest q = r == null ? new ReviewRequest(null, null, null, null) : r;
+        return review.run(YearMonth.parse(ym), q.policy(), q.kPer1000(), q.minScore(), q.reason(), me().actorId(), roleNames());
     }
 
     // ------------------------------------------------------------------ 거래 조회
@@ -284,6 +308,10 @@ class FcdController {
             if (!me().actorId().equals(owner)) {
                 throw new DomainException(FcdErrors.NOT_OWNER, "본인 거래만 조회할 수 있습니다");
             }
+            // FCD-18: SELF 범위는 적중 요약만(규칙 코드 · 임계값 · 근거 · 기여도 없음) — 탐지 회피 학습 방지
+            return jdbc.queryForList("""
+                    SELECT scored_at, rule_set_version, grade, jsonb_array_length(hits) AS hit_count, true AS summary
+                      FROM fcd.risk_score WHERE txn_id = ? ORDER BY scored_at DESC, id DESC""", id);
         }
         return jdbc.queryForList("""
                 SELECT scored_at, trigger, rule_set_version, model_version, score, grade, hits::text AS hits,
@@ -303,8 +331,11 @@ class FcdController {
     @RequirePermission(value = "fcd:case:read", scopeCheckedInService = true)
     public Map<String, Object> caseView(@PathVariable UUID id) {
         Map<String, Object> c = cases.view(id);
-        if (selfOnly("fcd:case:read") && !me().actorId().equals(c.get("subject_employee_id"))) {
-            throw new DomainException(FcdErrors.NOT_OWNER, "본인 케이스만 조회할 수 있습니다");
+        if (selfOnly("fcd:case:read")) {
+            if (!me().actorId().equals(c.get("subject_employee_id"))) {
+                throw new DomainException(FcdErrors.NOT_OWNER, "본인 케이스만 조회할 수 있습니다");
+            }
+            return CaseService.subjectSummary(c);     // FCD-18 탐지 사유(임계값 포함 메시지)는 요약으로
         }
         return c;
     }

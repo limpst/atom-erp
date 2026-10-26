@@ -32,7 +32,7 @@ async function previewCsv(blob: Blob, lines = 6): Promise<string[]> {
 
 function DedupQueue({ txns }: { txns: Map<string, Txn> }) {
   const qc = useQueryClient();
-  const { hasRole } = useAuth();
+  const { hasRole, session } = useAuth();
   const cands = useQuery({ queryKey: ['fcd', 'dedup'], queryFn: fcdApi.dedupCandidates, enabled: hasRole('FIN') });
   const decide = useMutation({
     mutationFn: ({ c, d }: { c: DedupCandidate; d: 'MERGE' | 'SEPARATE' }) => fcdApi.decideDedup(c.id, d),
@@ -55,7 +55,7 @@ function DedupQueue({ txns }: { txns: Map<string, Txn> }) {
     <>
       <Banner tone="info">
         채널 간(승인 CSV ↔ 매입 엑셀) 퍼지 점수 0.75~0.92 는 자동 병합하지 않고 사람이 확인합니다. 병합하면 새 거래가 제거되고 원천이 기존 거래로
-        옮겨집니다(재채점). 별개 유지는 두 거래를 그대로 둡니다.
+        옮겨집니다(재채점). 별개 유지는 두 거래를 그대로 둡니다. 조사 중 케이스나 정산 라인이 걸린 거래는 병합할 수 없습니다(FCD-409-007).
       </Banner>
       {cands.error && <ErrorBox error={cands.error} />}
       <table className="simple" data-testid="dedup-queue">
@@ -68,6 +68,11 @@ function DedupQueue({ txns }: { txns: Map<string, Txn> }) {
             } catch {
               /* 표시만 생략 */
             }
+            // FCD-11 직무 분리: 본인 카드 거래는 다른 담당자가 결정(서버도 403 FCD-403-004)
+            const own = [c.txn_id, c.new_txn_id].some((id) => {
+              const e = txns.get(id)?.employee_id;
+              return !!e && e === session?.actorId;
+            });
             return (
               <tr key={c.id}>
                 <td>{side(c.txn_id)}</td>
@@ -78,9 +83,10 @@ function DedupQueue({ txns }: { txns: Map<string, Txn> }) {
                 </td>
                 <td>
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
-                    <button className="primary" disabled={decide.isPending} onClick={() => decide.mutate({ c, d: 'MERGE' })} aria-label={`병합 ${c.id.slice(0, 8)}`}>병합</button>
-                    <button disabled={decide.isPending} onClick={() => decide.mutate({ c, d: 'SEPARATE' })} aria-label={`별개 유지 ${c.id.slice(0, 8)}`}>별개 유지</button>
+                    <button className="primary" disabled={decide.isPending || own} onClick={() => decide.mutate({ c, d: 'MERGE' })} aria-label={`병합 ${c.id.slice(0, 8)}`}>병합</button>
+                    <button disabled={decide.isPending || own} onClick={() => decide.mutate({ c, d: 'SEPARATE' })} aria-label={`별개 유지 ${c.id.slice(0, 8)}`}>별개 유지</button>
                   </div>
+                  {own && <div className="muted" style={{ fontSize: 12 }} data-testid={`dedup-sod-${c.id}`}>본인 카드 거래 — 다른 담당자가 결정(직무 분리)</div>}
                 </td>
               </tr>
             );

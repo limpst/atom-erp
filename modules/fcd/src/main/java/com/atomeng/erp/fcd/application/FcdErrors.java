@@ -24,4 +24,26 @@ public final class FcdErrors {
     public static final String NEEDS_MAPPING = "FCD-422-003";
     public static final String RULESET_INVALID = "FCD-422-004";
     public static final String FILE_TOO_LARGE = "FCD-413-001";
+
+    // ---- 보안 검토 2026-10-19 §2 정책 결정(권장안)
+    /** FCD-11 중복 확인 큐: 결정자 = 두 거래 중 하나의 카드 소지자 · 사용자(직무 분리) */
+    public static final String DEDUP_SELF = "FCD-403-004";
+    /** FCD-10 정산 라인 프로젝트에 (거래일 기준) 투입되지 않은 사람 */
+    public static final String PROJECT_NOT_ASSIGNED = "FCD-403-005";
+    /** FCD-13 검토 실행 파라미터 재정의는 AUDITOR 만(사유 필수) */
+    public static final String REVIEW_OVERRIDE_FORBIDDEN = "FCD-403-006";
+    /** FCD-17 그 정산서 거래의 케이스를 판정한 사람은 정산서를 결재할 수 없다 */
+    public static final String ADJUDICATOR_APPROVAL = "FCD-403-007";
+    /** FCD-11 미결 케이스 · 정산 라인이 있는 거래는 병합 불가 */
+    public static final String MERGE_BLOCKED = "FCD-409-007";
+    /** FCD-12 롤백 요청 상태 오류(대기 요청 없음 · 이미 대기 중) */
+    public static final String ROLLBACK_REQUEST_STATE = "FCD-409-008";
+    /** FCD-14 ACTIVE 가 아닌 카드는 대여 불가 */
+    public static final String CARD_NOT_ACTIVE = "FCD-409-009";
+    /** FCD-10 WBS 는 프로젝트와 함께만 지정 */
+    public static final String WBS_WITHOUT_PROJECT = "FCD-422-005";
+    /** FCD-13 검토 실행 파라미터 범위 · policy enum 위반 */
+    public static final String REVIEW_PARAM_RANGE = "FCD-422-006";
+    /** FCD-14 SELF 공용카드 대여는 오늘 이후 시작만 — 소급은 FIN 등록(승인) */
+    public static final String BACKDATED_ASSIGNMENT = "FCD-422-007";
 }

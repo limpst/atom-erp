@@ -119,6 +119,15 @@ class FcdIntegrationTest extends IntegrationTestBase {
         return UUID.fromString(json(r).get("id").asText());
     }
 
+    /** FCD-10: 정산 라인 프로젝트는 거래일 기준 투입(core.project_member) 필요 — 시험 직원을 직원 대장 · 투입에 등록 */
+    void assignToProject(UUID emp, UUID prj, String from, String to) {
+        jdbc.update("INSERT INTO core.employee(id, emp_no, name, hire_date, created_by, updated_by) "
+                + "VALUES (?, ?, '합성직원', DATE '2020-01-01', ?, ?) ON CONFLICT (id) DO NOTHING", emp, "FP-" + emp.toString().substring(24),
+                emp, emp);
+        jdbc.update("INSERT INTO core.project_member(project_id, employee_id, role_in_project, from_date, to_date) "
+                + "VALUES (?, ?, 'PART', ?::date, ?::date)", prj, emp, from, to);
+    }
+
     private UUID hrqEmployee() throws Exception {
         UUID id = UUID.randomUUID();
         String empNo = "F-" + SEQ.incrementAndGet();
@@ -160,6 +169,7 @@ class FcdIntegrationTest extends IntegrationTestBase {
     void endToEnd() throws Exception {
         UUID emp = actor();
         UUID prj = project();
+        assignToProject(emp, prj, "2026-05-01", "2026-05-31");   // FCD-10 투입 기간 안의 사용만 그 프로젝트 원가
         String pan = syntheticPan();
         UUID card = registerCard(pan, emp, 300_000);
         String p4 = last4(pan);
@@ -425,8 +435,13 @@ class FcdIntegrationTest extends IntegrationTestBase {
         assertThat(impact.get("DETACH_SOURCE").asInt()).isEqualTo(1);    // 칼국수: XLSX 원천이 남아 있음
         mvc.perform(as(postJson("/api/v1/fcd/imports/" + b1 + ":rollback", "{\"reason\":\"\"}"), fin, "FIN"))
                 .andExpect(status().isUnprocessableEntity());
-        JsonNode rb = json(mvc.perform(as(postJson("/api/v1/fcd/imports/" + b1 + ":rollback", "{\"reason\":\"합성 오업로드\"}"),
+        // FCD-12 4-eyes: FIN 요청 → (배치 그대로) → AUDITOR 승인 때 실행
+        JsonNode req = json(mvc.perform(as(postJson("/api/v1/fcd/imports/" + b1 + ":rollback", "{\"reason\":\"합성 오업로드\"}"),
                 fin, "FIN")).andExpect(status().isOk()).andReturn());
+        assertThat(req.get("status").asText()).isEqualTo("COMMITTED");
+        assertThat(req.get("rollbackRequest").get("status").asText()).isEqualTo("PENDING");
+        JsonNode rb = json(mvc.perform(as(postJson("/api/v1/fcd/imports/" + b1 + ":approve-rollback", "{}"), auditor, "AUDITOR"))
+                .andExpect(status().isOk()).andReturn());
         assertThat(rb.get("status").asText()).isEqualTo("PARTIALLY_ROLLED_BACK");
         List<Map<String, Object>> left = txns(card);
         assertThat(left).hasSize(2);
@@ -535,9 +550,10 @@ class FcdIntegrationTest extends IntegrationTestBase {
         rows.add(new String[] {"2026.08.27", "22:00", "70000101", "(예시)나이트클럽", "", "유흥주점", "90,000"});
         rows.add(new String[] {"2026.08.29", "13:00", "70000102", "(예시)대형마트", "", "대형마트", "180,000"});
         commit(upload(acardCsv(last4(pan), rows), "july.csv", null, 201).get("id").asText());
+        // FCD-13: 기본값(k=20)과 다른 k=100 은 재정의 — AUDITOR 가 사유와 함께
         JsonNode run = json(mvc.perform(as(postJson("/api/v1/fcd/review-queue/2026-08:run",
-                "{\"policy\":\"MONTHLY_BUDGET\",\"kPer1000\":100,\"minScore\":30}"), fin, "FIN"))
-                .andExpect(status().isOk()).andReturn());
+                "{\"policy\":\"MONTHLY_BUDGET\",\"kPer1000\":100,\"minScore\":30,\"reason\":\"합성 소량 월 점검\"}"),
+                auditor, "AUDITOR")).andExpect(status().isOk()).andReturn());
         int n = run.get("nTxn").asInt();
         assertThat(run.get("budget").asInt()).isEqualTo((int) Math.rint(n * 100 / 1000.0));
         assertThat(run.get("selected").size()).isLessThanOrEqualTo(run.get("budget").asInt());

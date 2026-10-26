@@ -8,11 +8,14 @@ import com.atomeng.erp.fcd.domain.ingest.PanTools;
 import com.atomeng.erp.fcd.domain.ingest.PanTools.CardToken;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,6 +40,7 @@ public class CardService {
     private final AuditLog audit;
     private final byte[] key;
     private final int keyVersion;
+    private final Clock clock;
 
     /** 소스에 공개된 개발용 키 — 헤더 인증(개발/테스트) 모드에서만 허용 (보안 검토 SEC-003) */
     static final String DEV_KEY = "dev-only-not-a-secret-v1";
@@ -46,8 +50,9 @@ public class CardService {
     public CardService(JdbcTemplate jdbc, AuditLog audit,
                        @Value("${atom.fcd.token-hmac.v1:" + DEV_KEY + "}") String key,
                        @Value("${atom.fcd.token-key-version:1}") int keyVersion,
-                       @Value("${atom.security.enabled:true}") boolean securityEnabled) {
+                       @Value("${atom.security.enabled:true}") boolean securityEnabled, Clock clock) {
         requireUsableKey(key, securityEnabled);
+        this.clock = clock;
         this.jdbc = jdbc;
         this.audit = audit;
         this.key = key.getBytes(StandardCharsets.UTF_8);
@@ -117,16 +122,34 @@ public class CardService {
                        limit_monthly, status, deactivation_flag, deactivation_reason FROM fcd.card ORDER BY created_at""");
     }
 
+    /**
+     * 공용카드 대여. FCD-14: ACTIVE 카드만, SELF(직원 본인 신청)는 시작 ≥ 오늘(서울)만 — 소급(과거 시작)은 FIN 이 등록(=승인)하고,
+     * FIN 도 본인에게 소급 배정할 수는 없다(다른 FIN). 소급 배정은 이미 들어온 미배정 거래를 그 사람에게 귀속시키기 때문.
+     */
     @Transactional
     public UUID assign(UUID cardId, UUID employeeId, LocalDateTime start, LocalDateTime end, String purpose,
-                       UUID projectId, UUID actor) {
-        String type = jdbc.query("SELECT card_type FROM fcd.card WHERE id = ?", rs -> rs.next() ? rs.getString(1) : null,
-                cardId);
-        if (type == null) {
+                       UUID projectId, UUID actor, boolean selfScope, Set<String> roles) {
+        Map<String, Object> card = jdbc.query("SELECT card_type, status FROM fcd.card WHERE id = ? FOR UPDATE",
+                rs -> rs.next() ? Map.<String, Object>of("type", rs.getString(1), "status", rs.getString(2)) : null, cardId);
+        if (card == null) {
             throw new DomainException(FcdErrors.NOT_FOUND, "카드 없음: " + cardId);
         }
-        if (!type.equals("SHARED")) {
+        if (!card.get("type").equals("SHARED")) {
             throw new DomainException(FcdErrors.INVALID, "공용카드만 대여할 수 있습니다");
+        }
+        if (!"ACTIVE".equals(card.get("status"))) {
+            throw new DomainException(FcdErrors.CARD_NOT_ACTIVE, "FCD-14: 사용 중(ACTIVE) 카드만 대여할 수 있습니다(현재 "
+                    + card.get("status") + ")");
+        }
+        boolean backdated = start.toLocalDate().isBefore(LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul"))));
+        if (backdated) {
+            if (selfScope || !roles.contains("FIN")) {
+                throw new DomainException(FcdErrors.BACKDATED_ASSIGNMENT,
+                        "FCD-14: 과거 시작(소급) 대여는 재무(FIN)가 등록해야 합니다 — 본인 신청은 오늘 이후 시작만");
+            }
+            if (employeeId.equals(actor)) {
+                throw new DomainException(FcdErrors.FOUR_EYES, "FCD-14: 본인에게 소급 대여는 다른 재무 담당자가 등록해야 합니다");
+            }
         }
         UUID id = UuidV7.next();
         try {

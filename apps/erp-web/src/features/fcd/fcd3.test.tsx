@@ -9,6 +9,7 @@ import { problem, record, renderAs, seen, toasts, useMswServer } from '@/test/mo
 import { approvalBlock, effectiveVersion, FcdRulesetsPage } from './FcdRulesetsPage';
 import { FcdImportsPage } from './FcdImportsPage';
 import { FcdCardsPage } from './FcdCardsPage';
+import { FcdCasesPage } from './FcdCasesPage';
 
 vi.mock('sonner', async () => (await import('@/test/mockModules')).sonnerModule);
 vi.mock('@/components/DataGrid', async () => (await import('@/test/mockModules')).dataGridModule);
@@ -16,6 +17,11 @@ vi.mock('@/components/DataGrid', async () => (await import('@/test/mockModules')
 const FIN = devUserId(8);
 const AUDITOR = devUserId(7);
 const EXEC = devUserId(1);
+const EMP = devUserId(5);
+const TXNS = [
+  { id: 't-old', masked_no: '999999******1234', employee_id: null, approval_no: '31000005', approved_at: '2026-05-12T12:10:00', amount_krw: 38000, cancelled_amount_krw: 0, status: 'APPROVED', merchant_name: '(예시)한식당', risk_score: 10, risk_grade: 'NORMAL' },
+  { id: 't-new', masked_no: '999999******1234', employee_id: null, approval_no: null, approved_at: '2026-05-12T00:00:00', amount_krw: 38000, cancelled_amount_krw: 0, status: 'PURCHASED', merchant_name: '(예시)한식당본점', risk_score: null, risk_grade: null },
+];
 const rs = (over: Partial<RuleSetRow>): RuleSetRow => ({
   version: '2026.5.0', name: 'fcd', effective_from: '2026-04-01', effective_to: null, status: 'ACTIVE', authored_by: 'FIN-001',
   approved_by: 'AUD-005', sha256: 'a'.repeat(64), source: 'SEED', ...over,
@@ -23,7 +29,7 @@ const rs = (over: Partial<RuleSetRow>): RuleSetRow => ({
 let rulesets: RuleSetRow[] = [];
 const ERR_CSV = '﻿행번호,컬럼,오류코드,원문값,메시지\r\n5,approved_date,DATE_INVALID,2026.13.45,날짜 형식\r\n6,amount,AMOUNT_INVALID,\'=1+2,금액 형식\r\n';
 
-useMswServer(
+const server = useMswServer(
   mswHttp.get('*/api/v1/fcd/rule-sets', () => HttpResponse.json(rulesets)),
   mswHttp.post('*/api/v1/fcd/rule-sets', async ({ request }) => {
     await record(request);
@@ -49,10 +55,24 @@ useMswServer(
     await record(request);
     return HttpResponse.json({ id: 'b1', status: 'COMMITTED' });
   }),
-  mswHttp.get('*/api/v1/fcd/transactions', () => HttpResponse.json([
-    { id: 't-old', masked_no: '999999******1234', employee_id: null, approval_no: '31000005', approved_at: '2026-05-12T12:10:00', amount_krw: 38000, cancelled_amount_krw: 0, status: 'APPROVED', merchant_name: '(예시)한식당', risk_score: 10, risk_grade: 'NORMAL' },
-    { id: 't-new', masked_no: '999999******1234', employee_id: null, approval_no: null, approved_at: '2026-05-12T00:00:00', amount_krw: 38000, cancelled_amount_krw: 0, status: 'PURCHASED', merchant_name: '(예시)한식당본점', risk_score: null, risk_grade: null },
+  mswHttp.get('*/api/v1/fcd/transactions', () => HttpResponse.json(TXNS)),
+  // FCD-18: 직원 본인(SELF) 응답은 요약만(hits · reasons 없음)
+  mswHttp.get('*/api/v1/fcd/transactions/:id/risk', () => HttpResponse.json([
+    { scored_at: '2026-05-12T03:00:00Z', rule_set_version: '2026.5.0', grade: 'EXPLAIN', hit_count: 2, summary: true },
   ])),
+  mswHttp.get('*/api/v1/fcd/cases', () => HttpResponse.json([
+    { id: 'c1', case_no: 'FCD-2026-000001', status: 'EXPLANATION_REQUESTED', grade: 'EXPLAIN', score: 65, subject_employee_id: EMP, due_on: '2026-05-20', audit_sample: false, score_dropped: false },
+  ])),
+  mswHttp.get('*/api/v1/fcd/cases/:id', () => HttpResponse.json({
+    id: 'c1', case_no: 'FCD-2026-000001', status: 'EXPLANATION_REQUESTED', grade: 'EXPLAIN', score: 65, subject_employee_id: EMP,
+    due_on: '2026-05-20', audit_sample: false, score_dropped: false, opened_reason: '확인이 필요한 사용이 있습니다(세부 탐지 기준은 공개하지 않습니다)',
+    opened_at: '2026-05-13T00:00:00Z', suspension_candidate: false, label: null, resolution: null, resolved_by: null, resolved_at: null,
+    txnIds: ['t-old'], history: [],
+  })),
+  mswHttp.post('*/api/v1/fcd/review-queue/:ym', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ period: '2026-05', policy: 'MONTHLY_BUDGET', nTxn: 0, budget: 0, selected: [], casesOpened: [], override: true });
+  }),
   mswHttp.get('*/api/v1/fcd/dedup-candidates', () => HttpResponse.json([
     { id: 'dc-1234567', source_id: 's', txn_id: 't-old', new_txn_id: 't-new', score: 0.861, features: '{"time":0.8,"amount":1.0,"merchant":0.93}', decision: null, created_at: '2026-10-19T00:00:00Z' },
   ])),
@@ -160,6 +180,47 @@ describe('가져오기 · 중복 확인', () => {
     expect(q).toHaveTextContent('가맹점 0.93');
     await user.click(within(q).getByRole('button', { name: '병합 dc-12345' }));
     await waitFor(() => expect(seen.find((s) => s.url.endsWith(':decide'))?.body).toEqual({ decision: 'MERGE' }));
+  });
+});
+
+describe('보안 검토 정책(FCD-11 · 13 · 18)', () => {
+  it('FCD-11: 본인 카드 거래 중복 후보는 병합 · 별개 유지가 막히고 직무 분리 안내', async () => {
+    server.use(mswHttp.get('*/api/v1/fcd/transactions', () => HttpResponse.json(TXNS.map((t) => ({ ...t, employee_id: FIN })))));
+    const user = userEvent.setup();
+    renderAs(FIN, ['FIN'], <FcdImportsPage />);
+    await waitFor(() => expect(screen.getByTestId('dedup-count')).toHaveTextContent('1건'));
+    await user.click(screen.getByRole('tab', { name: /중복 확인 큐/ }));
+    const q = screen.getByTestId('dedup-queue');
+    expect(await within(q).findByTestId('dedup-sod-dc-1234567')).toHaveTextContent('직무 분리');
+    expect(within(q).getByRole('button', { name: '병합 dc-12345' })).toBeDisabled();
+    expect(within(q).getByRole('button', { name: '별개 유지 dc-12345' })).toBeDisabled();
+  });
+
+  it('FCD-18: 직원 본인 케이스 화면은 룰 적중 요약만(규칙 코드 · 메시지 없음)', async () => {
+    const user = userEvent.setup();
+    renderAs(EMP, ['EMPLOYEE'], <FcdCasesPage />);
+    const grid = await screen.findByTestId('cases-grid');
+    await user.click(await within(grid).findByText('FCD-2026-000001'));
+    expect(await screen.findByTestId('hit-summary-t-old')).toHaveTextContent('확인이 필요한 항목 2건 (세부 탐지 기준 비공개)');
+    expect(screen.getByText(/세부 탐지 기준은 공개하지 않습니다/)).toBeInTheDocument();
+    expect(screen.queryByText('검토 큐 실행')).toBeNull();
+  });
+
+  it('FCD-13: 검토 파라미터 재정의는 감사만 · 사유가 있어야 실행', async () => {
+    const user = userEvent.setup();
+    const view = renderAs(FIN, ['FIN'], <FcdCasesPage />);
+    await screen.findByText('검토 큐 실행');
+    expect(screen.queryByLabelText(/재정의 사유/)).toBeNull();
+    view.unmount();
+
+    renderAs(AUDITOR, ['AUDITOR'], <FcdCasesPage />);
+    await user.type(await screen.findByLabelText(/재정의: 1,000건당 k/), '50');
+    const runBtn = screen.getByRole('button', { name: '검토 큐 실행' });
+    expect(runBtn).toBeDisabled();
+    await user.type(screen.getByLabelText(/재정의 사유/), '합성 월말 점검');
+    await user.click(runBtn);
+    await waitFor(() => expect(seen.find((x) => x.url.endsWith(':run'))?.body)
+      .toEqual({ policy: 'THRESHOLD', kPer1000: 50, reason: '합성 월말 점검' }));
   });
 });
 

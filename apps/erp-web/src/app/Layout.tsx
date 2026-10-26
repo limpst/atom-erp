@@ -2,6 +2,7 @@ import { Navigate, NavLink, Outlet } from 'react-router-dom';
 import { NAV } from './nav';
 import { useAuth } from '@/auth/auth';
 import { ThemeToggle, UserPicker } from './UserPicker';
+import { InboxBadge } from '@/features/inbox/InboxPage';
 
 export function Layout() {
   const { hasRole, session } = useAuth();
@@ -35,6 +36,7 @@ export function Layout() {
       <div className="main">
         <header className="topbar">
           <span className="spacer" />
+          <InboxBadge />
           <UserPicker />
           <ThemeToggle />
         </header>

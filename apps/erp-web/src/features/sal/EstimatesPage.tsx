@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColDef } from 'ag-grid-community';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ESTIMATE_STATUS_LABEL, salApi, STAGE_LABEL, STAGE_NEXT, SYSTEM_ONLY_STAGES, type Estimate, type EstimateStatus, type FeeCalcRequest,
@@ -43,7 +44,9 @@ export function EstimatesPage() {
   const qc = useQueryClient();
   const { hasRole, session } = useAuth();
   const opps = useQuery({ queryKey: ['sal', 'opps'], queryFn: () => salApi.listOpportunities() });
-  const [oppId, setOppId] = useState<string>();
+  const [params] = useSearchParams();
+  // "내 할 일" 링크(?opp=) 로 들어오면 그 기회를 바로 연다
+  const [oppId, setOppId] = useState<string | undefined>(params.get('opp') ?? undefined);
   const opp = opps.data?.content.find((o) => o.id === oppId);
   const estimates = useQuery({
     queryKey: ['sal', 'estimates', oppId],
@@ -51,6 +54,12 @@ export function EstimatesPage() {
     enabled: !!oppId,
   });
   const [estId, setEstId] = useState<string>();
+  // ?opp= 로 들어오면 최신 견적 버전을 바로 연다(할인 승인 처리)
+  useEffect(() => {
+    if (!estId && oppId && oppId === params.get('opp') && estimates.data?.length) {
+      setEstId([...estimates.data].sort((a, b) => b.versionNo - a.versionNo)[0].id);
+    }
+  }, [estId, oppId, params, estimates.data]);
   const estimate = useQuery({ queryKey: ['sal', 'estimate', estId], queryFn: () => salApi.getEstimate(estId!), enabled: !!estId });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['sal'] });

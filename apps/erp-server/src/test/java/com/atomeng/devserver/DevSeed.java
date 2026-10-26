@@ -187,6 +187,8 @@ final class DevSeed {
         new DevSeedRound2(this, today, evidenceRoot).run(client, clientB, project);
         // 11~15. 세 번째 화면 묶음(HRQ · CST · FCD · AIP) — 모두 API
         new DevSeedRound3(this, today).run(project);
+        // 16~19. 네 번째 화면 묶음(SAL 파이프라인 · 공고, 직무 분리 연습, 두 번째 계약 · 예산 초안, DEM 정정 대기) — 모두 API
+        new DevSeedRound4(this, today).run(client, project);
         log("완료 — 프로젝트 " + signed.get("projectNo").asText() + " (" + project + ")");
     }
 

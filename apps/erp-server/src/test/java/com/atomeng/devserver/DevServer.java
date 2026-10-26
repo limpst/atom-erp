@@ -47,6 +47,7 @@ public final class DevServer {
             props.put("atom.fac.external.juso.confm-key", "synthetic-dev-key");
             props.put("atom.fac.external.building-register.base-url", stub + "/hub");
             props.put("atom.fac.external.building-register.service-key", "synthetic-dev-key");
+            DevSeedRound4.configureG2bStub(props);   // 나라장터 입찰공고 대역(합성 공고 5건)
         } else {
             props.put("atom.fac.external.juso.base-url", "http://127.0.0.1:9/juso");
             props.put("atom.fac.external.building-register.base-url", "http://127.0.0.1:9/hub");

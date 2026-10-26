@@ -84,12 +84,43 @@ class PermissionMatrixTest extends IntegrationTestBase {
     void cell(String role, String module, String cellText) {
         Map<String, PermissionScope> expected = Interpreter.grants(role, module, cellText);
         String prefix = module.toLowerCase() + ":";
+        // 보안 검토 정책 결정(2026-10-19 §2)으로 바뀐 셀 — permission-policy/*.csv (role,permission,scope|-,근거 ID)
+        Set<String> matrixRes = Interpreter.matrixResources(module);
+        for (String[] o : policyOverrides()) {
+            if (o[0].equals(role) && o[1].startsWith(prefix) && matrixRes.contains(o[1].split(":")[1])) {
+                if ("-".equals(o[2])) {
+                    expected.remove(o[1]);
+                } else {
+                    expected.put(o[1], PermissionScope.valueOf(o[2]));
+                }
+            }
+        }
         Map<String, PermissionScope> actual = registry.permissionsOf(Role.valueOf(role)).entrySet().stream()
                 .filter(e -> e.getKey().startsWith(prefix))
                 // 모듈 설계서 A2 의 세분 권한(fac:building:* 등)은 8.2 매트릭스 범위 밖 → 매트릭스 리소스만 비교
                 .filter(e -> Interpreter.matrixResources(module).contains(e.getKey().split(":")[1]))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         assertThat(actual).as("%s × %s (%s)", role, module, cellText).isEqualTo(expected);
+    }
+
+    /**
+     * 정책 결정으로 설계 표와 달라진 권한 목록. 파일 하나 = 결정 하나(예: {@code permission-policy/PTL-01.csv}).
+     * 줄 형식 {@code ROLE,module:resource:action,SCOPE 또는 -,근거}. {@code #} 으로 시작하는 줄은 주석.
+     */
+    static List<String[]> policyOverrides() {
+        try {
+            var resolver = new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+            List<String[]> out = new ArrayList<>();
+            for (var res : resolver.getResources("classpath*:permission-policy/*.csv")) {
+                try (var r = new BufferedReader(new InputStreamReader(res.getInputStream(), StandardCharsets.UTF_8))) {
+                    r.lines().map(String::trim).filter(l -> !l.isEmpty() && !l.startsWith("#"))
+                            .forEach(l -> out.add(l.split(",", -1)));
+                }
+            }
+            return out;
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** 표 셀 해석기 (생성기와 독립 구현, 같은 규칙 — 클래스 문서 참조) */

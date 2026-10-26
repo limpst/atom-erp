@@ -11,6 +11,11 @@ export const STAGE_LABEL: Record<OpportunityStage, string> = {
   LEAD: '리드', QUALIFYING: '검토', PROPOSING: '제안', NEGOTIATING: '협상', BIDDING: '입찰 준비',
   BID_APPROVED: '입찰 승인', SUBMITTED: '제출', WON: '수주', LOST: '실주', DROPPED: '중단', CONTRACTED: '계약',
 };
+/**
+ * 수동 단계 이동(:move)에서 뺄 단계 — 보안 검토 SAL-03: WON 은 견적 수락, CONTRACTED 는 계약 서명으로만(서버 409 SAL-409-012),
+ * BID_APPROVED 는 임원(EXEC) 의 입찰 품의 승인(:approve-bid)으로만.
+ */
+export const SYSTEM_ONLY_STAGES: OpportunityStage[] = ['WON', 'CONTRACTED', 'BID_APPROVED'];
 /** OpportunityStage.NEXT (서버 전이 표와 동일) */
 export const STAGE_NEXT: Record<OpportunityStage, OpportunityStage[]> = {
   LEAD: ['QUALIFYING', 'DROPPED'],
@@ -79,6 +84,8 @@ export interface Estimate {
   overhead: number; techFeeRate: number; techFee: number; subtotal: number; discountRate: number;
   offerAmount: number; vat: number; validUntil: string; status: EstimateStatus; discountLimit: number | null;
   approvedBy: string | null; documentId: string | null; version: number; lines: (FeeLine & { seq: number })[];
+  /** SAL-06 작성자 · 작성자 할인 한도(작성 시점, EXEC 승인 권한 제외) — 할인 승인자 ≠ 작성자 */
+  createdBy?: string; authorDiscountLimit?: number | null;
 }
 export interface EstimateVersionSummary {
   id: string; estimateNo: string; versionNo: number; status: EstimateStatus; subtotal: number;
@@ -96,6 +103,9 @@ export const salApi = {
   /** If-Match 는 응답 body.version 으로 만든다(ETag 와 같은 값) */
   moveOpportunity: (o: Pick<Opportunity, 'id' | 'version'>, body: MoveRequest) =>
     http.post<Opportunity>(`/sal/opportunities/${o.id}:move`, body, { ifMatch: etag(o.version) }),
+  /** SAL-03 입찰 품의 승인 BIDDING → BID_APPROVED (EXEC, If-Match) */
+  approveBid: (o: Pick<Opportunity, 'id' | 'version'>, note?: string) =>
+    http.post<Opportunity>(`/sal/opportunities/${o.id}:approve-bid`, { note }, { ifMatch: etag(o.version) }),
   calculateFee: (body: FeeCalcRequest) => http.post<FeeCalcResult>('/sal/fee-calculations', body),
   listEstimates: (oppId: string) => http.get<EstimateVersionSummary[]>(`/sal/opportunities/${oppId}/estimates`),
   createEstimate: (oppId: string, body: FeeCalcRequest) =>

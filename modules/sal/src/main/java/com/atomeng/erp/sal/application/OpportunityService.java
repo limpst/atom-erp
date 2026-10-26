@@ -50,8 +50,14 @@ public class OpportunityService {
     private final AuditLog audit;
     private final CurrentActor actor;
     private final Clock clock;
+    private final com.atomeng.common.identity.authz.PermissionRegistry registry;
 
-    public OpportunityService(SalJdbc sal, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock) {
+    /** SAL-03: 입찰 품의 승인(→BID_APPROVED) 권한 */
+    public static final String BID_APPROVE_PERMISSION = "sal:opportunity:approve";
+
+    public OpportunityService(SalJdbc sal, OutboxPublisher outbox, AuditLog audit, CurrentActor actor, Clock clock,
+                              com.atomeng.common.identity.authz.PermissionRegistry registry) {
+        this.registry = registry;
         this.sal = sal;
         this.outbox = outbox;
         this.audit = audit;
@@ -111,7 +117,11 @@ public class OpportunityService {
         return n == null ? 0 : n;
     }
 
-    /** POST /opportunities/{id}:move (If-Match) — LEAD → QUALIFYING 은 담당 배정 필수, LOST 는 사유 코드 필수(BR-SAL-010) */
+    /**
+     * POST /opportunities/{id}:move (If-Match) — LEAD → QUALIFYING 은 담당 배정 필수, LOST 는 사유 코드 필수(BR-SAL-010).
+     * SAL-03: →BID_APPROVED 는 {@code sal:opportunity:approve}(EXEC) 보유자만(전용 {@code :approve-bid} 권장),
+     * →WON · →CONTRACTED 는 시스템 전이(견적 수락 · 계약 서명)로만 — 수동 이동은 409 SAL-409-012.
+     */
     @Transactional
     public Map<String, Object> move(UUID id, long expectedVersion, String toStage, String note, String lostReason,
                                     UUID ownerId) {
@@ -122,6 +132,14 @@ public class OpportunityService {
             to = OpportunityStage.valueOf(toStage);
         } catch (RuntimeException e) {
             throw new DomainException(SalCodes.INVALID, "알 수 없는 단계: " + toStage);
+        }
+        if (to == OpportunityStage.WON || to == OpportunityStage.CONTRACTED) {
+            throw new DomainException(SalCodes.WON_BY_ACCEPTANCE_ONLY, to == OpportunityStage.WON
+                    ? "수주(WON)는 고객의 견적 수락(:accept)으로만 전이합니다(수동 단계 이동 금지)"
+                    : "계약(CONTRACTED)은 계약 서명(:sign)으로만 전이합니다(수동 단계 이동 금지)");
+        }
+        if (to == OpportunityStage.BID_APPROVED) {
+            requireBidApprover();
         }
         if (to == OpportunityStage.LOST && (lostReason == null || !LOST_REASONS.contains(lostReason))) {
             throw new DomainException(SalCodes.LOST_REASON_REQUIRED, "Lost 사유 코드 필수(BR-SAL-010): " + LOST_REASONS);
@@ -137,6 +155,30 @@ public class OpportunityService {
         Map<String, Object> after = view(sal.get("opportunity", id));
         audit.append("SAL", AuditLog.Action.UPDATE, "opportunity", id, view(before), after);
         return after;
+    }
+
+    /**
+     * POST /opportunities/{id}:approve-bid (If-Match, sal:opportunity:approve = EXEC) — SAL-03 입찰 품의 승인
+     * BIDDING → BID_APPROVED. BR-SAL-009 투찰금액 입력은 이 승인 뒤에만.
+     */
+    @Transactional
+    public Map<String, Object> approveBid(UUID id, long expectedVersion, String note) {
+        requireBidApprover();
+        Map<String, Object> before = sal.lock("opportunity", id);
+        IfMatch.check(expectedVersion, SalJdbc.lng(before, "version"));
+        transition(before, OpportunityStage.BID_APPROVED, note == null ? "입찰 품의 승인" : note, null);
+        Map<String, Object> after = view(sal.get("opportunity", id));
+        audit.append("SAL", AuditLog.Action.APPROVE, "opportunity-bid", id, view(before), after);
+        return after;
+    }
+
+    /** 웹 요청 주체가 sal:opportunity:approve 를 가져야 함(주체 없음 = 시스템 실행은 통과) */
+    private void requireBidApprover() {
+        var p = com.atomeng.common.identity.AtomAuthentication.currentPrincipal().orElse(null);
+        if (p != null && registry.scopeFor(p.roles(), BID_APPROVE_PERMISSION).isEmpty()) {
+            throw new DomainException(SalCodes.BID_APPROVAL_REQUIRED,
+                    "입찰 품의 승인(→BID_APPROVED)은 " + BID_APPROVE_PERMISSION + " 권한(EXEC)이 필요합니다");
+        }
     }
 
     /**

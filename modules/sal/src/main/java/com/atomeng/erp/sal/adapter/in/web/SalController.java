@@ -206,6 +206,16 @@ class SalController {
                 r.ownerId()));
     }
 
+    /** SAL-03 입찰 품의 승인(BIDDING → BID_APPROVED) — EXEC(sal:opportunity:approve), If-Match */
+    @PostMapping("/opportunities/{id}:approve-bid")
+    @RequirePermission("sal:opportunity:approve")
+    public ResponseEntity<Map<String, Object>> approveBid(@PathVariable UUID id,
+                                                          @RequestHeader(value = "If-Match", required = false)
+                                                          String ifMatch,
+                                                          @RequestBody(required = false) RespondRequest r) {
+        return withEtag(opportunities.approveBid(id, IfMatch.require(ifMatch), r == null ? null : r.note()));
+    }
+
     @GetMapping("/opportunities/{id}/history")
     @RequirePermission("sal:opportunity:read")
     public List<Map<String, Object>> history(@PathVariable UUID id) {
@@ -246,7 +256,7 @@ class SalController {
     public ResponseEntity<Map<String, Object>> createEstimate(@PathVariable UUID id,
                                                               @Valid @RequestBody FeeCalcRequest r) {
         Map<String, Object> v = estimates.createVersion(id, new EstimateService.CreateVersion(r.command(), r.profile(),
-                r.discountRate(), r.validDays()));
+                r.discountRate(), r.validDays()), roles());
         return ResponseEntity.created(URI.create("/api/v1/sal/estimates/" + v.get("id")))
                 .eTag(IfMatch.etagOf(version(v))).body(v);
     }
@@ -266,7 +276,7 @@ class SalController {
     @PostMapping("/estimates/{id}:issue")
     @RequirePermission("sal:quote:issue")
     public ResponseEntity<Map<String, Object>> issue(@PathVariable UUID id) {
-        return withEtag(estimates.issue(id, roles()));
+        return withEtag(estimates.issue(id));
     }
 
     /** v0.2 BR-SAL-006 — EXEC 전용(sal:discount:approve), If-Match 필수 */

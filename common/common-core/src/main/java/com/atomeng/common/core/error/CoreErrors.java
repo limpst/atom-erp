@@ -8,6 +8,8 @@ public final class CoreErrors {
     public static final String UNAUTHENTICATED = "CORE-401-001";
     public static final String PERMISSION_DENIED = "CORE-403-001";
     public static final String OUT_OF_PROJECT_SCOPE = "CORE-403-002";
+    /** 포털 realm(CUSTOMER) 주체가 /api/v1/ptl 밖 내부 API 를 호출 (보안 검토 PTL-01) */
+    public static final String PORTAL_REALM_DENIED = "CORE-403-010";
     public static final String NOT_FOUND = "CORE-404-001";
     public static final String INVALID_STATE_TRANSITION = "CORE-409-001";
     public static final String DATA_CONFLICT = "CORE-409-002";

@@ -1,0 +1,6 @@
+# SAL-05: PM 영업기회 · 장비 대장 — 읽기는 ALL 명시, 기회 수정 · 장비 등록/수정 삭제(V0042)
+PM,sal:opportunity:read,ALL,SAL-05
+PM,sal:opportunity:update,-,SAL-05
+PM,eqp:equipment:read,ALL,SAL-05
+PM,eqp:equipment:create,-,SAL-05
+PM,eqp:equipment:update,-,SAL-05

@@ -15,4 +15,6 @@ public final class PtlErrors {
     /** 발행본 원본 해시가 공개 시점 해시와 다름(무결성) */
     public static final String SOURCE_INTEGRITY = "PTL-409-003";
     public static final String INVALID = "PTL-422-001";
+    /** PTL-03 고객사별 다운로드 속도 제한 초과(atom.ptl.download.max-per-minute) */
+    public static final String DOWNLOAD_RATE_LIMITED = "PTL-429-001";
 }

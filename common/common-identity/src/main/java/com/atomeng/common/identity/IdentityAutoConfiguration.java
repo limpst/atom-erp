@@ -118,7 +118,10 @@ public class IdentityAutoConfiguration {
                     .authenticationEntryPoint(entryPoint(writer))
                     .accessDeniedHandler(deniedHandler(writer)))
                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint(writer))
-                    .accessDeniedHandler(deniedHandler(writer)));
+                    .accessDeniedHandler(deniedHandler(writer)))
+                // PTL-01: 포털 realm 토큰은 /api/v1/ptl/** 만(그 밖은 403 CORE-403-010)
+                .addFilterAfter(new PortalRealmRestrictionFilter(writer),
+                    org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class);
             return http.build();
         }
     }
@@ -129,11 +132,13 @@ public class IdentityAutoConfiguration {
     static class DevHeaderSecurity {
 
         @Bean
-        SecurityFilterChain atomDevFilterChain(HttpSecurity http) throws Exception {
+        SecurityFilterChain atomDevFilterChain(HttpSecurity http, ProblemWriter writer) throws Exception {
             http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a.anyRequest().permitAll())
-                .addFilterBefore(new DevHeaderAuthenticationFilter(), AnonymousAuthenticationFilter.class);
+                .addFilterBefore(new DevHeaderAuthenticationFilter(), AnonymousAuthenticationFilter.class)
+                // PTL-01: 헤더 모드에서도 CUSTOMER(포털) 주체는 /api/v1/ptl/** 만
+                .addFilterAfter(new PortalRealmRestrictionFilter(writer), DevHeaderAuthenticationFilter.class);
             return http.build();
         }
     }

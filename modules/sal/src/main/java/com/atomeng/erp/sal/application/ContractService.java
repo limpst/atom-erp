@@ -81,6 +81,10 @@ public class ContractService {
         UUID clientId = c.clientId();
         String serviceType = c.serviceType();
         if (c.opportunityId() != null) {
+            if (c.estimateId() == null) {   // SAL-03 견적 없이 계약 → BR-SAL-006 할인 통제 우회 차단
+                throw new DomainException(SalCodes.CONTRACT_ESTIMATE_REQUIRED,
+                        "영업 기회에 연결된 계약은 고객이 수락한 견적(estimateId)이 필요합니다");
+            }
             Map<String, Object> opp = sal.lock("opportunity", c.opportunityId());
             if (!OpportunityStage.WON.name().equals(SalJdbc.str(opp, "stage"))) {
                 throw new DomainException(SalCodes.STAGE_NOT_ALLOWED, "계약은 WON 기회에서만 등록합니다: " + opp.get("stage"));
@@ -154,6 +158,12 @@ public class ContractService {
         IfMatch.check(expectedVersion, SalJdbc.lng(c, "version"));
         requireStatus(c, ContractStatus.DRAFT);
         UUID by = actor.actorIdOrSystem();
+        // SAL-06 결재자 ≠ 계약 작성자 · 연결 견적 작성자(다중 역할 SALES+EXEC 본인 결재 금지)
+        UUID estimateId = SalJdbc.uuid(c, "estimate_id");
+        UUID estimateAuthor = estimateId == null ? null : SalJdbc.uuid(sal.get("estimate", estimateId), "created_by");
+        if (by.equals(SalJdbc.uuid(c, "created_by")) || by.equals(estimateAuthor)) {
+            throw new DomainException(SalCodes.SELF_APPROVAL, "계약 · 견적 작성자는 본인 계약을 결재할 수 없습니다");
+        }
         LocalDate deadline = signDeadline != null ? signDeadline : SalJdbc.localDate(c.get("sign_date")).plusDays(14);
         List<String> who = signers == null ? List.of() : List.copyOf(signers);
         sal.jdbc().update("""

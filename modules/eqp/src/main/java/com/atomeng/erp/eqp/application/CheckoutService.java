@@ -35,6 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>이미 활성 반출이 있으면(오프라인 두 기기) sync_conflict=true 로 기록 + 202 + {@code eqp.checkout.conflicted}(TC-EQP-003)</li>
  *   <li>활성 반출 유일성은 부분 유니크 인덱스 ux_active_checkout 이 최종 보장(NFR-EQP-05)</li>
  *   <li>반납: 사용 일수(KST 양 끝 포함) → {@code eqp.equipment.returned} 1회(CST 멱등키 rentalId = checkoutId)</li>
+ *   <li>EQP-01: 반출 · 반납은 PROJECT 범위 — 호출자가 그 프로젝트 투입 인원(ALL 범위 역할은 통과)</li>
+ *   <li>EQP-02: 시각은 서버 시각이 기준. 오프라인 기록 시각(outAt · inAt)은 과거 72시간 이내만 받고, 미래는 거부
+ *       (시계 오차 2분까지는 서버 시각으로 맞춤). 검교정 판정 · 사용 일수는 받아들인 시각으로 계산</li>
  * </ul>
  */
 @Service
@@ -48,6 +51,11 @@ public class CheckoutService {
     /** status: OK(200) · REPLAYED(200) · CONFLICT_RECORDED(202) */
     public record Result(String status, Map<String, Object> body) {}
 
+    /** EQP-02 오프라인 기록 시각 허용 범위: 과거 72시간까지 */
+    public static final java.time.Duration MAX_OFFLINE_AGE = java.time.Duration.ofHours(72);
+    /** EQP-02 기기 시계 오차 허용(이 안의 미래 시각은 서버 시각으로 맞춘다, 넘으면 거부) */
+    public static final java.time.Duration CLOCK_SKEW = java.time.Duration.ofMinutes(2);
+
     private final EqpJdbc eqp;
     private final EquipmentService equipment;
     private final CalibrationValidityService validity;
@@ -57,11 +65,13 @@ public class CheckoutService {
     private final CurrentActor actor;
     private final ObjectMapper om;
     private final Clock clock;
+    private final EqpAccess access;
 
     public CheckoutService(EqpJdbc eqp, EquipmentService equipment, CalibrationValidityService validity,
                            AlternativeFinder alternatives, OutboxPublisher outbox, AuditLog audit, CurrentActor actor,
-                           ObjectMapper om, Clock clock) {
+                           ObjectMapper om, Clock clock, EqpAccess access) {
         this.clock = clock;
+        this.access = access;
         this.eqp = eqp;
         this.equipment = equipment;
         this.validity = validity;
@@ -74,6 +84,7 @@ public class CheckoutService {
 
     @Transactional
     public Result checkout(Checkout c) {
+        access.requireProject("eqp:checkout:create", c.projectId());
         UUID by = actor.actorIdOrSystem();
         EquipmentRow scanned = equipment.verifyQr(c.qrToken());
         EquipmentRow e = eqp.lock(scanned.id());           // 같은 장비 반출 직렬화 → 먼저 도착한 건이 정상
@@ -86,7 +97,7 @@ public class CheckoutService {
             }
             return new Result("REPLAYED", body((UUID) existing.get(0).get("id"), null));
         }
-        Instant outAt = c.outAt() == null ? clock.instant() : c.outAt();
+        Instant outAt = acceptClientTime(c.outAt(), "outAt");
         LocalDate on = LocalDate.ofInstant(outAt, EquipmentService.SEOUL);
         ValidityResult v = validity.validate(e.id(), on, c.projectId());
         if (!v.valid()) {
@@ -128,6 +139,27 @@ public class CheckoutService {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)""",
                 id, e.id(), reservationId, c.projectId(), by, Timestamp.from(outAt), c.lat(), c.lng(),
                 json(c.preCheck()), v.calibrationId(), v.overrideId(), c.clientOpId(), conflict);
+    }
+
+    /**
+     * EQP-02: 클라이언트(오프라인) 시각 → 기록할 시각. 없으면 서버 시각. 미래(시계 오차 {@link #CLOCK_SKEW} 초과) · 72시간보다
+     * 과거면 422 EQP-422-006. 오차 안의 미래 시각은 서버 시각으로 맞춘다(기록 시각이 미래가 되지 않게).
+     */
+    Instant acceptClientTime(Instant client, String field) {
+        Instant now = clock.instant();
+        if (client == null) {
+            return now;
+        }
+        if (client.isAfter(now.plus(CLOCK_SKEW))) {
+            throw new DomainException(EqpErrors.CLIENT_TIME_OUT_OF_RANGE, field + " 이 서버 시각보다 미래입니다: " + client)
+                    .with("serverTime", now.toString());
+        }
+        if (client.isBefore(now.minus(MAX_OFFLINE_AGE))) {
+            throw new DomainException(EqpErrors.CLIENT_TIME_OUT_OF_RANGE,
+                    field + " 은 서버 시각 기준 72시간 이내여야 합니다(오프라인 허용 오차): " + client)
+                    .with("serverTime", now.toString()).with("maxOfflineHours", MAX_OFFLINE_AGE.toHours());
+        }
+        return client.isAfter(now) ? now : client;
     }
 
     /** 예약 매칭: 지정 예약 → 검증, 미지정 → 같은 프로젝트의 그날 활성 예약. 다른 프로젝트 예약 기간이면 409 */
@@ -195,6 +227,7 @@ public class CheckoutService {
         var co = eqp.jdbc().queryForMap("""
                 SELECT project_id, reservation_id, out_at, in_at, sync_conflict FROM eqp.checkout WHERE id = ? FOR UPDATE""",
                 checkoutId);
+        access.requireProject("eqp:checkout:create", (UUID) co.get("project_id"));
         if (co.get("in_at") != null) {
             throw new DomainException(EqpErrors.ALREADY_RETURNED, "이미 반납된 반출: " + checkoutId);
         }
@@ -202,7 +235,7 @@ public class CheckoutService {
             throw new DomainException(EqpErrors.STATE, "충돌로 기록된 반출은 PM 해결 대상입니다(반납 불가)");
         }
         Instant outAt = ((Timestamp) co.get("out_at")).toInstant();
-        Instant inAt = r.inAt() == null ? clock.instant() : r.inAt();
+        Instant inAt = acceptClientTime(r.inAt(), "inAt");
         if (inAt.isBefore(outAt)) {
             throw new DomainException(EqpErrors.INVALID, "반납 시각이 반출 시각보다 빠릅니다");
         }

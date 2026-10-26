@@ -118,15 +118,16 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("설계 8.2: CUSTOMER(포털)는 자기 고객사 프로젝트만 (CLIENT 범위)")
+    @DisplayName("PTL-01: CUSTOMER(포털)는 내부 core API 를 쓸 수 없다 — 자기 고객사 프로젝트도 403 CORE-403-010(포털 API 만)")
     void customerClientScope() throws Exception {
         mvc.perform(as(get("/api/v1/core/projects/" + assignedProject), actor(), "CUSTOMER")
                         .header("X-Client-Org-Id", clientOrg.toString()))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CORE-403-010"));
         mvc.perform(as(get("/api/v1/core/projects/" + otherProject), actor(), "CUSTOMER")
                         .header("X-Client-Org-Id", clientOrg.toString()))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("CORE-403-002"));
+                .andExpect(jsonPath("$.code").value("CORE-403-010"));
     }
 
     @Test

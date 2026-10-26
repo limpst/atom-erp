@@ -317,7 +317,9 @@ class GoldenPathScenarioTest extends IntegrationTestBase {
         approveRate(call(postJson("/api/v1/cst/rates", json(map("rateKind", "EQUIP_DAILY", "keyCode", eqCode,
                 "value", equipDaily, "validFrom", "2000-01-01", "sourceRef", "합성 손료"))), admin, "ADMIN", 201));
         JsonNode res = call(postJson("/api/v1/eqp/reservations", json(map("equipmentId", equipment, "projectId", project,
-                "from", today.toString(), "to", today.plusDays(3).toString()))), pm, "PM", 201);
+                "from", today.toString(), "to", today.plusDays(3).toString()))), eng, "ENG", 201);
+        // EQP-01: 승인자 ≠ 신청자, 승인자는 그 프로젝트의 PM(RESP 투입)
+        call(postJson("/api/v1/eqp/reservations/" + id(res) + ":approve", "{}"), eng, "ENG", 403);
         call(postJson("/api/v1/eqp/reservations/" + id(res) + ":approve", "{}"), pm, "PM", 200);
         String qr = call(postJson("/api/v1/eqp/equipment/" + equipment + "/labels", "{\"rotate\":false}"), admin, "ADMIN",
                 200).get("token").asText();

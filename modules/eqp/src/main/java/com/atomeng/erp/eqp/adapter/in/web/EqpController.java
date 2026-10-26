@@ -75,7 +75,9 @@ class EqpController {
                               Map<String, Object> uncertainty, UUID certAttachmentId,
                               @Pattern(regexp = "^[0-9a-f]{64}$") String certSha256, @PositiveOrZero BigDecimal cost) {}
 
-    record OverrideRequest(UUID projectId, @NotBlank @Size(min = 5, max = 1000) String reason,
+    /** EQP-04: projectId · requestedBy(예외를 요청한 현장 PM/ENG, 승인 QA 와 다른 사람) 필수 */
+    record OverrideRequest(@NotNull UUID projectId, @NotNull UUID requestedBy,
+                           @NotBlank @Size(min = 5, max = 1000) String reason,
                            @NotNull LocalDate validFrom, @NotNull LocalDate validTo) {}
 
     record ReservationRequest(@NotNull UUID equipmentId, @NotNull UUID projectId, @NotNull LocalDate from,
@@ -98,7 +100,8 @@ class EqpController {
                            @NotEmpty List<double[]> area, @Positive Integer maxAltM, @NotNull Instant validFrom,
                            @NotNull Instant validTo, @Size(max = 50) String photoPermitNo) {}
 
-    record FlightLogRequest(@NotNull UUID projectId, UUID approvalId, @NotNull UUID pilotId, @NotNull Instant startedAt,
+    /** EQP-03: pilotId 는 요청자 본인(생략하면 본인), 다른 사람 대리 등록은 ADMIN 만 */
+    record FlightLogRequest(@NotNull UUID projectId, UUID approvalId, UUID pilotId, @NotNull Instant startedAt,
                             @NotNull Instant endedAt, @NotEmpty List<double[]> track, BigDecimal maxAltM,
                             UUID rawLogAttachmentId) {}
 
@@ -218,7 +221,7 @@ class EqpController {
     @RequirePermission("eqp:override:approve")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> override(@PathVariable UUID id, @Valid @RequestBody OverrideRequest r) {
-        return calibrations.override(id, r.projectId(), r.reason(), r.validFrom(), r.validTo());
+        return calibrations.override(id, r.projectId(), r.requestedBy(), r.reason(), r.validFrom(), r.validTo());
     }
 
     /** 운영 수동 실행(배치 재실행 — 멱등) */
@@ -231,20 +234,20 @@ class EqpController {
     // ------------------------------------------------------------------ 예약 (FR-EQP-006)
 
     @PostMapping("/reservations")
-    @RequirePermission("eqp:reservation:create")
+    @RequirePermission(value = "eqp:reservation:create", scopeCheckedInService = true)   // EQP-01 본문 projectId → EqpAccess
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> reserve(@Valid @RequestBody ReservationRequest r) {
         return reservations.request(r.equipmentId(), r.projectId(), r.from(), r.to(), r.base());
     }
 
     @PostMapping("/reservations/{id}:approve")
-    @RequirePermission("eqp:reservation:approve")
+    @RequirePermission(value = "eqp:reservation:approve", scopeCheckedInService = true)   // EQP-01 예약 프로젝트 PM · 본인 승인 금지
     public Map<String, Object> approve(@PathVariable UUID id) {
         return reservations.approve(id);
     }
 
     @PostMapping("/reservations/{id}:cancel")
-    @RequirePermission("eqp:reservation:create")
+    @RequirePermission(value = "eqp:reservation:create", scopeCheckedInService = true)   // EQP-01 신청자 또는 승인 권한자
     public Map<String, Object> cancel(@PathVariable UUID id) {
         return reservations.cancel(id);
     }
@@ -269,7 +272,7 @@ class EqpController {
 
     /** 200 정상 · 재전송(Idempotent: clientOpId) / 202 오프라인 충돌 기록 */
     @PostMapping("/checkouts")
-    @RequirePermission("eqp:checkout:create")
+    @RequirePermission(value = "eqp:checkout:create", scopeCheckedInService = true)   // EQP-01 본문 projectId → EqpAccess
     public ResponseEntity<Map<String, Object>> checkout(@Valid @RequestBody CheckoutRequest r) {
         var res = checkouts.checkout(new CheckoutService.Checkout(r.clientOpId(), r.qrToken(), r.projectId(),
                 r.reservationId(), r.outAt(), r.location() == null ? null : r.location().lat(),
@@ -281,7 +284,7 @@ class EqpController {
     }
 
     @PostMapping("/checkouts/{id}/return")
-    @RequirePermission("eqp:checkout:create")
+    @RequirePermission(value = "eqp:checkout:create", scopeCheckedInService = true)   // EQP-01 반출 프로젝트 → EqpAccess
     public Map<String, Object> returnEquipment(@PathVariable UUID id, @Valid @RequestBody(required = false) ReturnRequest r) {
         ReturnRequest q = r == null ? new ReturnRequest(null, null, null) : r;
         return checkouts.returnEquipment(id, new CheckoutService.Return(q.inAt(),

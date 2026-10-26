@@ -33,6 +33,8 @@ import org.springframework.stereotype.Component;
  * </ol>
  * 결과 SHA-256 은 다운로드 감사(ptl.report_download.output_sha256)에 남겨 유출본을 역추적한다.
  * 원본에 전자서명(PAdES)이 있으면 워터마크가 서명을 깨므로 고객 다운로드본은 "열람용 사본"(09-IMPL Step 7 함정).
+ * <p>보안 검토 PTL-03: 문서 스트림 캐시는 임시 파일(MemoryUsageSetting.setupTempFileOnly)이고, 호출 빈도는
+ * {@link PortalDownloadRateLimiter}(고객사별 분당 한도)가 제한한다.
  */
 @Component
 public class PdfWatermarker {
@@ -42,7 +44,9 @@ public class PdfWatermarker {
     public record Result(byte[] pdf, String sha256, int pageCount) {}
 
     public Result apply(byte[] source, WatermarkStamp stamp) {
-        try (PDDocument doc = Loader.loadPDF(source)) {
+        // PTL-03: 스트림 캐시를 임시 파일로(MemoryUsageSetting temp-file) — 페이지 스트림 · 폰트 등 해제한 객체가 힙에 쌓이지 않게
+        try (PDDocument doc = Loader.loadPDF(source, "", null, null,
+                org.apache.pdfbox.io.MemoryUsageSetting.setupTempFileOnly().streamCache)) {
             PDFont font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
             for (PDPage page : doc.getPages()) {
                 stampPage(doc, page, font, stamp);

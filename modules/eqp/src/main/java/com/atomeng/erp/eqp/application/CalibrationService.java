@@ -39,9 +39,11 @@ public class CalibrationService {
     private final CurrentActor actor;
     private final EquipmentService equipment;
     private final ObjectMapper om;
+    private final EqpAccess access;
 
     public CalibrationService(EqpJdbc eqp, OutboxPublisher outbox, AuditLog audit, CurrentActor actor,
-                              EquipmentService equipment, ObjectMapper om) {
+                              EquipmentService equipment, ObjectMapper om, EqpAccess access) {
+        this.access = access;
         this.eqp = eqp;
         this.outbox = outbox;
         this.audit = audit;
@@ -126,25 +128,55 @@ public class CalibrationService {
                  WHERE equipment_id = ? ORDER BY calibrated_on DESC, created_at DESC""", equipmentId);
     }
 
-    /** BR-EQP-003: QA 만, 사유 필수, 최대 7일(양 끝 포함, TC-EQP-008 → 400), 감사 로그 APPROVE */
+    /**
+     * BR-EQP-003: QA 만, 사유 필수, 최대 7일(양 끝 포함, TC-EQP-008 → 400), 감사 로그 APPROVE.
+     * EQP-04: projectId 필수(전역 예외 금지) · 시작일 ≥ 오늘(소급 금지) · 장비 + 프로젝트별 끝나지 않은 예외 1건만(연쇄 금지) ·
+     * 4-eyes — 요청자(requestedBy, 그 프로젝트 투입 인원) ≠ 승인자(호출한 QA).
+     */
     @Transactional
-    public Map<String, Object> override(UUID equipmentId, UUID projectId, String reason, LocalDate from, LocalDate to) {
+    public Map<String, Object> override(UUID equipmentId, UUID projectId, UUID requestedBy, String reason,
+                                        LocalDate from, LocalDate to) {
         UUID by = actor.actorIdOrSystem();
-        eqp.get(equipmentId);
+        eqp.lock(equipmentId);   // 같은 장비 예외 등록 직렬화(활성 1건 검사)
+        if (projectId == null) {
+            throw new DomainException(EqpErrors.INVALID, "검교정 예외는 프로젝트(projectId)를 지정해야 합니다(EQP-04)");
+        }
+        if (requestedBy == null) {
+            throw new DomainException(EqpErrors.INVALID, "검교정 예외 요청자(requestedBy)가 필요합니다(EQP-04 4-eyes)");
+        }
+        if (requestedBy.equals(by)) {
+            throw new DomainException(EqpErrors.OVERRIDE_SELF_APPROVAL,
+                    "검교정 예외는 요청자와 승인자가 달라야 합니다(4-eyes)");
+        }
         if (from == null || to == null || !EqpRules.overridePeriodOk(from, to)) {
             throw new DomainException(EqpErrors.OVERRIDE_TOO_LONG,
                     "예외 승인 유효기간은 최대 %d일입니다".formatted(EqpRules.OVERRIDE_MAX_DAYS));
         }
+        LocalDate today = equipment.today();
+        if (from.isBefore(today)) {
+            throw new DomainException(EqpErrors.OVERRIDE_RETROACTIVE, "검교정 예외는 오늘(" + today + ") 이후로만 시작합니다");
+        }
         if (reason == null || reason.strip().length() < 5) {
             throw new DomainException(EqpErrors.INVALID, "예외 승인 사유(5자 이상) 필수");
         }
+        if (access.principal().isPresent() && !access.member(requestedBy, projectId)) {
+            throw new DomainException(EqpErrors.INVALID, "요청자는 해당 프로젝트 투입 인원이어야 합니다: " + requestedBy);
+        }
+        var active = eqp.jdbc().queryForList("""
+                SELECT id FROM eqp.calibration_override WHERE equipment_id = ? AND project_id = ? AND valid_to >= ?""",
+                UUID.class, equipmentId, projectId, EqpJdbc.d(today));
+        if (!active.isEmpty()) {
+            throw new DomainException(EqpErrors.OVERRIDE_ACTIVE_EXISTS,
+                    "같은 장비 · 프로젝트에 끝나지 않은 검교정 예외가 있습니다(연쇄 금지)").with("overrideId", active.get(0));
+        }
         UUID id = UuidV7.next();
         eqp.jdbc().update("""
-                INSERT INTO eqp.calibration_override(id, equipment_id, project_id, reason, valid_from, valid_to, approved_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)""", id, equipmentId, projectId, reason.strip(), EqpJdbc.d(from),
-                EqpJdbc.d(to), by);
+                INSERT INTO eqp.calibration_override(id, equipment_id, project_id, reason, valid_from, valid_to, approved_by,
+                                                     requested_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", id, equipmentId, projectId, reason.strip(), EqpJdbc.d(from),
+                EqpJdbc.d(to), by, requestedBy);
         Map<String, Object> view = new LinkedHashMap<>(eqp.jdbc().queryForMap("""
-                SELECT id, equipment_id, project_id, reason, valid_from, valid_to, approved_by
+                SELECT id, equipment_id, project_id, reason, valid_from, valid_to, approved_by, requested_by
                   FROM eqp.calibration_override WHERE id = ?""", id));
         audit.append("EQP", AuditLog.Action.APPROVE, "calibration-override", id, null, view);
         return view;

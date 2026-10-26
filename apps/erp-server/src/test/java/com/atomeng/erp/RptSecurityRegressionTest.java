@@ -59,7 +59,8 @@ class RptSecurityRegressionTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("SEC-RPT-02: CUSTOMER(CLIENT 범위)는 자기 프로젝트라도 미발행 리비전 · 초안 렌더 · 섹션 · 등급을 볼 수 없다(404), 발행본은 보인다")
+    @DisplayName("SEC-RPT-02 · PTL-01: CUSTOMER 는 내부 RPT API 를 전혀 쓸 수 없다 — 미발행 리비전 · 초안 · 섹션 · 등급 · 원본 PDF, "
+            + "발행본까지 403 CORE-403-010(발행본은 포털 /api/v1/ptl 의 워터마크 다운로드로만)")
     void customerSeesOnlyPublished() throws Exception {
         UUID pm = flow.employee("SEC-PM");
         UUID project = flow.project(pm);
@@ -71,24 +72,23 @@ class RptSecurityRegressionTest extends IntegrationTestBase {
         UUID org = clientOf(project);
         UUID cust = UUID.randomUUID();
 
-        JsonNode list = flow.call(customer(get("/api/v1/rpt/reports?projectId=" + project), org), cust, "CUSTOMER", 200);
-        assertThat(list).isEmpty();
-        flow.call(customer(get("/api/v1/rpt/reports/" + reportId), org), cust, "CUSTOMER", 404);
-        flow.call(customer(get("/api/v1/rpt/revisions/" + rev), org), cust, "CUSTOMER", 404);
-        flow.call(customer(get("/api/v1/rpt/revisions/" + rev + "/sections"), org), cust, "CUSTOMER", 404);
-        flow.call(customer(get("/api/v1/rpt/revisions/" + rev + "/grade"), org), cust, "CUSTOMER", 404);
-        flow.call(customer(get("/api/v1/rpt/revisions/" + rev + "/files/report.pdf"), org), cust, "CUSTOMER", 404);
-        flow.call(customer(get("/api/v1/rpt/revisions/" + rev + "/section-editors"), org), cust, "CUSTOMER", 404);
+        for (String url : java.util.List.of("/api/v1/rpt/reports?projectId=" + project, "/api/v1/rpt/reports/" + reportId,
+                "/api/v1/rpt/revisions/" + rev, "/api/v1/rpt/revisions/" + rev + "/sections",
+                "/api/v1/rpt/revisions/" + rev + "/grade", "/api/v1/rpt/revisions/" + rev + "/files/report.pdf",
+                "/api/v1/rpt/revisions/" + rev + "/section-editors")) {
+            assertThat(flow.call(customer(get(url), org), cust, "CUSTOMER", 403).get("code").asText()).as(url)
+                    .isEqualTo("CORE-403-010");
+        }
         // 내부 PM 은 그대로 조회
         flow.call(get("/api/v1/rpt/revisions/" + rev), pm, "PM", 200);
 
-        // 발행본은 CUSTOMER 에게 보인다(기존 권한 매트릭스 유지)
+        // 발행본도 내부 API 로는 받을 수 없다(워터마크 · 다운로드 감사 없는 원본 경로 차단, PTL-01)
         RptFlow.Published pub = flow.publishGrade(UUID.randomUUID(), "B", "REGULAR", today().minusDays(5));
         UUID org2 = clientOf(pub.projectId());
-        flow.call(customer(get("/api/v1/rpt/revisions/" + pub.revisionId()), org2), cust, "CUSTOMER", 200);
-        JsonNode l2 = flow.call(customer(get("/api/v1/rpt/reports?projectId=" + pub.projectId()), org2), cust, "CUSTOMER", 200);
-        assertThat(l2).hasSize(1);
-        assertThat(l2.get(0).get("currentRevisionId").asText()).isEqualTo(pub.revisionId().toString());
+        flow.call(customer(get("/api/v1/rpt/revisions/" + pub.revisionId()), org2), cust, "CUSTOMER", 403);
+        flow.call(customer(get("/api/v1/rpt/revisions/" + pub.revisionId() + "/files/report.pdf"), org2), cust,
+                "CUSTOMER", 403);
+        flow.call(customer(get("/api/v1/rpt/reports?projectId=" + pub.projectId()), org2), cust, "CUSTOMER", 403);
 
         // SEC-RPT-03: DXF Content-Disposition 은 RFC 6266 형식(ContentDisposition 으로 파싱 가능)
         var res = mvc.perform(RptFlow.as(get("/api/v1/rpt/revisions/" + pub.revisionId() + "/drawings/B01/1F.dxf"),

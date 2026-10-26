@@ -213,7 +213,7 @@ function CheckoutPanel({ projects }: { projects: { id: string; projectNo: string
 /** G5 › 장비 예약 · 반출 — 예약 달력(겹침 표시) · 예약 승인 · QR 반출/반납 */
 export function ReservationsPage() {
   const qc = useQueryClient();
-  const { hasRole } = useAuth();
+  const { hasRole, session } = useAuth();
   const today = localToday();
   const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => addDays(today, i)), [today]);
   const cal = useQuery({ queryKey: ['eqp', 'cal'], queryFn: () => eqpApi.calibrationStatus() });
@@ -295,10 +295,11 @@ export function ReservationsPage() {
                   <td>{r.from_date} ~ {r.to_date}</td>
                   <td><Badge tone={r.status === 'CONFIRMED' ? 'info' : r.status === 'REQUESTED' ? 'warn' : r.status === 'IN_USE' ? 'danger' : undefined}>{RESERVATION_STATUS_LABEL[r.status]}</Badge></td>
                   <td className="row" style={{ gap: 6 }}>
-                    {r.status === 'REQUESTED' && hasRole('PM', 'ADMIN') && (
+                    {/* EQP-01: 본인 신청 예약은 승인 불가(서버 403 EQP-403-003) · 승인자는 그 프로젝트 PM 또는 ADMIN */}
+                    {r.status === 'REQUESTED' && hasRole('PM', 'ADMIN') && r.requested_by !== session?.actorId && (
                       <button onClick={() => act.mutate({ r, cmd: 'approve' })} aria-label={`승인 ${code} ${r.from_date}`}>승인</button>
                     )}
-                    {['REQUESTED', 'CONFIRMED'].includes(r.status) && hasRole('PM', 'ENG') && (
+                    {['REQUESTED', 'CONFIRMED'].includes(r.status) && (r.requested_by === session?.actorId || hasRole('PM')) && (
                       <button onClick={() => act.mutate({ r, cmd: 'cancel' })} aria-label={`취소 ${code} ${r.from_date}`}>취소</button>
                     )}
                   </td>

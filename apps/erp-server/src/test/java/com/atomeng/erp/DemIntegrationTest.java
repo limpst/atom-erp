@@ -494,7 +494,7 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.checklist.length()").value(3))
                 .andExpect(jsonPath("$.checklist[0].photoIds[0]").value(p1.toString()));
         // 보안 검토 2026-10-19: 일지 열람 범위 — 투입 안 된 PM · ENG 403, 지정 감리자(작성자) 200,
-        // 다른 고객사 CUSTOMER 403, 발주 고객사 CUSTOMER 200
+        // 다른 고객사 CUSTOMER 403, 발주 고객사 CUSTOMER 도 403(PTL-01: 포털 계정은 /api/v1/ptl 만 — 내부 DEM API 불가)
         mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), actor(), "PM"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-002"));
         mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), stranger, "ENG")).andExpect(status().isForbidden());
@@ -505,7 +505,7 @@ class DemIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
         mvc.perform(as(get("/api/v1/dem/daily-logs/" + logId), UUID.randomUUID(), "CUSTOMER")
                         .header("X-Client-Org-Id", owner.toString()))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CORE-403-010"));
 
         // TC-DEM-009: 업로드 후 원본 1바이트 변조(로컬 WORM 모사를 우회) → verify MISMATCH
         mvc.perform(as(get("/api/v1/dem/evidence/photos/" + p2 + "/verify"), pm, "PM"))

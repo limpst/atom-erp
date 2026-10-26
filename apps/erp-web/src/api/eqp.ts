@@ -39,6 +39,8 @@ export const RESERVATION_STATUS_LABEL: Record<ReservationStatus, string> = {
 export interface Reservation {
   id: string; equipment_id: string; project_id: string; from_date: string; to_date: string;
   status: ReservationStatus; conditional: boolean; version: number;
+  /** EQP-01 신청자(본인 승인 금지 · 취소는 신청자 또는 승인 권한자) */
+  requested_by?: string;
 }
 export interface Alternative { equipmentId: string; code: string; validUntil: string | null; score: number }
 

@@ -96,6 +96,22 @@ public class AuthzProbeController {
         return OK;
     }
 
+    /**
+     * PTL-01 이후 CLIENT 범위는 포털 권한(ptl:*)에만 남고, 포털 주체는 /api/v1/ptl/** 만 쓸 수 있다 →
+     * CLIENT 범위 aspect 판정 프로브는 포털 경로 아래에 둔다.
+     */
+    @GetMapping("/api/v1/ptl/test/cmn05/undeclared/{id}")
+    @RequirePermission("ptl:share:read")
+    public Map<String, Object> portalUndeclared(@PathVariable UUID id) {
+        return OK;
+    }
+
+    @GetMapping("/api/v1/ptl/test/cmn05/reports/{id}")
+    @RequirePermission(value = "ptl:share:read", scopeResolver = ProbeScopeResolver.class, resourceParam = "id")
+    public Map<String, Object> portalResolvedReport(@PathVariable UUID id) {
+        return OK;
+    }
+
     @GetMapping("/api/v1/test/cmn05/service-checked/{id}")
     @RequirePermission(value = "rpt:report:read", scopeCheckedInService = true)
     public Map<String, Object> serviceChecked(@PathVariable UUID id) {

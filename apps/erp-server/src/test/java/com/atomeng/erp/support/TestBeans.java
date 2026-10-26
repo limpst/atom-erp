@@ -198,15 +198,70 @@ public class TestBeans {
         return new TestEventConsumer(jdbc);
     }
 
-    /** 항상 500 을 내는 엔드포인트 — "5xx 는 멱등 저장하지 않음" 검증용 */
+    /** 항상 500 을 내는 엔드포인트 — "5xx 는 멱등 저장하지 않음" 검증용 · 바이너리 응답(CMN-09) 검증용 */
     @RestController
     public static class BoomController {
         public final AtomicInteger calls = new AtomicInteger();
+        public final AtomicInteger binaryCalls = new AtomicInteger();
+
+        /** 보안 검토 CMN-09: 비 JSON(PDF) 응답 — 멱등 저장 · 재반환 제외 확인용(합성 바이트) */
+        @PostMapping("/api/v1/test/binary")
+        public org.springframework.http.ResponseEntity<byte[]> binary() {
+            int n = binaryCalls.incrementAndGet();
+            return org.springframework.http.ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                    .body(("%PDF-1.7 synthetic " + n).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        }
 
         @PostMapping("/api/v1/test/boom")
         public Map<String, Object> boom() {
             calls.incrementAndGet();
             throw new IllegalStateException("synthetic failure");
+        }
+    }
+
+    @Bean
+    FanoutSubscribers fanoutSubscribers() {
+        return new FanoutSubscribers();
+    }
+
+    /**
+     * 보안 검토 CMN-14 시험용: 같은 이벤트(tst.fanout.raised)의 두 구독자 — good 은 항상 성공, bad 는 failBad 이면 실패.
+     * 커밋된 처리 = core.processed_event(consumer, event_id) 행(구독자 트랜잭션과 함께 커밋 · 롤백).
+     */
+    public static class FanoutSubscribers {
+        public static final String GOOD = "test.fanout-good";
+        public static final String BAD = "test.fanout-bad";
+        private final AtomicInteger good = new AtomicInteger();
+        private final AtomicInteger bad = new AtomicInteger();
+        private volatile boolean failBad;
+
+        @EventListener(condition = "#env.eventType == 'tst.fanout.raised'")
+        @IdempotentListener(consumer = GOOD)
+        public void onGood(EventEnvelope env) {
+            good.incrementAndGet();
+        }
+
+        @EventListener(condition = "#env.eventType == 'tst.fanout.raised'")
+        @IdempotentListener(consumer = BAD)
+        public void onBad(EventEnvelope env) {
+            bad.incrementAndGet();
+            if (failBad) {
+                throw new IllegalStateException("injected subscriber failure");
+            }
+        }
+
+        public void reset(boolean failBad) {
+            good.set(0);
+            bad.set(0);
+            this.failBad = failBad;
+        }
+
+        public int goodDeliveries() {
+            return good.get();
+        }
+
+        public int badDeliveries() {
+            return bad.get();
         }
     }
 

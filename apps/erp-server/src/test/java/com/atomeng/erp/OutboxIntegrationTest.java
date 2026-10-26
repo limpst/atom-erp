@@ -43,10 +43,12 @@ class OutboxIntegrationTest extends IntegrationTestBase {
     ApplicationEventPublisher events;
     @Autowired
     com.atomeng.erp.core.application.ProjectService projectService;
+    @Autowired
+    com.atomeng.erp.support.TestBeans.FanoutSubscribers fanout;
 
     @BeforeEach
     void clean() {
-        jdbc.execute("TRUNCATE core.outbox_event, core.outbox_dead, core.processed_event");
+        jdbc.execute("TRUNCATE core.outbox_event, core.outbox_dead, core.processed_event, core.outbox_delivery");
         consumer.reset();
         clock.reset();
     }
@@ -216,5 +218,72 @@ class OutboxIntegrationTest extends IntegrationTestBase {
         assertThat(relay.pollOnce().published()).isEqualTo(1);
         assertThat(consumer.sideEffects(eventId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM core.outbox_dead", Integer.class)).isZero();
+    }
+
+    private int processed(String consumer, UUID eventId) {
+        return jdbc.queryForObject("SELECT count(*) FROM core.processed_event WHERE consumer = ? AND event_id = ?",
+                Integer.class, consumer, eventId);
+    }
+
+    private String delivery(UUID eventId, String subscriber) {
+        var rows = jdbc.queryForList("SELECT status || ':' || attempts FROM core.outbox_delivery WHERE event_id = ? "
+                + "AND subscriber = ?", String.class, eventId, subscriber);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Test
+    @DisplayName("CMN-14: 같은 이벤트의 한 구독자가 실패해도 다른 구독자 처리는 커밋 · 재전달 없음, 실패 구독자만 10→20→40→80s 재시도 후 "
+            + "구독자별 DLQ, 재투입은 DEAD 구독자만")
+    void cmn14PerSubscriberDeliveryAndDeadLetter() {
+        String good = com.atomeng.erp.support.TestBeans.FanoutSubscribers.GOOD;
+        String bad = com.atomeng.erp.support.TestBeans.FanoutSubscribers.BAD;
+        fanout.reset(true);
+        UUID eventId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO core.outbox_event(id, aggregate_type, aggregate_id, event_type, payload, next_attempt_at)
+                VALUES (?, 'Fanout', ?, 'tst.fanout.raised', '{}'::jsonb, ?)""", eventId, UUID.randomUUID(),
+                java.sql.Timestamp.from(clock.instant()));
+
+        assertThat(relay.pollOnce()).isEqualTo(new OutboxRelay.PollResult(0, 1, 0));
+        assertThat(processed(good, eventId)).isEqualTo(1);   // 커밋됨
+        assertThat(processed(bad, eventId)).isZero();        // 롤백됨
+        assertThat(consumer.sideEffects(eventId)).isEqualTo(1);   // 모든 이벤트를 받는 시험 컨슈머도 커밋
+        assertThat(delivery(eventId, good)).isEqualTo("DONE:1");
+        assertThat(delivery(eventId, bad)).isEqualTo("RETRY:1");
+
+        long[] delays = {10, 20, 40, 80};
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            var row = jdbc.queryForMap("SELECT attempts, last_error, next_attempt_at FROM core.outbox_event WHERE id = ?", eventId);
+            assertThat(row.get("attempts")).isEqualTo(attempt);
+            assertThat((String) row.get("last_error")).contains(bad).contains("injected");
+            long delay = Duration.between(clock.instant(), ((java.sql.Timestamp) row.get("next_attempt_at")).toInstant()).toSeconds();
+            assertThat(delay).as("attempt %d", attempt).isBetween(delays[attempt - 1] - 1, delays[attempt - 1]);
+            assertThat(relay.pollOnce()).isEqualTo(new OutboxRelay.PollResult(0, 0, 0));   // 재시도 시각 전
+            clock.advance(Duration.ofSeconds(delays[attempt - 1]));
+            var r = relay.pollOnce();
+            assertThat(attempt < 4 ? r.failed() : r.dead()).as("attempt %d", attempt + 1).isEqualTo(1);
+        }
+        // 5회째 실패: bad 구독자만 DEAD(구독자별 DLQ), 이벤트는 outbox_dead 로. good · 시험 컨슈머는 다시 받지 않았다
+        assertThat(fanout.badDeliveries()).isEqualTo(5);
+        assertThat(fanout.goodDeliveries()).isEqualTo(1);
+        assertThat(consumer.deliveries()).isEqualTo(1);
+        assertThat(delivery(eventId, bad)).isEqualTo("DEAD:5");
+        assertThat(delivery(eventId, good)).isEqualTo("DONE:1");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.outbox_event WHERE id = ?", Integer.class, eventId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT attempts FROM core.outbox_dead WHERE id = ?", Integer.class, eventId)).isEqualTo(5);
+        assertThat(jdbc.queryForList("SELECT subscriber FROM core.outbox_subscriber_dead WHERE event_id = ?", String.class, eventId))
+                .containsExactly(bad);
+
+        // 원인 조치 후 재투입 → DEAD 구독자만 다시 전달, 이미 처리한 구독자는 그대로 1회
+        fanout.reset(false);
+        assertThat(relay.requeueDead(eventId)).isEqualTo(1);
+        assertThat(relay.pollOnce().published()).isEqualTo(1);
+        assertThat(fanout.badDeliveries()).isEqualTo(1);
+        assertThat(fanout.goodDeliveries()).isZero();
+        assertThat(processed(bad, eventId)).isEqualTo(1);
+        assertThat(processed(good, eventId)).isEqualTo(1);
+        assertThat(consumer.sideEffects(eventId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.outbox_delivery WHERE event_id = ?", Integer.class, eventId))
+                .isZero();
     }
 }

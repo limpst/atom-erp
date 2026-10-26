@@ -104,7 +104,11 @@ public final class FileParser {
         List<String> warnings = new ArrayList<>(src.warnings());
         HeaderMatch hm;
         try {
-            hm = new HeaderDetector().detect(src.rows().subList(0, Math.min(30, src.rows().size())));
+            List<MappingProfile> known = new ArrayList<>(profiles == null ? List.of() : profiles);
+            if (forced != null) {
+                known.add(forced);
+            }
+            hm = new HeaderDetector(known).detect(src.rows().subList(0, Math.min(30, src.rows().size())));
         } catch (HeaderDetector.HeaderNotFound e) {
             return new ParseResult(sha, src.kind(), channel, src.encoding(), src.delimiter(), null, 1, null, 0, true,
                     List.of(), List.of(), warnings, List.of(), 0);

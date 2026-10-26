@@ -1,0 +1,50 @@
+# FCD 카드사 명세서 매핑 프로파일 — Python(atomeng_aip.fraud.ingest.profile_yaml) · Java(MappingProfileYaml) 공용
+# 헤더 이름만 담습니다(거래 값 · 카드번호 · 이름 없음). onboarding 블록은 검토용 메타데이터로 로더가 무시합니다.
+format: fcd-mapping-profile/v1
+profile_id: P-BCARD-USAGE-CSV-1
+card_company: BCARD
+file_type: CSV
+kind: APPROVAL
+name: (가상)비카드 이용내역 CSV(탭) v1
+form_version: 1
+active: true
+encoding: null
+delimiter: null
+date_format: '%Y-%m-%d'
+cancel_mode: STATUS_COLUMN
+cancel_values:
+- 승인취소
+- 취소
+partial_cancel_values:
+- 부분취소
+footer_stop_pattern: 합계|소계|총계
+header_signature:
+- 거래일시
+- 카드번호
+- 카드별칭
+- 승인번호
+- 이용가맹점
+- 가맹점사업자번호
+- MCC
+- 승인금액
+- 승인구분
+- 통화
+- 현지금액
+- 원화환산금액
+- 적용환율
+- 메모
+column_map:
+  approved_date: 거래일시
+  card_ref: 카드번호
+  card_alias: 카드별칭
+  approval_no: 승인번호
+  merchant_name: 이용가맹점
+  biz_reg_no: 가맹점사업자번호
+  category: MCC
+  amount: 승인금액
+  status: 승인구분
+  currency: 통화
+  amount_foreign: 현지금액
+  amount_krw_fx: 원화환산금액
+  fx_rate: 적용환율
+  note: 메모

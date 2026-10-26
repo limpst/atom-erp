@@ -1,0 +1,45 @@
+# FCD 카드사 명세서 매핑 프로파일 — Python(atomeng_aip.fraud.ingest.profile_yaml) · Java(MappingProfileYaml) 공용
+# 헤더 이름만 담습니다(거래 값 · 카드번호 · 이름 없음). onboarding 블록은 검토용 메타데이터로 로더가 무시합니다.
+format: fcd-mapping-profile/v1
+profile_id: P-ACARD-APPROVAL-CSV-1
+card_company: ACARD
+file_type: CSV
+kind: APPROVAL
+name: (가상)에이카드 승인내역 CSV v1
+form_version: 1
+active: true
+encoding: null
+delimiter: null
+date_format: '%Y.%m.%d'
+cancel_mode: NEGATIVE_AMOUNT
+cancel_values:
+- 취소
+- 승인취소
+- 매입취소
+partial_cancel_values:
+- 부분취소
+footer_stop_pattern: 합계|소계|총계
+header_signature:
+- 이용일자
+- 이용시간
+- 카드번호
+- 승인번호
+- 가맹점명
+- 사업자번호
+- 업종
+- 이용금액
+- 통화
+- 현지금액
+- 비고
+column_map:
+  approved_date: 이용일자
+  approved_time: 이용시간
+  card_ref: 카드번호
+  approval_no: 승인번호
+  merchant_name: 가맹점명
+  biz_reg_no: 사업자번호
+  category: 업종
+  amount: 이용금액
+  currency: 통화
+  amount_foreign: 현지금액
+  note: 비고

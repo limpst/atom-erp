@@ -119,11 +119,25 @@ public final class HeaderDetector {
     private final Map<String, Set<String>> synonyms = new LinkedHashMap<>();
 
     public HeaderDetector() {
+        this(List.of());
+    }
+
+    /**
+     * 프로파일의 헤더 이름(column_map 값)을 동의어에 더한다 — 온보딩 도구로 만든 YAML 프로파일의 '처음 보는' 헤더
+     * (예: "매출일자")도 헤더 행 탐지에 쓰이게 한다(Python {@code profiles.make_detector(profiles)} 와 동일).
+     */
+    public HeaderDetector(java.util.Collection<MappingProfile> profiles) {
         SYNONYMS.forEach((f, xs) -> {
             Set<String> s = new HashSet<>();
             xs.forEach(x -> s.add(normHeader(x)));
             synonyms.put(f, s);
         });
+        for (MappingProfile p : profiles) {
+            if (p == null) {
+                continue;
+            }
+            p.columnMap().forEach((f, h) -> synonyms.computeIfAbsent(f, k -> new HashSet<>()).add(normHeader(h)));
+        }
     }
 
     private Map<String, Integer> score(List<String> row) {

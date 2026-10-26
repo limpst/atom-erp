@@ -1,0 +1,79 @@
+# FCD 카드사 명세서 매핑 프로파일 — Python(atomeng_aip.fraud.ingest.profile_yaml) · Java(MappingProfileYaml) 공용
+# 헤더 이름만 담습니다(거래 값 · 카드번호 · 이름 없음). onboarding 블록은 검토용 메타데이터로 로더가 무시합니다.
+format: fcd-mapping-profile/v1
+profile_id: P-XCARD-APPROVAL-CSV-1
+card_company: XCARD
+file_type: CSV
+kind: APPROVAL
+name: XCARD APPROVAL CSV v1 (온보딩 제안)
+form_version: 1
+active: true
+encoding: cp949
+delimiter: ','
+date_format: null
+cancel_mode: NEGATIVE_AMOUNT
+cancel_values:
+- 취소
+- 승인취소
+- 매입취소
+partial_cancel_values:
+- 부분취소
+footer_stop_pattern: 합계|소계|총계
+header_signature:
+- 이용 일자
+- 이용시간(HH:MM)
+- 카드 번호[마스킹]
+- 승인 번호
+- 이용자명
+- 가맹점 명
+- 가맹점 사업자번호
+- 업종명
+- 이용금액(원)
+- 포인트적립
+- 비고
+column_map:
+  approved_date: 이용 일자
+  approved_time: 이용시간(HH:MM)
+  card_ref: 카드 번호[마스킹]
+  approval_no: 승인 번호
+  merchant_name: 가맹점 명
+  biz_reg_no: 가맹점 사업자번호
+  category: 업종명
+  amount: 이용금액(원)
+  note: 비고
+onboarding:
+  generated_by: fcd-onboard profile-from-header
+  generated_at: '2026-10-26'
+  review_required: false
+  header_row: 2
+  header_rows: 1
+  confidence:
+    card_ref: 1.0
+    approved_date: 1.0
+    approved_time: 1.0
+    approval_no: 1.0
+    amount: 1.0
+    merchant_name: 1.0
+    biz_reg_no: 1.0
+    category: 1.0
+    note: 1.0
+  unresolved:
+  - card_alias
+  - status
+  - currency
+  - amount_foreign
+  - amount_krw_fx
+  - fx_rate
+  - purchased_on
+  unresolved_required: []
+  low_confidence: []
+  unknown_columns:
+  - 포인트적립
+  personal_columns:
+  - 이용자명
+  alternatives:
+    amount_foreign:
+    - - 이용금액(원)
+      - 0.867
+  warnings:
+  - 개인정보로 보이는 컬럼 1개 — 매핑하지 않음(비식별 도구 대상)

@@ -79,6 +79,12 @@ public class AttachmentService implements AttachmentIngestApi, AttachmentReadApi
     private final ProjectScopeResolver scopes;
     private final long maxBytes;
 
+    /**
+     * 첨부 1건 상한 기본값 50MB — 보안 검토 FLD-02b 확정값(2026-10-26). {@code atom.attachment.max-bytes} 로만 바꾼다
+     * (application.yml 에 같은 값 명시, FLD 사진 상한 atom.fld.upload.max-file-bytes 와 같은 수치).
+     */
+    public static final long DEFAULT_MAX_BYTES = 52_428_800L;
+
     public AttachmentService(AttachmentJdbcRepository repo, ObjectStorage storage, OutboxPublisher outbox,
                              AuditLog audit, CurrentActor actor, Clock clock, PlatformTransactionManager txManager,
                              List<AttachmentOwnerResolver> ownerResolvers, ProjectScopeResolver scopes,

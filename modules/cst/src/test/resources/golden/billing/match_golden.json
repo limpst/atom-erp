@@ -1,0 +1,327 @@
+{
+  "note": "합성 사례 — 실제 거래처 · 금액 아님. tools/cst_billing_golden_gen.py 로 다시 생성",
+  "match": [
+    {
+      "id": "M-01",
+      "supplyKrw": 10000000,
+      "vatKrw": 1000000,
+      "clientName": "합성건설㈜",
+      "issueDate": "2026-03-02",
+      "receiptKrw": 11000000,
+      "payerText": "합성건설",
+      "valueDate": "2026-03-20",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 20,
+        "total": 100,
+        "autoCandidate": true
+      }
+    },
+    {
+      "id": "M-02",
+      "supplyKrw": 10000000,
+      "vatKrw": 1000000,
+      "clientName": "(주)합성건설",
+      "issueDate": "2026-03-02",
+      "receiptKrw": 10000000,
+      "payerText": "주식회사 합성건설",
+      "valueDate": "2026-04-15",
+      "expected": {
+        "amount": 35,
+        "name": 30,
+        "date": 10,
+        "total": 75,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-03",
+      "supplyKrw": 5500000,
+      "vatKrw": 550000,
+      "clientName": "가나다엔지니어링 주식회사",
+      "issueDate": "2026-01-10",
+      "receiptKrw": 6050000,
+      "payerText": "가나다엔지니어링-정기점검",
+      "valueDate": "2026-01-25",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 20,
+        "total": 100,
+        "autoCandidate": true
+      }
+    },
+    {
+      "id": "M-04",
+      "supplyKrw": 3000000,
+      "vatKrw": 300000,
+      "clientName": "합성관리단",
+      "issueDate": "2026-02-01",
+      "receiptKrw": 3300000,
+      "payerText": "전혀다른상사",
+      "valueDate": "2026-02-10",
+      "expected": {
+        "amount": 50,
+        "name": 0,
+        "date": 20,
+        "total": 70,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-05",
+      "supplyKrw": 3000000,
+      "vatKrw": 300000,
+      "clientName": "합성관리단",
+      "issueDate": "2026-02-01",
+      "receiptKrw": 3300000,
+      "payerText": "합성 관리단 (1차)",
+      "valueDate": "2026-08-15",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 0,
+        "total": 80,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-06",
+      "supplyKrw": 8000000,
+      "vatKrw": 800000,
+      "clientName": "새한구조기술사사무소",
+      "issueDate": "2026-05-01",
+      "receiptKrw": 8800000,
+      "payerText": "새한구조",
+      "valueDate": "2026-04-28",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 0,
+        "total": 80,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-07",
+      "supplyKrw": 8000000,
+      "vatKrw": 800000,
+      "clientName": "새한구조기술사사무소",
+      "issueDate": "2026-05-01",
+      "receiptKrw": 4400000,
+      "payerText": "새한구조기술사사무소",
+      "valueDate": "2026-05-20",
+      "expected": {
+        "amount": 0,
+        "name": 30,
+        "date": 20,
+        "total": 50,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-08",
+      "supplyKrw": 1200000,
+      "vatKrw": 120000,
+      "clientName": "ABC Tower 관리사무소",
+      "issueDate": "2026-06-01",
+      "receiptKrw": 1320000,
+      "payerText": "abc tower",
+      "valueDate": "2026-06-30",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 20,
+        "total": 100,
+        "autoCandidate": true
+      }
+    },
+    {
+      "id": "M-09",
+      "supplyKrw": 1200000,
+      "vatKrw": 120000,
+      "clientName": "ABC Tower 관리사무소",
+      "issueDate": "2026-06-01",
+      "receiptKrw": 1320000,
+      "payerText": "에이비씨타워",
+      "valueDate": "2026-07-15",
+      "expected": {
+        "amount": 50,
+        "name": 0,
+        "date": 10,
+        "total": 60,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-10",
+      "supplyKrw": 20000000,
+      "vatKrw": 2000000,
+      "clientName": "재단법인 합성문화재단",
+      "issueDate": "2026-01-05",
+      "receiptKrw": 22000000,
+      "payerText": "합성문화재단",
+      "valueDate": "2026-07-10",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 0,
+        "total": 80,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-11",
+      "supplyKrw": 7700000,
+      "vatKrw": 770000,
+      "clientName": "한빛종합건설(주)",
+      "issueDate": "2026-09-01",
+      "receiptKrw": 8470000,
+      "payerText": "한빛건설",
+      "valueDate": "2026-09-10",
+      "expected": {
+        "amount": 50,
+        "name": 15,
+        "date": 20,
+        "total": 85,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-12",
+      "supplyKrw": 7700000,
+      "vatKrw": 770000,
+      "clientName": "한빛종합건설(주)",
+      "issueDate": "2026-09-01",
+      "receiptKrw": 8470000,
+      "payerText": "",
+      "valueDate": "2026-09-10",
+      "expected": {
+        "amount": 50,
+        "name": 0,
+        "date": 20,
+        "total": 70,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-13",
+      "supplyKrw": 4000000,
+      "vatKrw": 400000,
+      "clientName": "가",
+      "issueDate": "2026-09-01",
+      "receiptKrw": 4400000,
+      "payerText": "가",
+      "valueDate": "2026-09-05",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 20,
+        "total": 100,
+        "autoCandidate": true
+      }
+    },
+    {
+      "id": "M-14",
+      "supplyKrw": 4000000,
+      "vatKrw": 400000,
+      "clientName": "대한안전진단",
+      "issueDate": "2026-03-01",
+      "receiptKrw": 4400000,
+      "payerText": "대한안전",
+      "valueDate": "2026-05-31",
+      "expected": {
+        "amount": 50,
+        "name": 30,
+        "date": 5,
+        "total": 85,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-15",
+      "supplyKrw": 4000000,
+      "vatKrw": 400000,
+      "clientName": "대한안전진단",
+      "issueDate": "2026-03-01",
+      "receiptKrw": 4400000,
+      "payerText": "대한진단안전",
+      "valueDate": "2026-08-29",
+      "expected": {
+        "amount": 50,
+        "name": 18,
+        "date": 0,
+        "total": 68,
+        "autoCandidate": false
+      }
+    },
+    {
+      "id": "M-16",
+      "supplyKrw": 9900000,
+      "vatKrw": 990000,
+      "clientName": "유한회사 동서남북",
+      "issueDate": "2026-04-01",
+      "receiptKrw": 9900000,
+      "payerText": "동서남북(유)",
+      "valueDate": "2026-04-01",
+      "expected": {
+        "amount": 35,
+        "name": 30,
+        "date": 20,
+        "total": 85,
+        "autoCandidate": false
+      }
+    }
+  ],
+  "aging": [
+    {
+      "ageDays": 0,
+      "bucket": "A_0_30"
+    },
+    {
+      "ageDays": 1,
+      "bucket": "A_0_30"
+    },
+    {
+      "ageDays": 30,
+      "bucket": "A_0_30"
+    },
+    {
+      "ageDays": 31,
+      "bucket": "B_31_60"
+    },
+    {
+      "ageDays": 60,
+      "bucket": "B_31_60"
+    },
+    {
+      "ageDays": 61,
+      "bucket": "C_61_90"
+    },
+    {
+      "ageDays": 90,
+      "bucket": "C_61_90"
+    },
+    {
+      "ageDays": 91,
+      "bucket": "D_91_180"
+    },
+    {
+      "ageDays": 180,
+      "bucket": "D_91_180"
+    },
+    {
+      "ageDays": 181,
+      "bucket": "E_181_PLUS"
+    },
+    {
+      "ageDays": 365,
+      "bucket": "E_181_PLUS"
+    },
+    {
+      "ageDays": 1000,
+      "bucket": "E_181_PLUS"
+    }
+  ]
+}

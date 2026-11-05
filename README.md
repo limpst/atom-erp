@@ -575,6 +575,16 @@ dev 서버 · 시드(`DevSeedRound3`, **API 로만**):
 - dev 시드 `DevSeedRound4`(API 로만): 겸직 사용자 `겸직임원`(SALES+EXEC) · `겸직책임`(PM+ENG+EXEC), 나라장터 WireMock 공고 5건(정정 · 취소 포함) · 공고 연결 기회, 겸직임원 작성 8% 할인 승인 대기 견적 2건, 직무 분리 연습 프로젝트(겸직책임 RESP) · 타임시트, 계약 2건째(PRJ-2026-0004 DRAFT 예산), 감리일지 늦은 동기화 정정 대기. DEM-03b 시드: 정참여의 본인 정정 요청(PENDING) 1건.
 - 화면 · E2E 는 `apps/erp-web/README.md` 를 보세요.
 
+## 4-18. CST 청구 · 수금 · 통장 대사 (08 Step 12·13 첫 단계, 2026-11-06 — `docs/CST_BILLING_COLLECTION_DESIGN.md`)
+
+| 항목 | 구현 |
+|---|---|
+| 스키마 | `V0052__cst_billing_collection.sql` — `cst.invoice`(합계 생성 열, 발행 뒤 금액 · 거래처 · 발행일 불변 `CST-409-020`, VOID 조건 `CST-409-021`) · `cst.bank_receipt`(INSERT 만 `CST-409-022`, 명세서 줄 유일) · `cst.receipt_allocation`(INSERT 만 `CST-409-023`, 역분개 1회 `CST-422-020`, 제안자 ≠ 확정자, 초과 배분 `CST-409-025·026`) · `cst.invoice_open_items(as_of)` · `cst.receivable_aging(as_of)` |
+| 권한 | `V0053__cst_billing_permissions.sql` — 세부 권한 19건. 재무(FIN) 등록 · 제안, 경영지원 · 임원 확정, 감사 조회 |
+| 도메인 | `cst.domain.billing` — `MatchScorer`(금액 50 + 이름 30 + 날짜 20, 90점 이상 자동 후보) · `AgingBucket`(A 0~30 … E 181+) · `PartyName`(법인 표기 제거) |
+| 시험 | `BillingMigrationTest` 6개(내장 PG) · `BillingMatchGoldenTest` 4개(Python 합성 정답 `tools/cst_billing_golden_gen.py` 16건 + aging 경계 12건) |
+| 남은 것 | 서비스 · API · 이벤트(2단계), 독촉 · 통장 계정 분류 · 거래처 묶음(3단계) |
+
 ## 5. 설계와 다른 점 (의도적 편차)
 
 > 아래 메모의 `V2_0_0` · `V8_0_1` 같은 번호는 2026-10-19 재번호 이전 번호입니다. 새 번호는 2-1 절 표를 보세요.

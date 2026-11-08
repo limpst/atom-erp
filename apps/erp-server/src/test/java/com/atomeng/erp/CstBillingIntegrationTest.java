@@ -121,5 +121,15 @@ class CstBillingIntegrationTest extends IntegrationTestBase {
         mvc.perform(as(get("/api/v1/cst/projects/" + project + "/invoices"), actor(), "PM")).andExpect(status().isForbidden());
         mvc.perform(as(get("/api/v1/cst/projects/" + project + "/invoices"), fin, "FIN")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].invoiceNo").value(inv.get("invoiceNo").asText()));
+
+        // 9) 이벤트(Outbox): issued 1 · allocated 2(확정 + 역분개) · settled 1 · reopened 1 · voided 1 — 같은 트랜잭션에 기록
+        for (String[] e : new String[][] {{"cst.invoice.issued", "1"}, {"cst.receipt.allocated", "2"}, {"cst.invoice.settled", "1"},
+                {"cst.invoice.reopened", "1"}, {"cst.invoice.voided", "1"}}) {
+            Integer n = jdbc.queryForObject("SELECT count(*) FROM core.outbox_event WHERE event_type = ? AND aggregate_id = ?::uuid",
+                    Integer.class, e[0], invoiceId);
+            assertThat(n).as(e[0]).isEqualTo(Integer.parseInt(e[1]));
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM core.outbox_event WHERE event_type = 'cst.invoice.issued' "
+                + "AND payload::text LIKE '%payer%'", Integer.class)).as("payload 에 입금자 표기 없음").isZero();
     }
 }

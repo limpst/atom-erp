@@ -178,3 +178,36 @@ export const cstApi = {
   reopenPeriod: (ym: string, reason: string) =>
     http.post<{ periodYm: string; status: PeriodStatus }>(`/cst/periods/${ym}:reopen`, { reason }),
 };
+
+// ------------------------------------------------------------------ CST 청구 · 수금 · 통장 대사 (docs/CST_BILLING_COLLECTION_DESIGN.md §10)
+export type AgingBucket = 'A_0_30' | 'B_31_60' | 'C_61_90' | 'D_91_180' | 'E_181_PLUS';
+export const AGING_LABEL: Record<AgingBucket, string> = {
+  A_0_30: 'A 0~30일', B_31_60: 'B 31~60일', C_61_90: 'C 61~90일', D_91_180: 'D 91~180일', E_181_PLUS: 'E 181일 이상',
+};
+export interface AgingRow { bucket: AgingBucket; invoiceCount: number; openKrw: number }
+export interface OpenItem {
+  invoiceId: string; invoiceNo: string; projectId: string; clientId: string; clientName: string; issueDate: string;
+  supplyKrw: number; totalKrw: number; allocatedKrw: number; openKrw: number; ageDays: number; bucket: AgingBucket;
+}
+export interface MatchCandidate {
+  invoiceId: string; invoiceNo: string; clientName: string; issueDate: string; openKrw: number; receiptId: string;
+  valueDate: string; receiptKrw: number; remainingKrw: number; payerText: string; amountScore: number; nameScore: number;
+  dateScore: number; score: number; autoCandidate: boolean;
+}
+export interface AllocationProposal {
+  id: string; invoiceId: string; receiptId: string; amountKrw: number; matchScore: number;
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED'; proposedBy: string; decidedBy: string | null; rejectReason: string | null;
+  allocationId: string | null;
+}
+export const cstBillingApi = {
+  aging: (asOf: string) => http.get<AgingRow[]>('/cst/receivables/aging', { asOf }),
+  openItems: (asOf: string) => http.get<OpenItem[]>('/cst/receivables/open-items', { asOf }),
+  candidates: (asOf: string, minScore = 60) => http.get<MatchCandidate[]>('/cst/allocations/candidates', { asOf, minScore }),
+  propose: (invoiceId: string, receiptId: string, amountKrw: number) =>
+    http.post<AllocationProposal>('/cst/allocations:propose', { invoiceId, receiptId, amountKrw }),
+};
+/** 지난달 말일 YYYY-MM-DD — 기준일 기본값(같은 기준일이면 언제 계산해도 같은 숫자) */
+export function lastDayOfPrevMonth(now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

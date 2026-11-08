@@ -26,6 +26,7 @@ import { HrqCompliancePage } from '@/features/hrq/HrqCompliancePage';
 import { HrqMonthClosePage } from '@/features/hrq/HrqMonthClosePage';
 import { CstPeriodsPage } from '@/features/cst/CstPeriodsPage';
 import { CostLedgerPage } from '@/features/cst/CostLedgerPage';
+import { CstReceivablesPage } from '@/features/cst/CstReceivablesPage';
 import { FcdImportsPage } from '@/features/fcd/FcdImportsPage';
 import { FcdRulesetsPage } from '@/features/fcd/FcdRulesetsPage';
 import { FcdCardsPage } from '@/features/fcd/FcdCardsPage';
@@ -79,6 +80,7 @@ function Themed() {
           <Route path="hrq/month-close" element={<HrqMonthClosePage />} />
           <Route path="cst/periods" element={<CstPeriodsPage />} />
           <Route path="cst/ledger" element={<CostLedgerPage />} />
+          <Route path="cst/receivables" element={<CstReceivablesPage />} />
           <Route path="fcd/imports" element={<FcdImportsPage />} />
           <Route path="fcd/rulesets" element={<FcdRulesetsPage />} />
           <Route path="fcd/cards" element={<FcdCardsPage />} />

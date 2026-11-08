@@ -584,7 +584,9 @@ dev 서버 · 시드(`DevSeedRound3`, **API 로만**):
 | 도메인 | `cst.domain.billing` — `MatchScorer`(금액 50 + 이름 30 + 날짜 20, 90점 이상 자동 후보) · `AgingBucket`(A 0~30 … E 181+) · `PartyName`(법인 표기 제거) |
 | 시험 | `BillingMigrationTest` 6개(내장 PG) · `BillingMatchGoldenTest` 4개(Python 합성 정답 `tools/cst_billing_golden_gen.py` 16건 + aging 경계 12건) |
 | 서비스 · API | `BillingService`(쓰기 진입점 하나 — ArchUnit `cstBillingSingleWriter`) · `/api/v1/cst/invoices`(발행 · `:void`) · `/projects/{id}/invoices`(PM 범위) · `/receipts`(명세서 줄 멱등) · `/receivables/open-items|aging?asOf=` · `/allocations/candidates` · `/allocations:propose` · `/allocation-proposals/{id}:confirm|reject`(제안자 ≠ 확정자 `CST-403-010`) · `/allocations/{id}:reverse` · `V0054` 제안 표 · 청구 번호 시퀀스 · `V0055` 권한 18건 · `CstBillingIntegrationTest` |
-| 남은 것 | 이벤트(`cst.invoice.issued` 등) · 웹 화면 · 통장 명세 업로드(2단계 후반), 독촉 · 통장 계정 분류 · 거래처 묶음(3단계) |
+| 이벤트 | `cst.invoice.issued` · `cst.receipt.allocated`(음수 = 역분개) · `cst.invoice.settled`(전액 입금 1회) · `cst.invoice.reopened` · `cst.invoice.voided` — Outbox, payload 에 입금자 표기 · 계좌 별칭 없음(통합 시험에서 건수 · payload 검사) |
+| 웹 | `features/cst/CstReceivablesPage`(`/cst/receivables`): 기준일 선택 · aging 막대 · 미수 목록 검색 · 재무만 짝 후보 → 제안. Vitest `receivables.test.tsx`(npm 미설치 PC 라 미실행) |
+| 남은 것 | 내 할 일(확정 대기) 수신함 · 통장 명세 업로드(FCD 파서 공통화), 독촉 · 통장 계정 분류 · 거래처 묶음(3단계) |
 
 ## 5. 설계와 다른 점 (의도적 편차)
 

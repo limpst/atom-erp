@@ -4,6 +4,8 @@ import com.atomeng.common.audit.AuditLog;
 import com.atomeng.common.core.UuidV7;
 import com.atomeng.common.core.actor.CurrentActor;
 import com.atomeng.common.core.error.DomainException;
+import com.atomeng.common.events.OutboxPublisher;
+import com.atomeng.erp.cst.api.CstEvents;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.AllocationRow;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.FreeReceipt;
@@ -50,11 +52,13 @@ public class BillingService {
     private final BillingJdbc jdbc;
     private final AuditLog audit;
     private final CurrentActor actor;
+    private final OutboxPublisher outbox;
 
-    public BillingService(BillingJdbc jdbc, AuditLog audit, CurrentActor actor) {
+    public BillingService(BillingJdbc jdbc, AuditLog audit, CurrentActor actor, OutboxPublisher outbox) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.actor = actor;
+        this.outbox = outbox;
     }
 
     // ------------------------------------------------------------------ 청구
@@ -75,6 +79,8 @@ public class BillingService {
         jdbc.insertInvoice(row, by);
         InvoiceRow saved = requireInvoice(id);
         audit.append("CST", AuditLog.Action.CREATE, "invoice", id, null, saved);
+        outbox.publish(new CstEvents.InvoiceIssued(saved.id(), saved.invoiceNo(), saved.projectId(), saved.clientId(),
+                saved.issueDate(), saved.supplyKrw(), saved.vatKrw(), saved.totalKrw()));
         return saved;
     }
 
@@ -92,6 +98,7 @@ public class BillingService {
         jdbc.voidInvoice(id, reason, actor.actorIdOrSystem());
         InvoiceRow after = requireInvoice(id);
         audit.append("CST", AuditLog.Action.UPDATE, "invoice", id, before, after);
+        outbox.publish(new CstEvents.InvoiceVoided(id, after.invoiceNo(), reason));
         return after;
     }
 
@@ -200,6 +207,12 @@ public class BillingService {
         jdbc.insertAllocation(a);
         jdbc.decideProposal(proposalId, "CONFIRMED", by, null, a.id());
         audit.append("CST", AuditLog.Action.APPROVE, "receipt_allocation", a.id(), null, a);
+        outbox.publish(new CstEvents.ReceiptAllocated(a.id(), a.invoiceId(), a.receiptId(), a.amountKrw(), null, by));
+        InvoiceRow inv = requireInvoice(a.invoiceId());
+        if (jdbc.netAllocatedToInvoice(a.invoiceId()).compareTo(inv.totalKrw()) == 0) {
+            outbox.publish(new CstEvents.InvoiceSettled(inv.id(), inv.invoiceNo(), inv.projectId(), inv.clientId(), inv.totalKrw(),
+                    jdbc.receipt(a.receiptId()).map(ReceiptRow::valueDate).orElse(null), a.id()));
+        }
         return a;
     }
 
@@ -232,6 +245,12 @@ public class BillingService {
                 orig.id(), orig.matchScore(), orig.proposedBy(), by, reason);
         jdbc.insertAllocation(rev);
         audit.append("CST", AuditLog.Action.UPDATE, "receipt_allocation", rev.id(), orig, rev);
+        outbox.publish(new CstEvents.ReceiptAllocated(rev.id(), rev.invoiceId(), rev.receiptId(), rev.amountKrw(), orig.id(), by));
+        InvoiceRow inv = requireInvoice(rev.invoiceId());
+        BigDecimal net = jdbc.netAllocatedToInvoice(rev.invoiceId());
+        if (net.add(orig.amountKrw()).compareTo(inv.totalKrw()) == 0) {   // 역분개 전에는 전액 입금 상태였다
+            outbox.publish(new CstEvents.InvoiceReopened(inv.id(), inv.invoiceNo(), inv.totalKrw().subtract(net), rev.id()));
+        }
         return rev;
     }
 

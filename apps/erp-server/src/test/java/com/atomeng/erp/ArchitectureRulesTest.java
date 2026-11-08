@@ -50,4 +50,13 @@ class ArchitectureRulesTest {
             .should().callMethod(com.atomeng.erp.cst.adapter.out.persistence.CstJdbc.class, "insertLedger",
                     com.atomeng.erp.cst.adapter.out.persistence.CstJdbc.LedgerRow.class)
             .because("08-IMPL Step 6 DoD: 원가 원장 쓰기 진입점은 CostLedgerService 하나");
+    @ArchTest
+    static final ArchRule cstBillingSingleWriter = noClasses()
+            .that().resideInAPackage("com.atomeng.erp.cst..")
+            .and().doNotHaveFullyQualifiedName("com.atomeng.erp.cst.application.BillingService")
+            .should().callMethod(com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.class, "insertAllocation",
+                    com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.AllocationRow.class)
+            .orShould().callMethod(com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.class, "insertInvoice",
+                    com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.InvoiceRow.class, java.util.UUID.class)
+            .because("CST 청구 · 수금(docs/CST_BILLING_COLLECTION_DESIGN.md): 청구 · 배분 쓰기 진입점은 BillingService 하나");
 }

@@ -1,6 +1,6 @@
 # CST 청구 · 수금 · 통장 대사 설계서 (08 Step 12·13 첫 단계)
 
-판: 2026-11-06 · 브랜치 `feat/cst-billing-collection` · 상태: 1단계(스키마 · 도메인 규칙 · 시험) 구현, 2단계(서비스 · API · 화면) 설계
+판: 2026-11-08 · 브랜치 `feat/cst-billing-collection` · 상태: 1단계(스키마 · 도메인 · 시험 16개 통과) + 2단계(서비스 · API · 통합 시험) 구현, 3단계(독촉 · 분류) · 화면 · 이벤트 설계
 
 ## 쉬운 말 한 장 요약
 
@@ -28,7 +28,8 @@
 | 권한 `V0053__cst_billing_permissions.sql` | 끝 — 세부 권한 19건(재무 제안 · 경영지원/임원 확정) |
 | 도메인 `cst.domain.billing` | 끝 — `MatchScorer` · `AgingBucket` · `PartyName` (순수 도메인, 부동소수 없음) |
 | 시험 | 끝 — `BillingMigrationTest` 6개(내장 PostgreSQL) · `BillingMatchGoldenTest` 4개(Python 합성 정답 16건 + aging 경계 12건) |
-| 서비스 · API · 화면 | 남음(2단계, 아래 7장) |
+| 서비스 · API | 끝 — `BillingService`(쓰기 진입점 하나, ArchUnit) · `BillingController` API 10개 · `V0054`(allocation_proposal · invoice_no_seq) · `V0055`(PM receivable 삭제, 권한 18건) · `CstBillingIntegrationTest` |
+| 웹 화면 · 이벤트 · 명세 업로드 | 남음(10 · 11 · 12장) |
 | 독촉(dunning) · 통장 계정 분류 · 거래처 이름 묶음 | 남음(3단계) |
 
 ## 용어 정리

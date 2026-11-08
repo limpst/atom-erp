@@ -75,7 +75,7 @@ class CstMigrationTest {
     void schemaCreated() throws Exception {
         try (var c = conn(); var st = c.createStatement()) {
             assertThat((Long) scalar(st, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'cst' "
-                    + "AND table_type = 'BASE TABLE' AND table_name NOT LIKE 'cost_ledger_entry_%'")).isEqualTo(15L);   // V0052 청구 · 입금 · 배분 3개 추가
+                    + "AND table_type = 'BASE TABLE' AND table_name NOT LIKE 'cost_ledger_entry_%'")).isEqualTo(16L);   // V0052 청구 · 입금 · 배분 + V0054 제안 = 4개 추가
             assertThat((Long) scalar(st, "SELECT count(*) FROM pg_inherits i JOIN pg_class p ON p.oid = i.inhparent "
                     + "WHERE p.relname = 'cost_ledger_entry'")).isGreaterThanOrEqualTo(61L);
             assertThat((Long) scalar(st, "SELECT count(*) FROM cst.accounting_period")).isGreaterThanOrEqualTo(61L);

@@ -79,10 +79,10 @@ class BillingMigrationTest {
     }
 
     @Test
-    @DisplayName("스키마: 표 3개 · 합계 생성 열 · 부동소수 열 없음 · 권한 19건")
+    @DisplayName("스키마: 표 4개 · 합계 생성 열 · 부동소수 열 없음 · 권한 18건")
     void schemaCreated() throws Exception {
         try (var c = conn(); var st = c.createStatement()) {
-            for (String t : new String[] {"invoice", "bank_receipt", "receipt_allocation"}) {
+            for (String t : new String[] {"invoice", "bank_receipt", "receipt_allocation", "allocation_proposal"}) {
                 assertThat((Long) scalar(st, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'cst' "
                         + "AND table_name = '" + t + "'")).as(t).isEqualTo(1L);
             }
@@ -93,7 +93,7 @@ class BillingMigrationTest {
                     + "AND data_type IN ('real', 'double precision')")).as("부동소수 금지(NFR-CST-02)").isZero();
             assertThat((Long) scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'cst:invoice:%' "
                     + "OR permission LIKE 'cst:receipt:%' OR permission LIKE 'cst:allocation:%' "
-                    + "OR permission LIKE 'cst:receivable:%'")).isEqualTo(19L);
+                    + "OR permission LIKE 'cst:receivable:%'")).isEqualTo(18L);   // V0055: PM receivable 삭제
             assertThat((Long) scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission = 'cst:allocation:confirm' "
                     + "AND role = 'FIN'")).as("재무는 제안만, 확정 권한 없음(직무 분리)").isZero();
         }

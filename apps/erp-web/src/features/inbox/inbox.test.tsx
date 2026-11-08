@@ -55,7 +55,7 @@ useMswServer(
 
 describe('내 할 일 출처', () => {
   it('역할별 출처: EXEC 는 할인 · 예산 · 요율 · 룰셋 · 모델, ENG 는 QAR · 법인카드 소명만', () => {
-    expect(sourcesFor(['EXEC']).map((s) => s.id)).toEqual(['sal-discount', 'cst-budget', 'cst-rate', 'qar-assignment', 'fcd-ruleset', 'aip-promotion']);
+    expect(sourcesFor(['EXEC']).map((s) => s.id)).toEqual(['sal-discount', 'cst-budget', 'cst-allocation', 'cst-rate', 'qar-assignment', 'fcd-ruleset', 'aip-promotion']);
     expect(sourcesFor(['ENG', 'EMPLOYEE']).map((s) => s.id)).toEqual(['qar-assignment', 'fcd-case']);
     expect(sourcesFor(['SALES'])).toEqual([]);
   });

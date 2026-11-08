@@ -199,12 +199,19 @@ export interface AllocationProposal {
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED'; proposedBy: string; decidedBy: string | null; rejectReason: string | null;
   allocationId: string | null;
 }
+export interface PendingProposal {
+  proposalId: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; receiptId: string;
+  valueDate: string; receiptKrw: number; amountKrw: number; matchScore: number; proposedBy: string; requestedAt: string | null;
+}
 export const cstBillingApi = {
   aging: (asOf: string) => http.get<AgingRow[]>('/cst/receivables/aging', { asOf }),
   openItems: (asOf: string) => http.get<OpenItem[]>('/cst/receivables/open-items', { asOf }),
   candidates: (asOf: string, minScore = 60) => http.get<MatchCandidate[]>('/cst/allocations/candidates', { asOf, minScore }),
   propose: (invoiceId: string, receiptId: string, amountKrw: number) =>
     http.post<AllocationProposal>('/cst/allocations:propose', { invoiceId, receiptId, amountKrw }),
+  pendingProposals: () => http.get<PendingProposal[]>('/cst/inbox/allocation-proposals'),
+  confirmProposal: (id: string) => http.post<{ id: string; amountKrw: number }>(`/cst/allocation-proposals/${id}:confirm`),
+  rejectProposal: (id: string, reason: string) => http.post<AllocationProposal>(`/cst/allocation-proposals/${id}:reject`, { reason }),
 };
 /** 지난달 말일 YYYY-MM-DD — 기준일 기본값(같은 기준일이면 언제 계산해도 같은 숫자) */
 export function lastDayOfPrevMonth(now = new Date()): string {

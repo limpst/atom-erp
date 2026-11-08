@@ -118,6 +118,41 @@ function CandidatesPanel({ asOf, canPropose }: { asOf: string; canPropose: boole
   );
 }
 
+function PendingPanel({ canConfirm }: { canConfirm: boolean }) {
+  const qc = useQueryClient();
+  const pending = useQuery({ queryKey: ['cst', 'pending-proposals'], queryFn: cstBillingApi.pendingProposals, enabled: canConfirm });
+  const done = () => {
+    qc.invalidateQueries({ queryKey: ['cst', 'pending-proposals'] });
+    qc.invalidateQueries({ queryKey: ['cst', 'open-items'] });
+    qc.invalidateQueries({ queryKey: ['cst', 'aging'] });
+    qc.invalidateQueries({ queryKey: ['inbox'] });
+  };
+  const confirm = useMutation({ mutationFn: (id: string) => cstBillingApi.confirmProposal(id), onSuccess: () => { toast.success('배분 확정 — 미수가 줄었습니다'); done(); } });
+  const reject = useMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => cstBillingApi.rejectProposal(id, reason), onSuccess: () => { toast.success('반려했습니다'); done(); } });
+  if (!canConfirm) return null;
+  return (
+    <Card title={`확정 대기 제안 (${pending.data?.length ?? 0}건) — 제안한 사람은 목록에서 빠집니다`}>
+      {pending.error && <ErrorBox error={pending.error} />}
+      {pending.data?.length === 0 && <p className="muted">확정할 제안이 없습니다.</p>}
+      <table className="simple" data-testid="pending">
+        <thead><tr><th>점수</th><th>발주처 · 청구</th><th>입금일</th><th className="num">배분 금액</th><th /></tr></thead>
+        <tbody>
+          {pending.data?.map((p) => (
+            <tr key={p.proposalId}>
+              <td><Badge tone={p.matchScore >= 90 ? 'ok' : 'warn'}>{p.matchScore}</Badge></td>
+              <td>{p.clientName} · {p.invoiceNo}</td><td>{p.valueDate}</td><td className="num">{fmtMoney(p.amountKrw)}</td>
+              <td className="row">
+                <button className="primary" onClick={() => confirm.mutate(p.proposalId)} disabled={confirm.isPending} data-testid={`confirm-${p.invoiceNo}`}>확정</button>
+                <button onClick={() => { const reason = window.prompt('반려 사유'); if (reason) reject.mutate({ id: p.proposalId, reason }); }} disabled={reject.isPending}>반려</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
 /**
  * CST › 미수 현황 · 통장 대사 (docs/CST_BILLING_COLLECTION_DESIGN.md §10).
  * 기준일(asOf)은 화면이 정한다 — 서버의 "오늘"을 쓰지 않아 같은 기준일이면 같은 숫자가 나온다.
@@ -127,6 +162,7 @@ export function CstReceivablesPage() {
   const { hasRole } = useAuth();
   const canRead = hasRole('EXEC', 'ADMIN', 'FIN', 'AUDITOR');
   const canPropose = hasRole('FIN');
+  const canConfirm = hasRole('EXEC', 'ADMIN');
   const [asOf, setAsOf] = useState(lastDayOfPrevMonth());
   const aging = useQuery({ queryKey: ['cst', 'aging', asOf], queryFn: () => cstBillingApi.aging(asOf), enabled: canRead && !!asOf });
   const open = useQuery({ queryKey: ['cst', 'open-items', asOf], queryFn: () => cstBillingApi.openItems(asOf), enabled: canRead && !!asOf });
@@ -144,6 +180,7 @@ export function CstReceivablesPage() {
       {aging.data && <AgingPanel rows={aging.data} />}
       {open.error && <ErrorBox error={open.error} />}
       {open.data && <OpenItemsPanel items={open.data} />}
+      <PendingPanel canConfirm={canConfirm} />
       <CandidatesPanel asOf={asOf} canPropose={canPropose} />
     </>
   );

@@ -29,7 +29,9 @@
 | 도메인 `cst.domain.billing` | 끝 — `MatchScorer` · `AgingBucket` · `PartyName` (순수 도메인, 부동소수 없음) |
 | 시험 | 끝 — `BillingMigrationTest` 6개(내장 PostgreSQL) · `BillingMatchGoldenTest` 4개(Python 합성 정답 16건 + aging 경계 12건) |
 | 서비스 · API | 끝 — `BillingService`(쓰기 진입점 하나, ArchUnit) · `BillingController` API 10개 · `V0054`(allocation_proposal · invoice_no_seq) · `V0055`(PM receivable 삭제, 권한 18건) · `CstBillingIntegrationTest` |
-| 웹 화면 · 이벤트 · 명세 업로드 | 남음(10 · 11 · 12장) |
+| 이벤트 5종 · 웹 미수 현황 화면 · 내 할 일(확정 대기 제안) | 끝 — `CstEvents` 5종(Outbox) · `/cst/receivables` · `/cst/inbox/allocation-proposals` |
+| 독촉 1단계 | 끝 — `V0056`(dunning_notice · dunning_hold · 상태 전이 트리거 `CST-409-031·032`) · `DunningService.run(asOf)`(멱등) · `/cst/dunning:run · /notices · :approve(EXEC·ADMIN, 작성자 제외) · :sent(APPROVED 뒤에만) · :hold · :release` |
+| 명세 업로드 · 통장 계정 분류 · 거래처 묶음 | 남음(12장 · 9-2장) |
 | 독촉(dunning) · 통장 계정 분류 · 거래처 이름 묶음 | 남음(3단계) |
 
 ## 용어 정리

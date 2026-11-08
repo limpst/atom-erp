@@ -39,6 +39,10 @@ interface BudgetRow {
   revisionId: string; projectId: string; revNo: number; status: string; bacKrw: number; contractAmountKrw: number;
   expectedMarginPct: number; createdBy: string; requestedAt: string | null; version: number;
 }
+interface AllocationProposalRow {
+  proposalId: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; receiptId: string;
+  valueDate: string; receiptKrw: number; amountKrw: number; matchScore: number; proposedBy: string; requestedAt: string | null;
+}
 interface TimesheetRow {
   employeeId: string; empNo: string; employeeName: string; projectId: string; isoWeek: string; entries: number;
   hours: number; firstDate: string; submittedAt: string | null;
@@ -68,6 +72,15 @@ export const INBOX_SOURCES: InboxSource[] = [
       title: `실행예산 Rev.${r.revNo} 결재 (${r.status})`,
       detail: `BAC ${r.bacKrw.toLocaleString('ko-KR')}원 · 예상 이익률 ${r.expectedMarginPct}%`,
       link: `/projects/${r.projectId}`, at: r.requestedAt,
+    })),
+  },
+  {
+    id: 'cst-allocation', label: '입금 배분 확정', module: 'CST', roles: ['EXEC', 'ADMIN'],
+    fetch: async () => (await http.get<AllocationProposalRow[]>('/cst/inbox/allocation-proposals')).map((r) => ({
+      key: `alloc:${r.proposalId}`, module: 'CST', kind: '배분 확정',
+      title: `${r.clientName} · ${r.invoiceNo} ← 입금 ${r.amountKrw.toLocaleString('ko-KR')}원 (점수 ${r.matchScore})`,
+      detail: `입금일 ${r.valueDate} · 입금액 ${r.receiptKrw.toLocaleString('ko-KR')}원 · 제안자와 다른 사람이 확정`,
+      link: `/cst/receivables?proposal=${r.proposalId}`, at: r.requestedAt,
     })),
   },
   {

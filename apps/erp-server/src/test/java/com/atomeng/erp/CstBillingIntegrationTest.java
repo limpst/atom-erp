@@ -132,4 +132,64 @@ class CstBillingIntegrationTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM core.outbox_event WHERE event_type = 'cst.invoice.issued' "
                 + "AND payload::text LIKE '%payer%'", Integer.class)).as("payload 에 입금자 표기 없음").isZero();
     }
+
+    @Test
+    @DisplayName("독촉: 기준일로 L0·L1·L2 초안을 한 번씩만 만들고, 보류 청구는 건너뛰고, L2 는 다른 사람 결재 뒤에만 발송 기록, 전액 입금되면 취소")
+    void dunningRun() throws Exception {
+        UUID fin = actor();
+        UUID admin = actor();
+        UUID pm = actor();
+        UUID client = createClient(actor(), "합성독촉건설-" + UUID.randomUUID().toString().substring(0, 8));
+        UUID project = project(pm, client);
+        String issue = """
+                {"projectId":"%s","clientId":"%s","issueDate":"2026-06-01","supplyKrw":1000000,"vatKrw":100000}""".formatted(project, client);
+        JsonNode inv = json(mvc.perform(as(postJson("/api/v1/cst/invoices", issue), fin, "FIN")).andExpect(status().isCreated()).andReturn());
+        String invoiceId = inv.get("id").asText();
+        String held = json(mvc.perform(as(postJson("/api/v1/cst/invoices", issue.replace("2026-06-01", "2026-05-01")), fin, "FIN"))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        mvc.perform(as(postJson("/api/v1/cst/dunning/invoices/" + held + ":hold", "{\"reason\":\"합성 하자 협의 중\"}"), fin, "FIN"))
+                .andExpect(status().isOk());
+
+        // 기준일 2026-10-31: 152일 → L0 · L1 · L2 세 초안. 두 번 돌려도 새로 생기지 않는다(멱등)
+        mvc.perform(as(postJson("/api/v1/cst/dunning:run", "{\"asOf\":\"2026-10-31\"}"), actor(), "ENG")).andExpect(status().isForbidden());
+        JsonNode r1 = json(mvc.perform(as(postJson("/api/v1/cst/dunning:run", "{\"asOf\":\"2026-10-31\"}"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(r1.get("skippedOnHold").asInt()).isGreaterThanOrEqualTo(1);
+        JsonNode r2 = json(mvc.perform(as(postJson("/api/v1/cst/dunning:run", "{\"asOf\":\"2026-10-31\"}"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(r2.get("created").asInt()).isZero();
+        Integer mine = jdbc.queryForObject("SELECT count(*) FROM cst.dunning_notice WHERE invoice_id = ?::uuid", Integer.class, invoiceId);
+        assertThat(mine).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cst.dunning_notice WHERE invoice_id = ?::uuid", Integer.class, held))
+                .as("보류 청구는 초안 없음").isZero();
+        String l2 = jdbc.queryForObject("SELECT id::text FROM cst.dunning_notice WHERE invoice_id = ?::uuid AND level = 'L2'", String.class, invoiceId);
+
+        // 발송 기록은 결재(APPROVED) 뒤에만. 결재는 초안 작성자(FIN=run 실행자)가 아닌 EXEC · ADMIN
+        mvc.perform(as(postJson("/api/v1/cst/dunning/notices/" + l2 + ":sent", "{\"channel\":\"EMAIL\"}"), fin, "FIN"))
+                .andExpect(status().isConflict());
+        mvc.perform(as(postJson("/api/v1/cst/dunning/notices/" + l2 + ":approve", "{}"), fin, "ADMIN"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CST-403-011"));
+        mvc.perform(as(postJson("/api/v1/cst/dunning/notices/" + l2 + ":approve", "{}"), admin, "ADMIN")).andExpect(status().isOk());
+        mvc.perform(as(postJson("/api/v1/cst/dunning/notices/" + l2 + ":sent", "{\"channel\":\"EMAIL\"}"), fin, "FIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SENT"));
+        // 목록(감사 조회 가능)
+        mvc.perform(as(get("/api/v1/cst/dunning/notices").param("status", "SENT"), actor(), "AUDITOR")).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.invoiceId == '" + invoiceId + "')].level").value(org.hamcrest.Matchers.hasItem("L2")));
+
+        // 전액 입금 → 다음 run 에서 남은 초안(L0 · L1 DRAFT)은 CANCELLED, SENT 는 그대로
+        String key = "syn-dun:" + UUID.randomUUID();
+        String rcp = """
+                {"bankAccount":"SYN-운영","valueDate":"2026-10-20","amountKrw":1100000,"payerText":"합성독촉건설","statementKey":"%s"}""".formatted(key);
+        String receiptId = json(mvc.perform(as(postJson("/api/v1/cst/receipts", rcp), fin, "FIN")).andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String proposalId = json(mvc.perform(as(postJson("/api/v1/cst/allocations:propose",
+                "{\"invoiceId\":\"%s\",\"receiptId\":\"%s\",\"amountKrw\":1100000}".formatted(invoiceId, receiptId)), fin, "FIN"))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        mvc.perform(as(postJson("/api/v1/cst/allocation-proposals/" + proposalId + ":confirm", "{}"), admin, "ADMIN")).andExpect(status().isOk());
+        JsonNode r3 = json(mvc.perform(as(postJson("/api/v1/cst/dunning:run", "{\"asOf\":\"2026-10-31\"}"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(r3.get("cancelled").asInt()).isGreaterThanOrEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cst.dunning_notice WHERE invoice_id = ?::uuid AND status = 'CANCELLED'",
+                Integer.class, invoiceId)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT status FROM cst.dunning_notice WHERE id = ?::uuid", String.class, l2)).isEqualTo("SENT");
+    }
 }

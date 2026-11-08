@@ -63,7 +63,7 @@ describe('CstReceivablesPage', () => {
   });
   it('재무는 짝 후보를 보고 제안할 수 있고, 감사는 후보 표가 없다', async () => {
     renderAs(devUserId(3), ['FIN'], <CstReceivablesPage />);
-    await waitFor(() => expect(screen.getByTestId('candidates')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('propose-INV-2026-000001')).toBeInTheDocument());
     await userEvent.click(screen.getByTestId('propose-INV-2026-000001'));
     await waitFor(() => expect(screen.getByTestId('propose-INV-2026-000001')).toBeEnabled());
   });

@@ -575,6 +575,24 @@ dev 서버 · 시드(`DevSeedRound3`, **API 로만**):
 - dev 시드 `DevSeedRound4`(API 로만): 겸직 사용자 `겸직임원`(SALES+EXEC) · `겸직책임`(PM+ENG+EXEC), 나라장터 WireMock 공고 5건(정정 · 취소 포함) · 공고 연결 기회, 겸직임원 작성 8% 할인 승인 대기 견적 2건, 직무 분리 연습 프로젝트(겸직책임 RESP) · 타임시트, 계약 2건째(PRJ-2026-0004 DRAFT 예산), 감리일지 늦은 동기화 정정 대기. DEM-03b 시드: 정참여의 본인 정정 요청(PENDING) 1건.
 - 화면 · E2E 는 `apps/erp-web/README.md` 를 보세요.
 
+## 4-18. CST 청구 · 수금 · 통장 대사 (08 Step 12·13 첫 단계, 2026-11-06 — `docs/CST_BILLING_COLLECTION_DESIGN.md`)
+
+| 항목 | 구현 |
+|---|---|
+| 스키마 | `V0052__cst_billing_collection.sql` — `cst.invoice`(합계 생성 열, 발행 뒤 금액 · 거래처 · 발행일 불변 `CST-409-020`, VOID 조건 `CST-409-021`) · `cst.bank_receipt`(INSERT 만 `CST-409-022`, 명세서 줄 유일) · `cst.receipt_allocation`(INSERT 만 `CST-409-023`, 역분개 1회 `CST-422-020`, 제안자 ≠ 확정자, 초과 배분 `CST-409-025·026`) · `cst.invoice_open_items(as_of)` · `cst.receivable_aging(as_of)` |
+| 권한 | `V0053__cst_billing_permissions.sql` — 세부 권한 19건. 재무(FIN) 등록 · 제안, 경영지원 · 임원 확정, 감사 조회 |
+| 도메인 | `cst.domain.billing` — `MatchScorer`(금액 50 + 이름 30 + 날짜 20, 90점 이상 자동 후보) · `AgingBucket`(A 0~30 … E 181+) · `PartyName`(법인 표기 제거) |
+| 시험 | `BillingMigrationTest` 6개(내장 PG) · `BillingMatchGoldenTest` 4개(Python 합성 정답 `tools/cst_billing_golden_gen.py` 16건 + aging 경계 12건) |
+| 서비스 · API | `BillingService`(쓰기 진입점 하나 — ArchUnit `cstBillingSingleWriter`) · `/api/v1/cst/invoices`(발행 · `:void`) · `/projects/{id}/invoices`(PM 범위) · `/receipts`(명세서 줄 멱등) · `/receivables/open-items|aging?asOf=` · `/allocations/candidates` · `/allocations:propose` · `/allocation-proposals/{id}:confirm|reject`(제안자 ≠ 확정자 `CST-403-010`) · `/allocations/{id}:reverse` · `V0054` 제안 표 · 청구 번호 시퀀스 · `V0055` 권한 18건 · `CstBillingIntegrationTest` |
+| 이벤트 | `cst.invoice.issued` · `cst.receipt.allocated`(음수 = 역분개) · `cst.invoice.settled`(전액 입금 1회) · `cst.invoice.reopened` · `cst.invoice.voided` — Outbox, payload 에 입금자 표기 · 계좌 별칭 없음(통합 시험에서 건수 · payload 검사) |
+| 웹 | `features/cst/CstReceivablesPage`(`/cst/receivables`): 기준일 선택 · aging 막대 · 미수 목록 검색 · 재무만 짝 후보 → 제안. Vitest `receivables.test.tsx`(npm 미설치 PC 라 미실행) |
+| 내 할 일 | `/cst/inbox/allocation-proposals`(제안자 본인 제외) → 웹 수신함 '입금 배분 확정' · 미수 화면의 확정/반려 패널 |
+| 독촉 | `V0056` `cst.dunning_notice`(청구 · 단계 유일, DRAFT→APPROVED→SENT/CANCELLED 만, 내용 불변 `CST-409-031`) · `cst.dunning_hold`(사유 필수) · `DunningService.run(asOf)`: L0 31일 · L1 61일 · L2 91일 초안 멱등 생성, 보류 건너뜀, 전액 입금분 CANCELLED · 결재(작성자 ≠ 결재자 `CST-403-011`) 뒤에만 발송 기록 · **자동 발송 없음** |
+| 명세 업로드 | `BankStatementParser`(CSV UTF-8/BOM/CP949 · XLSX · 머리글 자동 · 잔액 검증 · 줄 키 = 파일 지문:줄번호) · `POST /receipts:upload`(재무, 입금 줄만, 재업로드 replayed) — FCD 파서는 PyFormat 의존으로 공통화 보류(설계 §12) |
+| 통장 줄 원장 | V0057 `cst.bank_line`(모든 줄 · 불변 · 확정 3열만) · `BankLineClassifier`(시제품 규칙 25개, 대체만 자동 확정) · `/bank-lines` 조회 · 합계 · 계정 목록 · `:classify`(재무, 재확정은 force+사유) |
+| 웹 | `/cst/receivables` 명세 올리기 · 출금 계정 확정 패널 · `/cst/dunning` 독촉 통지(4-eyes) 화면 |
+| 남은 것 | 거래처 묶음(bank_line → BP) · 전체 시험 뒤 병합(사용자) |
+
 ## 5. 설계와 다른 점 (의도적 편차)
 
 > 아래 메모의 `V2_0_0` · `V8_0_1` 같은 번호는 2026-10-19 재번호 이전 번호입니다. 새 번호는 2-1 절 표를 보세요.

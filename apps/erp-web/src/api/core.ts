@@ -1,4 +1,4 @@
-import { http } from './http';
+import { http, request } from './http';
 
 /** CORE 프로젝트 · 고객 + CST 원가 · 수익성 · EVM */
 export type ProjectStatus =
@@ -178,3 +178,80 @@ export const cstApi = {
   reopenPeriod: (ym: string, reason: string) =>
     http.post<{ periodYm: string; status: PeriodStatus }>(`/cst/periods/${ym}:reopen`, { reason }),
 };
+
+// ------------------------------------------------------------------ CST 청구 · 수금 · 통장 대사 (docs/CST_BILLING_COLLECTION_DESIGN.md §10)
+export type AgingBucket = 'A_0_30' | 'B_31_60' | 'C_61_90' | 'D_91_180' | 'E_181_PLUS';
+export const AGING_LABEL: Record<AgingBucket, string> = {
+  A_0_30: 'A 0~30일', B_31_60: 'B 31~60일', C_61_90: 'C 61~90일', D_91_180: 'D 91~180일', E_181_PLUS: 'E 181일 이상',
+};
+export interface AgingRow { bucket: AgingBucket; invoiceCount: number; openKrw: number }
+export interface OpenItem {
+  invoiceId: string; invoiceNo: string; projectId: string; clientId: string; clientName: string; issueDate: string;
+  supplyKrw: number; totalKrw: number; allocatedKrw: number; openKrw: number; ageDays: number; bucket: AgingBucket;
+}
+export interface MatchCandidate {
+  invoiceId: string; invoiceNo: string; clientName: string; issueDate: string; openKrw: number; receiptId: string;
+  valueDate: string; receiptKrw: number; remainingKrw: number; payerText: string; amountScore: number; nameScore: number;
+  dateScore: number; score: number; autoCandidate: boolean;
+}
+export interface AllocationProposal {
+  id: string; invoiceId: string; receiptId: string; amountKrw: number; matchScore: number;
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED'; proposedBy: string; decidedBy: string | null; rejectReason: string | null;
+  allocationId: string | null;
+}
+export interface PendingProposal {
+  proposalId: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; receiptId: string;
+  valueDate: string; receiptKrw: number; amountKrw: number; matchScore: number; proposedBy: string; requestedAt: string | null;
+}
+/** 통장 명세 업로드 결과 — 숫자는 전부 건수 */
+export interface StatementUploadResult {
+  fileSha256: string; kind: string; encoding: string; headerRow: number; headers: string[]; rowsTotal: number;
+  inflowLines: number; outflowLines: number; registered: number; replayed: number; skipped: number;
+  balanceMismatchRows: number[]; warnings: string[]; linesStored: number; autoClassified: number; suggested: number; unclassified: number;
+}
+export interface BankLine {
+  id: string; bankAccount: string; valueDate: string; direction: 'IN' | 'OUT'; amountKrw: number; memoText: string; statementKey: string;
+  receiptId: string | null; suggestedAcct: string | null; ruleCode: string | null; confirmedAcct: string | null; confirmedBy: string | null;
+}
+export interface AcctSum { acct: string; direction: 'IN' | 'OUT'; lineCount: number; amountKrw: number }
+export type DunningLevel = 'L0' | 'L1' | 'L2';
+export type DunningStatus = 'DRAFT' | 'APPROVED' | 'SENT' | 'CANCELLED';
+export const DUNNING_LEVEL_LABEL: Record<DunningLevel, string> = { L0: 'L0 알림(31일+)', L1: 'L1 담당자 안내(61일+)', L2: 'L2 공문(91일+, 임원 결재)' };
+export interface DunningNotice {
+  id: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; level: DunningLevel; asOf: string; ageDays: number;
+  openKrw: number; status: DunningStatus; bodyText: string; createdBy: string; createdAt: string; approvedBy: string | null; sentAt: string | null;
+}
+export interface DunningRunResult { asOf: string; created: number; cancelled: number; skippedOnHold: number }
+
+export const cstBillingApi = {
+  uploadStatement: (file: File, bankAccount: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<StatementUploadResult>('POST', '/cst/receipts:upload', { rawBody: fd, query: { bankAccount } }).then((r) => r.data);
+  },
+  bankLines: (from: string, to: string, unclassifiedOnly: boolean, direction?: 'IN' | 'OUT') =>
+    http.get<BankLine[]>('/cst/bank-lines', { from, to, unclassifiedOnly, direction }),
+  bankLineSummary: (from: string, to: string) => http.get<AcctSum[]>('/cst/bank-lines/summary', { from, to }),
+  bankLineAccounts: () => http.get<string[]>('/cst/bank-lines/accounts'),
+  classifyLine: (id: string, acct: string, force = false, reason?: string) =>
+    http.post<BankLine>(`/cst/bank-lines/${id}:classify`, { acct, force, reason }),
+  dunningRun: (asOf: string) => http.post<DunningRunResult>('/cst/dunning:run', { asOf }),
+  dunningNotices: (status?: DunningStatus) => http.get<DunningNotice[]>('/cst/dunning/notices', { status }),
+  dunningApprove: (id: string) => http.post<{ id: string; status: string }>(`/cst/dunning/notices/${id}:approve`),
+  dunningSent: (id: string, channel: string) => http.post<{ id: string; status: string }>(`/cst/dunning/notices/${id}:sent`, { channel }),
+  dunningHold: (invoiceId: string, reason: string) => http.post<{ invoiceId: string; status: string }>(`/cst/dunning/invoices/${invoiceId}:hold`, { reason }),
+  dunningRelease: (invoiceId: string, reason: string) => http.post<{ invoiceId: string; status: string }>(`/cst/dunning/invoices/${invoiceId}:release`, { reason }),
+  aging: (asOf: string) => http.get<AgingRow[]>('/cst/receivables/aging', { asOf }),
+  openItems: (asOf: string) => http.get<OpenItem[]>('/cst/receivables/open-items', { asOf }),
+  candidates: (asOf: string, minScore = 60) => http.get<MatchCandidate[]>('/cst/allocations/candidates', { asOf, minScore }),
+  propose: (invoiceId: string, receiptId: string, amountKrw: number) =>
+    http.post<AllocationProposal>('/cst/allocations:propose', { invoiceId, receiptId, amountKrw }),
+  pendingProposals: () => http.get<PendingProposal[]>('/cst/inbox/allocation-proposals'),
+  confirmProposal: (id: string) => http.post<{ id: string; amountKrw: number }>(`/cst/allocation-proposals/${id}:confirm`),
+  rejectProposal: (id: string, reason: string) => http.post<AllocationProposal>(`/cst/allocation-proposals/${id}:reject`, { reason }),
+};
+/** 지난달 말일 YYYY-MM-DD — 기준일 기본값(같은 기준일이면 언제 계산해도 같은 숫자) */
+export function lastDayOfPrevMonth(now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

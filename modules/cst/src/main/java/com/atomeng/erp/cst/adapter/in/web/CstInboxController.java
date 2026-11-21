@@ -1,6 +1,7 @@
 package com.atomeng.erp.cst.adapter.in.web;
 
 import com.atomeng.common.identity.authz.RequirePermission;
+import com.atomeng.erp.cst.application.AllocationInboxService;
 import com.atomeng.erp.cst.application.BudgetInboxService;
 import java.util.List;
 import java.util.Map;
@@ -14,14 +15,23 @@ import org.springframework.web.bind.annotation.RestController;
 class CstInboxController {
 
     private final BudgetInboxService inbox;
+    private final AllocationInboxService allocations;
 
-    CstInboxController(BudgetInboxService inbox) {
+    CstInboxController(BudgetInboxService inbox, AllocationInboxService allocations) {
         this.inbox = inbox;
+        this.allocations = allocations;
     }
 
     @GetMapping("/budget-approvals")
     @RequirePermission("cst:budget:approve")
     public List<Map<String, Object>> budgetApprovals() {
         return inbox.pendingApprovals();
+    }
+
+    /** 확정 대기 배분 제안(제안자 본인 제외) — 경영지원 · 임원 */
+    @GetMapping("/allocation-proposals")
+    @RequirePermission("cst:allocation:confirm")
+    public List<Map<String, Object>> allocationProposals() {
+        return allocations.pendingProposals();
     }
 }

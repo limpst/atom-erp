@@ -37,7 +37,8 @@ useMswServer(
   ])),
   mswHttp.post('*/api/v1/ptl/reports/:id', async ({ request }) => {
     await record(request);
-    return new HttpResponse(new Blob(['%PDF-1.7 watermarked']), {
+    // Node 22 의 undici 는 jsdom Blob 을 본문으로 받지 못한다(object.stream is not a function) → 문자열 본문(브라우저 쪽 blob() 은 그대로 동작)
+    return new HttpResponse('%PDF-1.7 watermarked', {
       headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="report-x-rev2-dl1.pdf"', 'X-Download-Id': 'dl-0001-aaaa', 'X-Content-SHA256': 'f'.repeat(64) },
     });
   }),

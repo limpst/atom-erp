@@ -588,7 +588,8 @@ dev 서버 · 시드(`DevSeedRound3`, **API 로만**):
 | 웹 | `features/cst/CstReceivablesPage`(`/cst/receivables`): 기준일 선택 · aging 막대 · 미수 목록 검색 · 재무만 짝 후보 → 제안. Vitest `receivables.test.tsx`(npm 미설치 PC 라 미실행) |
 | 내 할 일 | `/cst/inbox/allocation-proposals`(제안자 본인 제외) → 웹 수신함 '입금 배분 확정' · 미수 화면의 확정/반려 패널 |
 | 독촉 | `V0056` `cst.dunning_notice`(청구 · 단계 유일, DRAFT→APPROVED→SENT/CANCELLED 만, 내용 불변 `CST-409-031`) · `cst.dunning_hold`(사유 필수) · `DunningService.run(asOf)`: L0 31일 · L1 61일 · L2 91일 초안 멱등 생성, 보류 건너뜀, 전액 입금분 CANCELLED · 결재(작성자 ≠ 결재자 `CST-403-011`) 뒤에만 발송 기록 · **자동 발송 없음** |
-| 남은 것 | 통장 명세 업로드(FCD 파서 공통화) · 통장 계정 분류 · 거래처 묶음(3단계) · 독촉 웹 화면 |
+| 명세 업로드 | `BankStatementParser`(CSV UTF-8/BOM/CP949 · XLSX · 머리글 자동 · 잔액 검증 · 줄 키 = 파일 지문:줄번호) · `POST /receipts:upload`(재무, 입금 줄만, 재업로드 replayed) — FCD 파서는 PyFormat 의존으로 공통화 보류(설계 §12) |
+| 남은 것 | 통장 출금 계정 분류(`cst.bank_line`, 대체 자동) · 거래처 묶음 · 독촉 웹 화면 |
 
 ## 5. 설계와 다른 점 (의도적 편차)
 

@@ -2,6 +2,7 @@ package com.atomeng.erp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
 
 /**
  * CST 청구 · 수금 · 통장 대사 통합 시험 (설계 08 Step 12·13, docs/CST_BILLING_COLLECTION_DESIGN.md).
@@ -191,5 +193,36 @@ class CstBillingIntegrationTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM cst.dunning_notice WHERE invoice_id = ?::uuid AND status = 'CANCELLED'",
                 Integer.class, invoiceId)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT status FROM cst.dunning_notice WHERE id = ?::uuid", String.class, l2)).isEqualTo("SENT");
+    }
+
+    @Test
+    @DisplayName("통장 명세 업로드: 입금 줄만 등록 · 출금은 세기만 · 같은 파일 재업로드는 전부 replayed · 재무만")
+    void statementUpload() throws Exception {
+        UUID fin = actor();
+        String tag = UUID.randomUUID().toString().substring(0, 8);
+        String csv = "거래일자,구분,거래내용,출금액,입금액,잔액\n"
+                + "2026.09.01,입금,합성업로드건설-" + tag + ",0,\"4,400,000\",\"4,400,000\"\n"
+                + "2026.09.03,출금,급여 이체,\"1,000,000\",0,\"3,400,000\"\n"
+                + "2026.09.10,입금,합성업로드관리단-" + tag + ",,\"2,200,000\",\"5,600,000\"\n";
+        byte[] data = csv.getBytes(java.nio.charset.Charset.forName("MS949"));
+        MockMultipartFile f = new MockMultipartFile("file", "synthetic.csv", "text/csv", data);
+        mvc.perform(as(multipart("/api/v1/cst/receipts:upload").file(f).param("bankAccount", "SYN-운영"), actor(), "ENG"))
+                .andExpect(status().isForbidden());
+        JsonNode r1 = json(mvc.perform(as(multipart("/api/v1/cst/receipts:upload").file(f).param("bankAccount", "SYN-운영"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(r1.get("encoding").asText()).isEqualTo("MS949");
+        assertThat(r1.get("inflowLines").asInt()).isEqualTo(2);
+        assertThat(r1.get("outflowLines").asInt()).isEqualTo(1);
+        assertThat(r1.get("registered").asInt()).isEqualTo(2);
+        assertThat(r1.get("replayed").asInt()).isZero();
+        assertThat(r1.get("balanceMismatchRows").size()).isZero();
+        JsonNode r2 = json(mvc.perform(as(multipart("/api/v1/cst/receipts:upload").file(f).param("bankAccount", "SYN-운영"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(r2.get("registered").asInt()).isZero();
+        assertThat(r2.get("replayed").asInt()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cst.bank_receipt WHERE payer_text LIKE ?", Integer.class, "%" + tag + "%"))
+                .isEqualTo(2);
+        mvc.perform(as(multipart("/api/v1/cst/receipts:upload").file(new MockMultipartFile("file", "x.csv", "text/csv",
+                "a,b\n1,2\n".getBytes())).param("bankAccount", "SYN-운영"), fin, "FIN")).andExpect(status().isUnprocessableEntity());
     }
 }

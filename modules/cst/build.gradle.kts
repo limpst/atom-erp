@@ -14,6 +14,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-json")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.modulith:spring-modulith-api")
+    // 통장 명세(CSV · XLSX) 업로드 — FCD 와 같은 POI 버전. FCD 파서(RowSource)는 fcd.rules.PyFormat 에 묶여 있어 공통화는 뒤로(설계 §12)
+    implementation("org.apache.poi:poi-ooxml:5.4.1")
 
     testImplementation(project(":common:common-testing"))
     testImplementation(project(":modules:core"))   // FK 대상 core 스키마 마이그레이션

@@ -13,6 +13,7 @@ import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.InvoiceRow;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.OpenItem;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.ProposalRow;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.ReceiptRow;
+import com.atomeng.erp.cst.domain.billing.BankStatementParser;
 import com.atomeng.erp.cst.domain.billing.MatchScorer;
 import com.atomeng.erp.cst.domain.shared.Money;
 import java.math.BigDecimal;
@@ -41,6 +42,11 @@ public class BillingService {
                                   String statementKey) {}
 
     public record Registered(ReceiptRow receipt, boolean replayed) {}
+
+    /** 명세 업로드 결과 — 입금 줄만 저장(출금은 3단계 bank_line). 숫자는 전부 건수 · 원 */
+    public record UploadResult(String fileSha256, String kind, String encoding, int headerRow, List<String> headers, int rowsTotal,
+                               int inflowLines, int outflowLines, int registered, int replayed, int skipped,
+                               List<Integer> balanceMismatchRows, List<String> warnings) {}
 
     public record Candidate(UUID invoiceId, String invoiceNo, String clientName, LocalDate issueDate,
                             BigDecimal openKrw, UUID receiptId, LocalDate valueDate, BigDecimal receiptKrw,
@@ -127,6 +133,42 @@ public class BillingService {
         jdbc.insertReceipt(row, actor.actorIdOrSystem());
         audit.append("CST", AuditLog.Action.CREATE, "bank_receipt", row.id(), null, row);
         return new Registered(row, false);
+    }
+
+    /** 통장 명세 파일(CSV · XLSX) 업로드 → 입금 줄을 bank_receipt 로. 같은 파일을 다시 올리면 전부 replayed(멱등). 출금 줄은 세기만 한다. */
+    @Transactional
+    public UploadResult uploadStatement(String bankAccount, byte[] data) {
+        if (bankAccount == null || bankAccount.isBlank()) {
+            throw new DomainException(BillingErrors.INVALID, "계좌 별칭(bankAccount)이 필요합니다 — 계좌번호 원문은 쓰지 않는다");
+        }
+        BankStatementParser.Result r;
+        try {
+            r = BankStatementParser.parse(data);
+        } catch (BankStatementParser.FormatException e) {
+            throw new DomainException(BillingErrors.INVALID, "명세서를 읽지 못했습니다: " + e.getMessage());
+        }
+        int registered = 0;
+        int replayed = 0;
+        int outflow = 0;
+        for (BankStatementParser.Line l : r.lines()) {
+            if (l.direction() == BankStatementParser.Direction.OUT) {
+                outflow++;
+                continue;
+            }
+            String memo = l.memo().length() > 200 ? l.memo().substring(0, 200) : l.memo();
+            Registered reg = registerReceipt(new RegisterReceipt(bankAccount, l.valueDate(), l.amountKrw(),
+                    memo.isBlank() ? "(거래내용 없음)" : memo, l.lineKey()));
+            if (reg.replayed()) {
+                replayed++;
+            } else {
+                registered++;
+            }
+        }
+        audit.append("CST", AuditLog.Action.CREATE, "bank_statement_upload", UUID.nameUUIDFromBytes(r.fileSha256().getBytes()), null,
+                java.util.Map.of("bankAccount", bankAccount, "sha256", r.fileSha256(), "rows", r.rowsTotal(), "registered", registered,
+                        "replayed", replayed, "outflow", outflow));
+        return new UploadResult(r.fileSha256(), r.kind(), r.encoding(), r.headerRow(), r.headers(), r.rowsTotal(),
+                (int) r.inflowCount(), outflow, registered, replayed, r.rowsSkipped(), r.balanceMismatchRows(), r.warnings());
     }
 
     // ------------------------------------------------------------------ 미수 · 짝 후보

@@ -31,7 +31,8 @@
 | 서비스 · API | 끝 — `BillingService`(쓰기 진입점 하나, ArchUnit) · `BillingController` API 10개 · `V0054`(allocation_proposal · invoice_no_seq) · `V0055`(PM receivable 삭제, 권한 18건) · `CstBillingIntegrationTest` |
 | 이벤트 5종 · 웹 미수 현황 화면 · 내 할 일(확정 대기 제안) | 끝 — `CstEvents` 5종(Outbox) · `/cst/receivables` · `/cst/inbox/allocation-proposals` |
 | 독촉 1단계 | 끝 — `V0056`(dunning_notice · dunning_hold · 상태 전이 트리거 `CST-409-031·032`) · `DunningService.run(asOf)`(멱등) · `/cst/dunning:run · /notices · :approve(EXEC·ADMIN, 작성자 제외) · :sent(APPROVED 뒤에만) · :hold · :release` |
-| 명세 업로드 · 통장 계정 분류 · 거래처 묶음 | 남음(12장 · 9-2장) |
+| 통장 명세 업로드 | 끝 — `BankStatementParser` · `POST /receipts:upload`(입금 줄만, 재업로드 멱등, 잔액 검증) |
+| 통장 계정 분류 · 거래처 묶음 · 독촉 화면 | 남음(9-2장 · 10장) |
 | 독촉(dunning) · 통장 계정 분류 · 거래처 이름 묶음 | 남음(3단계) |
 
 ## 용어 정리
@@ -190,14 +191,16 @@
 - 개인정보: payload 에 입금자 표기(payer_text) · 계좌 별칭을 넣지 않는다. 필요한 구독자는 API 로 조회한다.
 - 계약 시험: `PtlCstContractTest`(가칭)에서 발행 레코드 ↔ 구독 레코드 필드 일치를 검사한다(기존 `FcdCstContractTest` 방식).
 
-## 12. 통장 명세 업로드 파서 설계 (2단계 후반)
+## 12. 통장 명세 업로드 (2단계 후반 — 구현, 2026-11-21)
 
-- 재사용: FCD 의 `domain/ingest` (`FileParser` · `CsvParser` · `MappingProfileYaml`). 카드 명세와 같은 문제(은행마다 다른 열 이름, EUC-KR/UTF-8, 머리글 위 안내 줄)를 이미 풀었다.
-- 모듈 경계: cst 가 fcd 내부를 직접 참조할 수 없다(ModularityTests). 파서 3개를 `common` 의 새 라이브러리(`common-ingest`)로 옮기고 fcd · cst 가 둘 다 쓰게 한다. 옮기는 커밋은 동작 변경 없이(시험 그대로 통과) 따로 한다.
-- 매핑 프로파일(YAML, 은행별): `value_date` · `direction`(입금/출금 열 또는 부호) · `amount` · `memo`(거래내용) · `balance`(검증용, 저장 안 함) · `line_key`(거래일시 + 일련번호 등).
-- `statement_key` = `sha256(파일 바이트)[:16] + ":" + line_key`. 같은 파일을 다시 올리면 전부 "이미 있음"으로 넘어간다(DB 유일 제약 + `registerReceipt` 멱등).
-- 검증: ① 잔액 열이 있으면 줄마다 `앞 잔액 ± 금액 = 잔액` 을 확인하고 어긋난 줄 번호를 알려 준다. ② 입금 합 · 출금 합을 올린 사람이 화면에서 확인한 뒤 저장한다. ③ 계좌번호 원문은 저장하지 않는다(별칭만).
-- 1차 범위는 입금 줄만 `cst.bank_receipt` 로. 출금 · 대체 분류는 9-2 절(`cst.bank_line`)에서.
-- 시험: 합성 명세 3종(EUC-KR · UTF-8 BOM · 머리글 위 안내 3줄) 골든, 같은 파일 2회 업로드 → 새 줄 0, 잔액 불일치 줄 보고.
+- 결정 변경: FCD 파서(`RowSource`)는 `fcd.domain.rules.PyFormat`(파이썬 숫자 표기 패리티)에 묶여 있어 공통 라이브러리로 빼면 FCD 골든 패리티 시험을 함께 옮겨야 한다. 그래서 CST 는 **작은 전용 파서** `cst.domain.billing.BankStatementParser`(약 390줄, 순수 도메인)를 둔다. 두 파서가 같은 일을 하는 부분(인코딩 · 매직넘버 · CSV 읽기)은 나중에 `common-ingest` 로 모으되, 그때 FCD 시험 전체를 함께 돈다.
+- 읽는 것: CSV(UTF-8 · UTF-8 BOM · CP949, 구분자 쉼표 · 탭 · 세미콜론 자동) · XLSX(첫 시트, 날짜 셀 · 숫자 셀). 행 20만 · 열 64 상한(압축 폭탄 방지).
+- 머리글: 앞 20줄 중 "거래일 · 입금 · 출금 · 금액 · 구분 · 거래내용 · 잔액" 비슷한 말이 가장 많은 줄. 안내 문구 · 합계 줄은 자동으로 건너뛴다. 입금 · 출금이 한 열("금액" + 부호 또는 "구분" 열)인 은행도 받는다.
+- `statement_key` = `sha256(파일)[:16] + ":" + 줄번호`. 같은 파일을 다시 올리면 `registerReceipt` 가 전부 replayed 로 돌려 새 줄 0(DB 유일 제약 `ux_bank_receipt_line` 이 마지막 방어).
+- 잔액 열이 있으면 줄마다 `앞 잔액 + 입금 − 출금 = 잔액` 을 확인해 어긋난 줄 번호를 응답에 넣는다(저장은 안 함).
+- 1차 범위: **입금 줄만** `cst.bank_receipt` 로. 출금 줄은 세기만 하고(응답 `outflowLines`) 9-2 절 `cst.bank_line` 에서 저장 · 분류한다.
+- API `POST /api/v1/cst/receipts:upload` (multipart `file` + `bankAccount` 계좌 별칭, `cst:receipt:write` = 재무). 응답: 파일 지문 · 형식 · 인코딩 · 머리글 행 · 입금/출금 줄 수 · 등록/재생 수 · 잔액 불일치 줄 · 경고.
+- 개인정보: 계좌번호 원문은 받지 않는다(별칭만). 거래내용은 200자로 잘라 저장. 감사 로그에는 파일 지문 · 건수만.
+- 시험: `BankStatementParserTest` 4개(CP949 CSV · BOM + 안내 3줄 + 탭 · XLSX 금액+구분 · 잘못된 머리글) · 통합 시험 업로드(등록 2 · 재업로드 replayed 2 · 권한 · 422).
 
 한 줄 요약: 청구는 못 고치고, 입금과 짝 기록은 못 지우고, 짝은 두 사람이 확인하며, 미수는 기준일로 계산한다 — 이 네 가지를 데이터베이스가 직접 지킨다.

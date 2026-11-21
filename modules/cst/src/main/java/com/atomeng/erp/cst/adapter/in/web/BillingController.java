@@ -24,7 +24,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 
 /**
  * /api/v1/cst 청구 · 수금 · 통장 대사 (설계 08 Step 12·13, docs/CST_BILLING_COLLECTION_DESIGN.md).
@@ -88,6 +92,18 @@ class BillingController {
         var res = billing.registerReceipt(new BillingService.RegisterReceipt(r.bankAccount(), r.valueDate(),
                 r.amountKrw(), r.payerText(), r.statementKey()));
         return ResponseEntity.status(res.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(res.receipt());
+    }
+
+    /** 통장 명세 파일(CSV · XLSX, 50 MB 이하) 업로드 — 입금 줄만 저장, 같은 파일 재업로드는 전부 replayed */
+    @PostMapping(value = "/receipts:upload", consumes = "multipart/form-data")
+    @RequirePermission("cst:receipt:write")
+    public BillingService.UploadResult upload(@RequestPart("file") MultipartFile file,
+                                              @RequestParam @NotBlank @Size(max = 40) String bankAccount) {
+        try {
+            return billing.uploadStatement(bankAccount, file.getBytes());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     // ------------------------------------------------------------------ 미수 · aging (전사 조회)

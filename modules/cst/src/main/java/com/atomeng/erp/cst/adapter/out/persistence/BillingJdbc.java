@@ -215,4 +215,53 @@ public class BillingJdbc {
                 Integer.class, allocationId);
         return n != null && n > 0;
     }
+
+    // ================================================================ 통장 줄 원장 (V0057)
+
+    public record BankLineRow(UUID id, String bankAccount, LocalDate valueDate, String direction, BigDecimal amountKrw, String memoText,
+                              String statementKey, UUID receiptId, String suggestedAcct, String ruleCode, String confirmedAcct,
+                              UUID confirmedBy) {}
+
+    public record AcctSum(String acct, String direction, long lineCount, BigDecimal amountKrw) {}
+
+    public boolean bankLineExists(String bankAccount, String statementKey) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT exists(SELECT 1 FROM cst.bank_line WHERE bank_account = ? AND statement_key = ?)",
+                Boolean.class, bankAccount, statementKey));
+    }
+
+    public void insertBankLine(BankLineRow r, UUID by) {
+        jdbc.update("INSERT INTO cst.bank_line(id, bank_account, value_date, direction, amount_krw, memo_text, statement_key, receipt_id, "
+                        + "suggested_acct, rule_code, confirmed_acct, confirmed_by, confirmed_at, created_by) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ?::text IS NULL THEN NULL ELSE now() END, ?)",
+                r.id(), r.bankAccount(), d(r.valueDate()), r.direction(), r.amountKrw(), r.memoText(), r.statementKey(), r.receiptId(),
+                r.suggestedAcct(), r.ruleCode(), r.confirmedAcct(), r.confirmedBy(), r.confirmedAcct(), by);
+    }
+
+    public Optional<BankLineRow> bankLine(UUID id) {
+        return jdbc.query("SELECT * FROM cst.bank_line WHERE id = ?", BillingJdbc::bankLine, id).stream().findFirst();
+    }
+
+    /** 기간 안의 줄. unclassifiedOnly = 확정 계정이 없는 줄만. 최대 1,000줄(날짜 · 줄 순) */
+    public List<BankLineRow> bankLines(LocalDate from, LocalDate to, boolean unclassifiedOnly, String directionOrNull) {
+        return jdbc.query("SELECT * FROM cst.bank_line WHERE value_date BETWEEN ? AND ? "
+                        + "AND (? = false OR confirmed_acct IS NULL) AND (?::text IS NULL OR direction = ?::text) "
+                        + "ORDER BY value_date, statement_key LIMIT 1000",
+                BillingJdbc::bankLine, d(from), d(to), unclassifiedOnly, directionOrNull, directionOrNull);
+    }
+
+    public int confirmBankLine(UUID id, String acct, UUID by) {
+        return jdbc.update("UPDATE cst.bank_line SET confirmed_acct = ?, confirmed_by = ?, confirmed_at = now() WHERE id = ?", acct, by, id);
+    }
+
+    public List<AcctSum> bankLineSummary(LocalDate from, LocalDate to) {
+        return jdbc.query("SELECT coalesce(confirmed_acct, '미분류') AS acct, direction, count(*) AS n, sum(amount_krw) AS amt "
+                        + "FROM cst.bank_line WHERE value_date BETWEEN ? AND ? GROUP BY 1, 2 ORDER BY 2, amt DESC",
+                (rs, i) -> new AcctSum(rs.getString("acct"), rs.getString("direction"), rs.getLong("n"), rs.getBigDecimal("amt")), d(from), d(to));
+    }
+
+    private static BankLineRow bankLine(ResultSet rs, int i) throws SQLException {
+        return new BankLineRow(rs.getObject("id", UUID.class), rs.getString("bank_account"), ld(rs, "value_date"), rs.getString("direction"),
+                rs.getBigDecimal("amount_krw"), rs.getString("memo_text"), rs.getString("statement_key"), rs.getObject("receipt_id", UUID.class),
+                rs.getString("suggested_acct"), rs.getString("rule_code"), rs.getString("confirmed_acct"), rs.getObject("confirmed_by", UUID.class));
+    }
 }

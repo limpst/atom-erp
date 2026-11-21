@@ -55,6 +55,7 @@ export const NAV: NavGroup[] = [
       { label: '원가 회계기간 · 대사', module: 'CST', path: '/cst/periods', roles: ['EXEC', 'ADMIN', 'FIN', 'AUDITOR', 'SYSADMIN'] },
       { label: '원가 원장 · EVM', module: 'CST', path: '/cst/ledger', roles: ['EXEC', 'PM', 'ADMIN', 'FIN', 'AUDITOR'] },
       { label: '미수 현황 · 통장 대사', module: 'CST', path: '/cst/receivables', roles: ['EXEC', 'ADMIN', 'FIN', 'AUDITOR'] },
+      { label: '독촉 통지 (4-eyes)', module: 'CST', path: '/cst/dunning', roles: ['EXEC', 'ADMIN', 'FIN', 'AUDITOR'] },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { http } from './http';
+import { http, request } from './http';
 
 /** CORE 프로젝트 · 고객 + CST 원가 · 수익성 · EVM */
 export type ProjectStatus =
@@ -203,7 +203,44 @@ export interface PendingProposal {
   proposalId: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; receiptId: string;
   valueDate: string; receiptKrw: number; amountKrw: number; matchScore: number; proposedBy: string; requestedAt: string | null;
 }
+/** 통장 명세 업로드 결과 — 숫자는 전부 건수 */
+export interface StatementUploadResult {
+  fileSha256: string; kind: string; encoding: string; headerRow: number; headers: string[]; rowsTotal: number;
+  inflowLines: number; outflowLines: number; registered: number; replayed: number; skipped: number;
+  balanceMismatchRows: number[]; warnings: string[]; linesStored: number; autoClassified: number; suggested: number; unclassified: number;
+}
+export interface BankLine {
+  id: string; bankAccount: string; valueDate: string; direction: 'IN' | 'OUT'; amountKrw: number; memoText: string; statementKey: string;
+  receiptId: string | null; suggestedAcct: string | null; ruleCode: string | null; confirmedAcct: string | null; confirmedBy: string | null;
+}
+export interface AcctSum { acct: string; direction: 'IN' | 'OUT'; lineCount: number; amountKrw: number }
+export type DunningLevel = 'L0' | 'L1' | 'L2';
+export type DunningStatus = 'DRAFT' | 'APPROVED' | 'SENT' | 'CANCELLED';
+export const DUNNING_LEVEL_LABEL: Record<DunningLevel, string> = { L0: 'L0 알림(31일+)', L1: 'L1 담당자 안내(61일+)', L2: 'L2 공문(91일+, 임원 결재)' };
+export interface DunningNotice {
+  id: string; invoiceId: string; invoiceNo: string; projectId: string; clientName: string; level: DunningLevel; asOf: string; ageDays: number;
+  openKrw: number; status: DunningStatus; bodyText: string; createdBy: string; createdAt: string; approvedBy: string | null; sentAt: string | null;
+}
+export interface DunningRunResult { asOf: string; created: number; cancelled: number; skippedOnHold: number }
+
 export const cstBillingApi = {
+  uploadStatement: (file: File, bankAccount: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<StatementUploadResult>('POST', '/cst/receipts:upload', { rawBody: fd, query: { bankAccount } }).then((r) => r.data);
+  },
+  bankLines: (from: string, to: string, unclassifiedOnly: boolean, direction?: 'IN' | 'OUT') =>
+    http.get<BankLine[]>('/cst/bank-lines', { from, to, unclassifiedOnly, direction }),
+  bankLineSummary: (from: string, to: string) => http.get<AcctSum[]>('/cst/bank-lines/summary', { from, to }),
+  bankLineAccounts: () => http.get<string[]>('/cst/bank-lines/accounts'),
+  classifyLine: (id: string, acct: string, force = false, reason?: string) =>
+    http.post<BankLine>(`/cst/bank-lines/${id}:classify`, { acct, force, reason }),
+  dunningRun: (asOf: string) => http.post<DunningRunResult>('/cst/dunning:run', { asOf }),
+  dunningNotices: (status?: DunningStatus) => http.get<DunningNotice[]>('/cst/dunning/notices', { status }),
+  dunningApprove: (id: string) => http.post<{ id: string; status: string }>(`/cst/dunning/notices/${id}:approve`),
+  dunningSent: (id: string, channel: string) => http.post<{ id: string; status: string }>(`/cst/dunning/notices/${id}:sent`, { channel }),
+  dunningHold: (invoiceId: string, reason: string) => http.post<{ invoiceId: string; status: string }>(`/cst/dunning/invoices/${invoiceId}:hold`, { reason }),
+  dunningRelease: (invoiceId: string, reason: string) => http.post<{ invoiceId: string; status: string }>(`/cst/dunning/invoices/${invoiceId}:release`, { reason }),
   aging: (asOf: string) => http.get<AgingRow[]>('/cst/receivables/aging', { asOf }),
   openItems: (asOf: string) => http.get<OpenItem[]>('/cst/receivables/open-items', { asOf }),
   candidates: (asOf: string, minScore = 60) => http.get<MatchCandidate[]>('/cst/allocations/candidates', { asOf, minScore }),

@@ -15,5 +15,7 @@ public final class BillingErrors {
     public static final String PROPOSAL_STATE = "CST-409-027";
     public static final String PROPOSAL_EXISTS = "CST-409-028";
     public static final String ALREADY_REVERSED = "CST-409-029";
+    /** 통장 줄: 이미 확정된 계정을 다시 확정 — 바꾸려면 사유와 함께 재확정(force) */
+    public static final String LINE_CONFIRMED = "CST-409-035";
     public static final String INVALID = "CST-422-021";
 }

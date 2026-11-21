@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  AGING_LABEL, cstBillingApi, lastDayOfPrevMonth, type AgingBucket, type AgingRow, type MatchCandidate, type OpenItem,
+  AGING_LABEL, cstBillingApi, lastDayOfPrevMonth, type AgingBucket, type AgingRow, type BankLine, type MatchCandidate, type OpenItem,
+  type StatementUploadResult,
 } from '@/api/core';
 import { useAuth } from '@/auth/auth';
 import { Badge, Banner, Card, ErrorBox, Field, fmtMoney, fmtNum, Kpi } from '@/components/ui';
@@ -158,6 +159,115 @@ function PendingPanel({ canConfirm }: { canConfirm: boolean }) {
  * 기준일(asOf)은 화면이 정한다 — 서버의 "오늘"을 쓰지 않아 같은 기준일이면 같은 숫자가 나온다.
  * 재무(FIN)만 짝을 제안하고, 확정은 "내 할 일"에서 다른 사람이 한다.
  */
+/** 이번 달 1일 YYYY-MM-01 */
+export function firstDayOfMonth(d: string): string {
+  return `${d.slice(0, 7)}-01`;
+}
+
+function UploadPanel({ canUpload }: { canUpload: boolean }) {
+  const qc = useQueryClient();
+  const [bankAccount, setBankAccount] = useState('');
+  const [result, setResult] = useState<StatementUploadResult | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const upload = useMutation({
+    mutationFn: ({ file, acct }: { file: File; acct: string }) => cstBillingApi.uploadStatement(file, acct),
+    onSuccess: (r) => {
+      setResult(r);
+      toast.success(`명세 ${r.linesStored}줄 저장 · 입금 ${r.registered}건 등록 (다시 올린 줄 ${r.replayed}건)`);
+      qc.invalidateQueries({ queryKey: ['cst'] });
+    },
+  });
+  if (!canUpload) return null;
+  return (
+    <Card title="통장 명세 올리기 (CSV · XLSX)">
+      <p className="muted">계좌 별칭만 적습니다(계좌번호 원문은 받지 않습니다). 같은 파일을 다시 올려도 줄은 한 번만 저장됩니다. 입금 줄은 미수와 짝을 맞추는 후보가 되고, 출금 줄은 아래 "통장 출금 계정 확정" 에 들어갑니다.</p>
+      <div className="row">
+        <Field label="계좌 별칭"><input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="예: IBK-운영" aria-label="계좌 별칭" maxLength={40} /></Field>
+        <Field label="명세 파일"><input type="file" ref={fileRef} accept=".csv,.xlsx,.xls,text/csv" aria-label="명세 파일" /></Field>
+        <button
+          disabled={upload.isPending || !bankAccount.trim()}
+          onClick={() => { const f = fileRef.current?.files?.[0]; if (!f) { toast.error('파일을 고르세요'); return; } upload.mutate({ file: f, acct: bankAccount.trim() }); }}
+        >
+          올리기
+        </button>
+      </div>
+      {upload.error && <ErrorBox error={upload.error} />}
+      {result && (
+        <div data-testid="upload-result">
+          <div className="kpis">
+            <Kpi label="읽은 줄" value={fmtNum(result.rowsTotal, 0)} />
+            <Kpi label="입금 줄 · 등록" value={`${result.inflowLines} · ${result.registered}`} tone="ok" />
+            <Kpi label="출금 줄" value={fmtNum(result.outflowLines, 0)} />
+            <Kpi label="자동 확정(대체)" value={fmtNum(result.autoClassified, 0)} />
+            <Kpi label="사람 확인 필요" value={fmtNum(result.suggested + result.unclassified, 0)} tone={result.suggested + result.unclassified > 0 ? 'warn' : 'ok'} />
+          </div>
+          <p className="muted">형식 {result.kind} · 인코딩 {result.encoding} · 머리글 {result.headerRow}행 · 다시 올린 줄 {result.replayed}건 · 건너뛴 줄 {result.skipped}건</p>
+          {result.balanceMismatchRows.length > 0 && (
+            <Banner tone="warn">잔액이 맞지 않는 줄 {result.balanceMismatchRows.length}개 (줄 번호 {result.balanceMismatchRows.slice(0, 10).join(', ')}{result.balanceMismatchRows.length > 10 ? ' …' : ''}). 명세서가 역순이거나 중간 줄이 빠졌을 수 있습니다. 저장은 되었습니다.</Banner>
+          )}
+          {result.warnings.map((w) => <Banner key={w} tone="info">{w}</Banner>)}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function BankLinesPanel({ asOf, canConfirm, canRead }: { asOf: string; canConfirm: boolean; canRead: boolean }) {
+  const qc = useQueryClient();
+  const [from, setFrom] = useState(firstDayOfMonth(asOf));
+  const [onlyOpen, setOnlyOpen] = useState(true);
+  const lines = useQuery({
+    queryKey: ['cst', 'bank-lines', from, asOf, onlyOpen],
+    queryFn: () => cstBillingApi.bankLines(from, asOf, onlyOpen, 'OUT'), enabled: canRead && !!from && !!asOf,
+  });
+  const accounts = useQuery({ queryKey: ['cst', 'bank-line-accounts'], queryFn: cstBillingApi.bankLineAccounts, enabled: canConfirm });
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const classify = useMutation({
+    mutationFn: ({ id, acct }: { id: string; acct: string }) => cstBillingApi.classifyLine(id, acct),
+    onSuccess: (r) => { toast.success(`'${r.confirmedAcct}' 로 확정`); qc.invalidateQueries({ queryKey: ['cst', 'bank-lines'] }); },
+  });
+  if (!canRead) return null;
+  const sum = (lines.data ?? []).reduce((a, l) => a + l.amountKrw, 0);
+  return (
+    <Card title="통장 출금 계정 확정">
+      <p className="muted">규칙이 제안한 계정을 사람이 확정합니다. '대체'(자기 계좌 간 이동)는 이미 자동 확정되어 여기 없습니다. 확정한 줄을 바꾸려면 사유가 필요합니다.</p>
+      <div className="row">
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="시작일" /></Field>
+        <Field label="끝 = 기준일"><input type="date" value={asOf} readOnly aria-label="끝 기준일" /></Field>
+        <label><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> 미확정만</label>
+        <Badge tone={sum > 0 ? 'warn' : 'ok'}>{lines.data?.length ?? 0}줄 · {fmtEok(sum)}</Badge>
+      </div>
+      {lines.error && <ErrorBox error={lines.error} />}
+      {lines.data?.length === 0 && <p className="muted">해당 기간에 보여줄 출금 줄이 없습니다.</p>}
+      <table className="simple" data-testid="bank-lines">
+        <thead><tr><th>거래일</th><th>계좌</th><th>거래내용</th><th className="num">출금(원)</th><th>제안 계정</th><th>확정 계정</th>{canConfirm && <th>확정</th>}</tr></thead>
+        <tbody>
+          {lines.data?.map((l: BankLine) => (
+            <tr key={l.id}>
+              <td>{l.valueDate}</td><td>{l.bankAccount}</td><td>{l.memoText}</td><td className="num">{fmtMoney(l.amountKrw)}</td>
+              <td>{l.suggestedAcct ? <Badge tone="info">{l.suggestedAcct}</Badge> : <span className="muted">제안 없음</span>}</td>
+              <td>{l.confirmedAcct ?? <span className="muted">미확정</span>}</td>
+              {canConfirm && (
+                <td>
+                  {!l.confirmedAcct && (
+                    <>
+                      <select aria-label={`계정 ${l.memoText}`} value={pick[l.id] ?? l.suggestedAcct ?? ''} onChange={(e) => setPick({ ...pick, [l.id]: e.target.value })}>
+                        <option value="">선택</option>
+                        {(accounts.data ?? []).map((a) => <option key={a} value={a}>{a}</option>)}
+                      </select>{' '}
+                      <button disabled={classify.isPending || !(pick[l.id] ?? l.suggestedAcct)} onClick={() => classify.mutate({ id: l.id, acct: pick[l.id] ?? l.suggestedAcct ?? '' })}>확정</button>
+                    </>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
 export function CstReceivablesPage() {
   const { hasRole } = useAuth();
   const canRead = hasRole('EXEC', 'ADMIN', 'FIN', 'AUDITOR');
@@ -182,6 +292,8 @@ export function CstReceivablesPage() {
       {open.data && <OpenItemsPanel items={open.data} />}
       <PendingPanel canConfirm={canConfirm} />
       <CandidatesPanel asOf={asOf} canPropose={canPropose} />
+      <UploadPanel canUpload={canPropose} />
+      <BankLinesPanel asOf={asOf} canConfirm={canPropose} canRead={canRead} />
     </>
   );
 }

@@ -32,7 +32,9 @@
 | 이벤트 5종 · 웹 미수 현황 화면 · 내 할 일(확정 대기 제안) | 끝 — `CstEvents` 5종(Outbox) · `/cst/receivables` · `/cst/inbox/allocation-proposals` |
 | 독촉 1단계 | 끝 — `V0056`(dunning_notice · dunning_hold · 상태 전이 트리거 `CST-409-031·032`) · `DunningService.run(asOf)`(멱등) · `/cst/dunning:run · /notices · :approve(EXEC·ADMIN, 작성자 제외) · :sent(APPROVED 뒤에만) · :hold · :release` |
 | 통장 명세 업로드 | 끝 — `BankStatementParser` · `POST /receipts:upload`(입금 줄만, 재업로드 멱등, 잔액 검증) |
-| 통장 계정 분류 · 거래처 묶음 · 독촉 화면 | 남음(9-2장 · 10장) |
+| 통장 줄 원장 · 계정 분류 | 끝 — V0057 `cst.bank_line` · `BankLineClassifier` · `/bank-lines` 4 API |
+| 독촉 웹 화면 · 명세 업로드 · 출금 확정 패널 | 끝 — `/cst/dunning` · `/cst/receivables` 패널 2개 |
+| 거래처 묶음(bank_line → BP) | 남음(9-3) |
 | 독촉(dunning) · 통장 계정 분류 · 거래처 이름 묶음 | 남음(3단계) |
 
 ## 용어 정리
@@ -159,6 +161,13 @@
 - 현금 흐름 집계(월 입금 · 출금)는 `TRANSFER` 를 뺀다. 잣대가 바뀐 달은 전 · 후 값을 나란히 보여 준다.
 - 시험: 대체 짝(같은 날 · 같은 금액 · 반대 방향) 일치율, 짝 없는 대체는 미확정으로 남는지, 집계에서 빠지는지.
 
+#### 9-2 구현 (2026-11-21, V0057)
+- 표 `cst.bank_line`: 업로드한 명세의 **모든 줄**(입금 · 출금) 1줄 = 1행. 입금 줄은 `receipt_id` 로 `bank_receipt` 와 이어진다. 줄 내용은 불변, `confirmed_acct · confirmed_by · confirmed_at` 세 열만 바뀐다(트리거 CST-409-034, DELETE 금지). 세 열은 함께 있거나 함께 없다(ck_bank_line_confirm).
+- 제안 `BankLineClassifier`: 시제품 `classify_rules.py` RULES 25개를 순서 그대로 이식(첫 일치가 이긴다). **'대체'(자기 계좌 간 이동 · 사무실경비 현금 인출)만 자동 확정**, 나머지는 제안. 입금 줄 기본 제안은 '매출입금'. 직원 이름 매칭은 개인정보라 서버에 넣지 않는다.
+- 확정 `POST /bank-lines/{id}:classify` {acct, force?, reason?} — 재무(`cst:bankline:write`). 계정명은 `GET /bank-lines/accounts` 목록 안의 것만(422). 이미 확정된 줄은 `force` + 사유 없이는 409(CST-409-035). 감사 로그에 전 · 후 계정 · 사유.
+- 조회 `GET /bank-lines?from&to&unclassifiedOnly&direction` (최대 1,000줄) · `GET /bank-lines/summary?from&to` (계정 × 방향 합계) · 뷰 `cst.bank_line_monthly` (계좌 × 월 × 방향 × 계정, 미확정은 '미분류').
+- 업로드 응답에 `linesStored · autoClassified · suggested · unclassified` 를 더했다. 같은 파일 재업로드는 줄 원장에도 0줄.
+
 ## 10. 웹 화면 설계 (apps/erp-web `features/cst`, 2단계 뒤)
 
 | 화면 | 누가 | 보여 주는 것 | 쓰는 API |
@@ -175,6 +184,11 @@
 - 기준일을 바꾸면 숫자가 바뀌므로 화면 위에 "기준일 2026-10-31" 을 항상 보인다.
 - 통신이 끊기면 제안 · 확정 버튼을 끈다(감리일지처럼 초안 저장은 하지 않는다 — 돈과 관련된 동작은 다시 누르게 한다).
 - 시험: Vitest(기준일 변경 → 재조회, 자기 제안 건 버튼 꺼짐) · Playwright(제안 → 다른 사용자 확정 → 미수에서 사라짐).
+
+#### 10-2 구현 추가 (2026-11-21)
+- `/cst/receivables` 에 두 패널: **통장 명세 올리기**(재무, 계좌 별칭 + 파일 → 결과 KPI 읽은 줄 · 입금 줄 등록 · 출금 줄 · 자동 확정 · 사람 확인 필요, 잔액 불일치 줄 경고) · **통장 출금 계정 확정**(기준일 달 1일~기준일 · 미확정만 · OUT, 제안 계정을 그대로 또는 골라서 확정. 감사 · 임원은 읽기만).
+- 새 화면 `/cst/dunning` **독촉 통지(4-eyes)**: 상태 KPI(초안 · 결재됨 · 보냄) · 상태 필터 · 재무 "초안 만들기(기준일)" · 임원/경영지원 "결재"(본인 초안이면 버튼 대신 "본인 초안") · 재무 "보냄 기록"(APPROVED 만) · "보류"(사유 2자 이상 필수) · 본문 모달. 메뉴 CST › 독촉 통지.
+- Vitest: receivables 11개(업로드 · 확정 2개 추가) · dunning 6개 · 전체 20개 통과. `tsc -b` 통과.
 
 ## 11. 이벤트 계약 초안 (2단계, `cst.api.CstEvents` 에 추가)
 

@@ -13,6 +13,7 @@ import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.InvoiceRow;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.OpenItem;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.ProposalRow;
 import com.atomeng.erp.cst.adapter.out.persistence.BillingJdbc.ReceiptRow;
+import com.atomeng.erp.cst.domain.billing.BankLineClassifier;
 import com.atomeng.erp.cst.domain.billing.BankStatementParser;
 import com.atomeng.erp.cst.domain.billing.MatchScorer;
 import com.atomeng.erp.cst.domain.shared.Money;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,10 +45,11 @@ public class BillingService {
 
     public record Registered(ReceiptRow receipt, boolean replayed) {}
 
-    /** 명세 업로드 결과 — 입금 줄만 저장(출금은 3단계 bank_line). 숫자는 전부 건수 · 원 */
+    /** 명세 업로드 결과 — 모든 줄은 bank_line 원장에, 입금 줄은 bank_receipt 에도. 숫자는 전부 건수 · 원 */
     public record UploadResult(String fileSha256, String kind, String encoding, int headerRow, List<String> headers, int rowsTotal,
                                int inflowLines, int outflowLines, int registered, int replayed, int skipped,
-                               List<Integer> balanceMismatchRows, List<String> warnings) {}
+                               List<Integer> balanceMismatchRows, List<String> warnings,
+                               int linesStored, int autoClassified, int suggested, int unclassified) {}
 
     public record Candidate(UUID invoiceId, String invoiceNo, String clientName, LocalDate issueDate,
                             BigDecimal openKrw, UUID receiptId, LocalDate valueDate, BigDecimal receiptKrw,
@@ -150,25 +153,83 @@ public class BillingService {
         int registered = 0;
         int replayed = 0;
         int outflow = 0;
+        int stored = 0;
+        int auto = 0;
+        int suggestedN = 0;
+        int unclassified = 0;
+        UUID by = actor.actorIdOrSystem();
         for (BankStatementParser.Line l : r.lines()) {
+            String memo = l.memo().length() > 200 ? l.memo().substring(0, 200) : l.memo();
+            if (memo.isBlank()) {
+                memo = "(거래내용 없음)";
+            }
+            UUID receiptId = null;
             if (l.direction() == BankStatementParser.Direction.OUT) {
                 outflow++;
-                continue;
-            }
-            String memo = l.memo().length() > 200 ? l.memo().substring(0, 200) : l.memo();
-            Registered reg = registerReceipt(new RegisterReceipt(bankAccount, l.valueDate(), l.amountKrw(),
-                    memo.isBlank() ? "(거래내용 없음)" : memo, l.lineKey()));
-            if (reg.replayed()) {
-                replayed++;
             } else {
-                registered++;
+                Registered reg = registerReceipt(new RegisterReceipt(bankAccount, l.valueDate(), l.amountKrw(), memo, l.lineKey()));
+                receiptId = reg.receipt().id();
+                if (reg.replayed()) {
+                    replayed++;
+                } else {
+                    registered++;
+                }
+            }
+            if (jdbc.bankLineExists(bankAccount, l.lineKey())) {
+                continue;   // 같은 파일 재업로드 — 줄 원장도 한 번만
+            }
+            String dir = l.direction() == BankStatementParser.Direction.OUT ? "OUT" : "IN";
+            Optional<BankLineClassifier.Suggestion> sg = BankLineClassifier.classify(dir, memo);
+            String confirmed = sg.filter(BankLineClassifier.Suggestion::autoConfirm).map(BankLineClassifier.Suggestion::acct).orElse(null);
+            jdbc.insertBankLine(new BillingJdbc.BankLineRow(UUID.randomUUID(), bankAccount, l.valueDate(), dir, l.amountKrw(), memo, l.lineKey(),
+                    receiptId, sg.map(BankLineClassifier.Suggestion::acct).orElse(null), sg.map(BankLineClassifier.Suggestion::ruleCode).orElse(null),
+                    confirmed, confirmed == null ? null : by), by);
+            stored++;
+            if (confirmed != null) {
+                auto++;
+            } else if (sg.isPresent()) {
+                suggestedN++;
+            } else {
+                unclassified++;
             }
         }
         audit.append("CST", AuditLog.Action.CREATE, "bank_statement_upload", UUID.nameUUIDFromBytes(r.fileSha256().getBytes()), null,
                 java.util.Map.of("bankAccount", bankAccount, "sha256", r.fileSha256(), "rows", r.rowsTotal(), "registered", registered,
                         "replayed", replayed, "outflow", outflow));
         return new UploadResult(r.fileSha256(), r.kind(), r.encoding(), r.headerRow(), r.headers(), r.rowsTotal(),
-                (int) r.inflowCount(), outflow, registered, replayed, r.rowsSkipped(), r.balanceMismatchRows(), r.warnings());
+                (int) r.inflowCount(), outflow, registered, replayed, r.rowsSkipped(), r.balanceMismatchRows(), r.warnings(),
+                stored, auto, suggestedN, unclassified);
+    }
+
+    // ------------------------------------------------------------------ 통장 줄 원장 · 계정 분류 (V0057)
+
+    public List<BillingJdbc.BankLineRow> bankLines(LocalDate from, LocalDate to, boolean unclassifiedOnly, String directionOrNull) {
+        return jdbc.bankLines(from, to, unclassifiedOnly, directionOrNull);
+    }
+
+    public List<BillingJdbc.AcctSum> bankLineSummary(LocalDate from, LocalDate to) {
+        return jdbc.bankLineSummary(from, to);
+    }
+
+    /** 사람이 계정을 확정한다. 이미 확정된 줄은 force 없이는 바꾸지 못한다(CST-409-035). 계정명은 BankLineClassifier.ACCOUNTS 안의 것만 */
+    @Transactional
+    public BillingJdbc.BankLineRow classifyLine(UUID id, String acct, boolean force, String reason) {
+        BillingJdbc.BankLineRow line = jdbc.bankLine(id).orElseThrow(() -> new DomainException(BillingErrors.NOT_FOUND, "통장 줄 없음: " + id));
+        if (!BankLineClassifier.ACCOUNTS.contains(acct)) {
+            throw new DomainException(BillingErrors.INVALID, "허용되지 않은 계정명: " + acct + " — 목록: " + BankLineClassifier.ACCOUNTS);
+        }
+        if (line.confirmedAcct() != null && !force) {
+            throw new DomainException(BillingErrors.LINE_CONFIRMED, "이미 '" + line.confirmedAcct() + "' 로 확정된 줄 — 바꾸려면 force 와 사유");
+        }
+        if (force && (reason == null || reason.isBlank())) {
+            throw new DomainException(BillingErrors.INVALID, "재확정(force)에는 사유가 필요합니다");
+        }
+        UUID by = actor.actorIdOrSystem();
+        jdbc.confirmBankLine(id, acct, by);
+        audit.append("CST", AuditLog.Action.UPDATE, "bank_line", id, line.confirmedAcct(),
+                java.util.Map.of("acct", acct, "suggested", line.suggestedAcct() == null ? "" : line.suggestedAcct(), "force", force,
+                        "reason", reason == null ? "" : reason));
+        return jdbc.bankLine(id).orElseThrow();
     }
 
     // ------------------------------------------------------------------ 미수 · 짝 후보

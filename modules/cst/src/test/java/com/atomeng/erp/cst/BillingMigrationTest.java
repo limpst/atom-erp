@@ -233,4 +233,27 @@ class BillingMigrationTest {
             assertThat((Long) scalar(st, "SELECT count(*) FROM cst.invoice_open_items(DATE '2026-11-30') WHERE invoice_no = 'INV-F'")).isEqualTo(1L);
         }
     }
+
+    @Test
+    @DisplayName("V0057 bank_line: 내용 불변 · 확정 열만 UPDATE · DELETE 금지(CST-409-034) · 확정 3열 동시 · 권한 5건 · 월 합계 뷰")
+    void bankLineGuard() throws Exception {
+        try (Connection c = conn(); Statement st = c.createStatement()) {
+            st.execute("INSERT INTO cst.bank_line(id, bank_account, value_date, direction, amount_krw, memo_text, statement_key, suggested_acct, rule_code, created_by) "
+                    + "VALUES ('00000000-0000-0000-0000-00000000b001', 'SYN-운영', DATE '2026-09-03', 'OUT', 3000000, '급여 이체', 'abcd:3', '급여', '급여', "
+                    + "'00000000-0000-0000-0000-000000000001')");
+            st.execute("UPDATE cst.bank_line SET confirmed_acct = '급여', confirmed_by = '00000000-0000-0000-0000-000000000002', confirmed_at = now() "
+                    + "WHERE id = '00000000-0000-0000-0000-00000000b001'");
+            assertThatThrownBy(() -> st.execute("UPDATE cst.bank_line SET amount_krw = 1 WHERE id = '00000000-0000-0000-0000-00000000b001'"))
+                    .hasMessageContaining("CST-409-034");
+            assertThatThrownBy(() -> st.execute("DELETE FROM cst.bank_line WHERE id = '00000000-0000-0000-0000-00000000b001'"))
+                    .hasMessageContaining("CST-409-034");
+            assertThatThrownBy(() -> st.execute("INSERT INTO cst.bank_line(id, bank_account, value_date, direction, amount_krw, memo_text, statement_key, confirmed_acct, created_by) "
+                    + "VALUES ('00000000-0000-0000-0000-00000000b002', 'SYN-운영', DATE '2026-09-03', 'OUT', 1, 'x', 'abcd:4', '급여', '00000000-0000-0000-0000-000000000001')"))
+                    .as("확정 계정만 있고 확정자 · 시각이 없으면 거절").hasMessageContaining("ck_bank_line_confirm");
+            assertThat((Long) scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission LIKE 'cst:bankline:%'")).isEqualTo(5L);
+            assertThat((Long) scalar(st, "SELECT count(*) FROM core.role_permission WHERE permission = 'cst:bankline:write' AND role <> 'FIN'"))
+                    .as("확정은 재무만").isZero();
+            assertThat(scalar(st, "SELECT acct FROM cst.bank_line_monthly WHERE bank_account = 'SYN-운영' AND ym = '2026-09'")).isEqualTo("급여");
+        }
+    }
 }

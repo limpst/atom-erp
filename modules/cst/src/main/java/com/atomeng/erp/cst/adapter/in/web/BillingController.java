@@ -106,6 +106,36 @@ class BillingController {
         }
     }
 
+    // ------------------------------------------------------------------ 통장 줄 원장 · 계정 분류 (V0057)
+
+    @GetMapping("/bank-lines")
+    @RequirePermission("cst:bankline:read")
+    public List<BillingJdbc.BankLineRow> bankLines(@RequestParam LocalDate from, @RequestParam LocalDate to,
+                                                   @RequestParam(defaultValue = "false") boolean unclassifiedOnly,
+                                                   @RequestParam(required = false) String direction) {
+        return billing.bankLines(from, to, unclassifiedOnly, direction);
+    }
+
+    @GetMapping("/bank-lines/summary")
+    @RequirePermission("cst:bankline:read")
+    public List<BillingJdbc.AcctSum> bankLineSummary(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return billing.bankLineSummary(from, to);
+    }
+
+    @GetMapping("/bank-lines/accounts")
+    @RequirePermission("cst:bankline:read")
+    public List<String> bankLineAccounts() {
+        return com.atomeng.erp.cst.domain.billing.BankLineClassifier.ACCOUNTS;
+    }
+
+    public record ClassifyRequest(@NotBlank @Size(max = 40) String acct, boolean force, @Size(max = 300) String reason) {}
+
+    @PostMapping("/bank-lines/{id}:classify")
+    @RequirePermission("cst:bankline:write")
+    public BillingJdbc.BankLineRow classify(@PathVariable UUID id, @Valid @RequestBody ClassifyRequest r) {
+        return billing.classifyLine(id, r.acct(), r.force(), r.reason());
+    }
+
     // ------------------------------------------------------------------ 미수 · aging (전사 조회)
 
     @GetMapping("/receivables/open-items")

@@ -4,12 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { http as mswHttp, HttpResponse } from 'msw';
 import { renderAs, useMswServer } from '@/test/mocks';
 import { devUserId } from '@/auth/devUsers';
-import { agingBars, CstReceivablesPage, fmtEok } from './CstReceivablesPage';
+import { agingBars, CstReceivablesPage, firstDayOfMonth, fmtEok } from './CstReceivablesPage';
 import { lastDayOfPrevMonth } from '@/api/core';
 
 vi.mock('sonner', async () => (await import('@/test/mockModules')).sonnerModule);
 
 let lastAsOf = '';
+let lastLinesQuery = '';
+let uploadedAcct = '';
+const classified: string[] = [];
 useMswServer(
   mswHttp.get('*/api/v1/cst/receivables/aging', ({ request }) => {
     lastAsOf = new URL(request.url).searchParams.get('asOf') ?? '';
@@ -29,6 +32,30 @@ useMswServer(
       valueDate: '2026-10-05', receiptKrw: 2200000, remainingKrw: 2200000, payerText: '합성관리단', amountScore: 50, nameScore: 30, dateScore: 20,
       score: 100, autoCandidate: true },
   ])),
+  mswHttp.get('*/api/v1/cst/bank-lines/accounts', () => HttpResponse.json(['대체', '급여', '4대보험', '매출입금', '기타'])),
+  mswHttp.get('*/api/v1/cst/bank-lines', ({ request }) => {
+    const u = new URL(request.url);
+    lastLinesQuery = `${u.searchParams.get('from')}~${u.searchParams.get('to')} only=${u.searchParams.get('unclassifiedOnly')} dir=${u.searchParams.get('direction')}`;
+    return HttpResponse.json([
+      { id: 'l1', bankAccount: 'SYN-운영', valueDate: '2026-10-03', direction: 'OUT', amountKrw: 3000000, memoText: '급여 이체', statementKey: 'ab:3',
+        receiptId: null, suggestedAcct: '급여', ruleCode: '급여', confirmedAcct: null, confirmedBy: null },
+      { id: 'l2', bankAccount: 'SYN-운영', valueDate: '2026-10-09', direction: 'OUT', amountKrw: 123000, memoText: '합성 물품', statementKey: 'ab:9',
+        receiptId: null, suggestedAcct: null, ruleCode: null, confirmedAcct: null, confirmedBy: null },
+    ]);
+  }),
+  mswHttp.post(/\/api\/v1\/cst\/bank-lines\/[^/]+:classify$/, async ({ request }) => {
+    const params = { id: new URL(request.url).pathname.split('/').pop()!.replace(':classify', '') };
+    const b = (await request.json()) as { acct: string };
+    classified.push(`${params.id}=${b.acct}`);
+    return HttpResponse.json({ id: params.id, bankAccount: 'SYN-운영', valueDate: '2026-10-03', direction: 'OUT', amountKrw: 3000000, memoText: '급여 이체',
+      statementKey: 'ab:3', receiptId: null, suggestedAcct: '급여', ruleCode: '급여', confirmedAcct: b.acct, confirmedBy: 'u' });
+  }),
+  mswHttp.post('*/api/v1/cst/receipts:upload', ({ request }) => {
+    uploadedAcct = new URL(request.url).searchParams.get('bankAccount') ?? '';
+    return HttpResponse.json({ fileSha256: 'f'.repeat(64), kind: 'CSV', encoding: 'MS949', headerRow: 1, headers: ['거래일자', '입금액'], rowsTotal: 5,
+      inflowLines: 2, outflowLines: 2, registered: 2, replayed: 0, skipped: 1, balanceMismatchRows: [4], warnings: ['잔액 검증 불일치 1줄'],
+      linesStored: 4, autoClassified: 1, suggested: 2, unclassified: 1 });
+  }),
   mswHttp.post('*/api/v1/cst/allocations:propose', () => HttpResponse.json({ id: 'pr1', invoiceId: 'i1', receiptId: 'r1', amountKrw: 2200000,
     matchScore: 100, status: 'PENDING', proposedBy: 'u', decidedBy: null, rejectReason: null, allocationId: null }, { status: 201 })),
 );
@@ -40,6 +67,9 @@ describe('순수 함수', () => {
     expect(bars.find((b) => b.bucket === 'E_181_PLUS')?.pct).toBe(100);
     expect(bars.find((b) => b.bucket === 'B_31_60')?.pct).toBe(50);
     expect(bars.find((b) => b.bucket === 'A_0_30')?.count).toBe(0);
+  });
+  it('firstDayOfMonth', () => {
+    expect(firstDayOfMonth('2026-10-31')).toBe('2026-10-01');
   });
   it('fmtEok · lastDayOfPrevMonth', () => {
     expect(fmtEok(255678659)).toBe('2.6억 원');
@@ -66,6 +96,32 @@ describe('CstReceivablesPage', () => {
     await waitFor(() => expect(screen.getByTestId('propose-INV-2026-000001')).toBeInTheDocument());
     await userEvent.click(screen.getByTestId('propose-INV-2026-000001'));
     await waitFor(() => expect(screen.getByTestId('propose-INV-2026-000001')).toBeEnabled());
+  });
+  it('재무: 출금 줄 표는 기준일 달의 1일~기준일 · 미확정 · OUT 으로 조회하고, 제안 계정을 그대로 확정할 수 있다', async () => {
+    renderAs(devUserId(3), ['FIN'], <CstReceivablesPage />);
+    await waitFor(() => expect(screen.getByTestId('bank-lines').textContent).toContain('급여 이체'));
+    expect(lastLinesQuery).toBe(`${firstDayOfMonth(lastDayOfPrevMonth())}~${lastDayOfPrevMonth()} only=true dir=OUT`);
+    expect(screen.getByTestId('bank-lines').textContent).toContain('제안 없음');
+    const buttons = screen.getAllByRole('button', { name: '확정' });
+    expect(buttons).toHaveLength(2);
+    expect((buttons[1] as HTMLButtonElement).disabled).toBe(true);   // 제안 없는 줄은 계정을 골라야 확정 가능
+    await userEvent.click(buttons[0]);
+    await waitFor(() => expect(classified).toContain('l1=급여'));
+  });
+  it('재무: 명세 올리기 — 계좌 별칭 없이는 버튼이 막히고, 올리면 결과 KPI 와 잔액 불일치 경고가 보인다', async () => {
+    renderAs(devUserId(3), ['FIN'], <CstReceivablesPage />);
+    await waitFor(() => expect(screen.getByLabelText('계좌 별칭')).toBeInTheDocument());
+    const btn = screen.getByRole('button', { name: '올리기' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    await userEvent.type(screen.getByLabelText('계좌 별칭'), 'SYN-운영');
+    expect(btn.disabled).toBe(false);
+    const file = new File(['거래일자,입금액\n'], 'synthetic.csv', { type: 'text/csv' });
+    await userEvent.upload(screen.getByLabelText('명세 파일'), file);
+    await userEvent.click(btn);
+    await waitFor(() => expect(screen.getByTestId('upload-result')).toBeInTheDocument());
+    expect(uploadedAcct).toBe('SYN-운영');
+    expect(screen.getByTestId('upload-result').textContent).toContain('잔액이 맞지 않는 줄 1개');
+    expect(screen.getByTestId('upload-result').textContent).toContain('2 · 2');   // 입금 줄 · 등록
   });
   it('감사(AUDITOR)는 읽기만 — 후보 · 제안 버튼 없음', async () => {
     renderAs(devUserId(3), ['AUDITOR'], <CstReceivablesPage />);

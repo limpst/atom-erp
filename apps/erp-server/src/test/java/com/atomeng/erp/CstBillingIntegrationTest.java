@@ -202,7 +202,7 @@ class CstBillingIntegrationTest extends IntegrationTestBase {
         String tag = UUID.randomUUID().toString().substring(0, 8);
         String csv = "거래일자,구분,거래내용,출금액,입금액,잔액\n"
                 + "2026.09.01,입금,합성업로드건설-" + tag + ",0,\"4,400,000\",\"4,400,000\"\n"
-                + "2026.09.03,출금,급여 이체,\"1,000,000\",0,\"3,400,000\"\n"
+                + "2026.09.03,출금,9월 급여 지급,\"1,000,000\",0,\"3,400,000\"\n"
                 + "2026.09.10,입금,합성업로드관리단-" + tag + ",,\"2,200,000\",\"5,600,000\"\n";
         byte[] data = csv.getBytes(java.nio.charset.Charset.forName("MS949"));
         MockMultipartFile f = new MockMultipartFile("file", "synthetic.csv", "text/csv", data);
@@ -224,5 +224,33 @@ class CstBillingIntegrationTest extends IntegrationTestBase {
                 .isEqualTo(2);
         mvc.perform(as(multipart("/api/v1/cst/receipts:upload").file(new MockMultipartFile("file", "x.csv", "text/csv",
                 "a,b\n1,2\n".getBytes())).param("bankAccount", "SYN-운영"), fin, "FIN")).andExpect(status().isUnprocessableEntity());
+        // 줄 원장: 3줄 저장(입금 2 = 매출입금 제안, 출금 1 '9월 급여 지급' = 급여 제안), 재업로드엔 0
+        assertThat(r1.get("linesStored").asInt()).isEqualTo(3);
+        assertThat(r1.get("suggested").asInt()).isEqualTo(3);
+        assertThat(r1.get("autoClassified").asInt()).isZero();
+        assertThat(r2.get("linesStored").asInt()).isZero();
+        JsonNode lines = json(mvc.perform(as(get("/api/v1/cst/bank-lines").param("from", "2026-09-01").param("to", "2026-09-30")
+                .param("unclassifiedOnly", "true").param("direction", "OUT"), fin, "FIN")).andExpect(status().isOk()).andReturn());
+        JsonNode salary = null;
+        for (JsonNode n : lines) {
+            if (n.get("memoText").asText().equals("9월 급여 지급") && n.get("bankAccount").asText().equals("SYN-운영")) { salary = n; }
+        }
+        assertThat(salary).isNotNull();
+        assertThat(salary.get("suggestedAcct").asText()).isEqualTo("급여");
+        UUID lineId = UUID.fromString(salary.get("id").asText());
+        mvc.perform(as(postJson("/api/v1/cst/bank-lines/" + lineId + ":classify", "{\"acct\":\"급여\"}"), actor(), "ENG"))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(postJson("/api/v1/cst/bank-lines/" + lineId + ":classify", "{\"acct\":\"없는계정\"}"), fin, "FIN"))
+                .andExpect(status().isUnprocessableEntity());
+        JsonNode done = json(mvc.perform(as(postJson("/api/v1/cst/bank-lines/" + lineId + ":classify", "{\"acct\":\"급여\"}"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(done.get("confirmedAcct").asText()).isEqualTo("급여");
+        mvc.perform(as(postJson("/api/v1/cst/bank-lines/" + lineId + ":classify", "{\"acct\":\"4대보험\"}"), fin, "FIN"))
+                .andExpect(status().isConflict());
+        mvc.perform(as(postJson("/api/v1/cst/bank-lines/" + lineId + ":classify", "{\"acct\":\"4대보험\",\"force\":true,\"reason\":\"합성 정정\"}"), fin, "FIN"))
+                .andExpect(status().isOk());
+        JsonNode sum = json(mvc.perform(as(get("/api/v1/cst/bank-lines/summary").param("from", "2026-09-01").param("to", "2026-09-30"), fin, "FIN"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(sum.toString()).contains("4대보험");
     }
 }
